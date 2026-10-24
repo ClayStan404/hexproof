@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+[Unit]
+Description=Authenticated TURN relay for Hexproof home nodes
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=turnserver
+Group=turnserver
+ExecStart=/usr/bin/turnserver -c /etc/hexproof-home-turn.conf --pidfile=
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryHigh=96M
+MemoryMax=128M
+TasksMax=64
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

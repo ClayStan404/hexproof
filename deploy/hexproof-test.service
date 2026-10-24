@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+[Unit]
+Description=Hexproof private test server (WebSocket room hub, protocol hexproof.v2)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=hexproof
+Group=hexproof
+WorkingDirectory=/var/lib/hexproof-test
+Environment="HEXPROOF_FORGE_HARNESS="
+Environment="HEXPROOF_FORGE_HOME="
+ExecStart=/usr/local/bin/hexproof-server-test \
+  -bind 127.0.0.1 \
+  -port 57321 \
+  -allow-player-hosting \
+  -max-player-hosted-games 8 \
+  -reconnect-window 3m \
+  -retention-ttl 24h \
+  -retention-dir /var/lib/hexproof-test/retained \
+  -max-rooms 32 \
+  -max-connections 128 \
+  -max-message-bytes 1048576 \
+  -messages-per-second 60 \
+  -room-creates-per-minute 6 \
+  -trusted-proxies 127.0.0.1/32,::1/128
+Restart=on-failure
+RestartSec=3
+KillSignal=SIGTERM
+TimeoutStopSec=10
+Nice=5
+CPUQuota=100%
+MemoryMax=384M
+TasksMax=128
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/hexproof-test
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

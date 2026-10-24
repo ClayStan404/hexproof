@@ -26,7 +26,6 @@ Page {
     onCardCatalogModelChanged: syncPresentationCatalog()
     onRulesSessionChanged: syncPresentationCatalog()
     property var gameSession: wsModel.gameSession
-    property Component tablePresentationComponent: forgePresentation
     readonly property bool roomConnected: replayMode || wsModel.inRoom === true
     readonly property bool hostingPaused: roomSession.hostingMode === "player" && (roomSession.hostConnected !== true
         || roomSession.hostStatus && roomSession.hostStatus.migrating === true)
@@ -101,23 +100,8 @@ Page {
     }
     readonly property bool compactLayout: Theme.isCompactWidth(width)
     readonly property bool stackTargetsVisible: !sideboarding
-        && (tablePresentationComponent === forgePresentation || roomSession.maxSeats <= 2 || !compactLayout)
-    readonly property bool persistentInspectionDock: width >= Theme.size(1180)
-    readonly property real inspectionDockWidth: Math.min(Theme.size(320),
-                                                         Math.max(Theme.size(230), width * 0.2))
-    readonly property real maximumDecisionHeight: Math.min(Theme.size(270), height * 0.34)
     readonly property real actionRailWidth:
         Theme.size(compactLayout ? 120 : 144)
-    readonly property real sharedZoneRailWidth: Theme.size(92)
-    readonly property real battlefieldCardWidth: Theme.size(80)
-    readonly property real battlefieldCardHeight:
-        Math.round(battlefieldCardWidth * 88 / 63)
-    readonly property real handAreaHeight: Theme.size(176)
-    readonly property real handCardWidth: Theme.size(86)
-    readonly property real handCardHeight:
-        Math.round(handCardWidth * 88 / 63)
-    readonly property real zoneDockWidth:
-        Math.min(Theme.size(270), width * 0.35)
     property int catalogRevision: 0
 
     Timer {
@@ -519,7 +503,7 @@ Page {
     Loader {
         id: tablePresentation
         anchors.fill: parent
-        sourceComponent: root.tablePresentationComponent
+        sourceComponent: forgePresentation
     }
     Component {
         id: forgePresentation

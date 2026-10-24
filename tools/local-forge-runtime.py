@@ -178,7 +178,7 @@ def resolve(args):
                 raise ValueError(f"{error}\nExisting runtime preserved. Select a fresh HEXPROOF_FORGE_LOCAL_ROOT or prepare the default native index.") from error
             print(f"Preparing a new native runtime; preserving {candidate}", file=sys.stderr)
     elif not args.prepare:
-        raise ValueError("No native runtime is selected. Run with --native --prepare or set HEXPROOF_FORGE_LOCAL_ROOT.")
+        raise ValueError("No native runtime is selected. Run with --prepare or set HEXPROOF_FORGE_LOCAL_ROOT.")
     runtime = build(args, expected)
     if args.root:
         candidate.parent.mkdir(parents=True, exist_ok=True)

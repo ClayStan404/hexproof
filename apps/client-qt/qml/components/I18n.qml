@@ -199,11 +199,6 @@ QtObject {
         }
     }
 
-    function playersLabel(players) {
-        return players && players.length > 0
-                ? players.join(" · ") : qsTr("Unknown players")
-    }
-
     function count(noun, value) {
         if (noun === "deck")
             return qsTr("%n deck(s)", "", value)

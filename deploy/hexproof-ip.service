@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+#
+# Unit for IP-based public hubs (deployment uses root, application uses hexproof,
+# binary at /usr/local/bin/hexproof-server, state under /var/lib/hexproof).
+# Mirrors the unit deployed at /etc/systemd/system/hexproof.service.
+
+[Unit]
+Description=Hexproof game server (WebSocket room hub, protocol hexproof.v2)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=hexproof
+Group=hexproof
+WorkingDirectory=/var/lib/hexproof
+ExecStart=/usr/local/bin/hexproof-server -bind 127.0.0.1 -port 57320 -retention-dir /var/lib/hexproof/retained
+Restart=on-failure
+RestartSec=3
+KillSignal=SIGTERM
+TimeoutStopSec=10
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/hexproof
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

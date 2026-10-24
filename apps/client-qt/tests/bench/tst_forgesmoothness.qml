@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 //
-// Advisory Forge GUI timings against the goal-5 budgets of
-// docs/forge-smoothness-design.md. Not part of the default qml CTest run, and
+// Advisory Forge GUI timings against the budgets declared below.
+// Not part of the default qml CTest run, and
 // timing never fails it; only the deterministic image check does.
 //
 // QT_QPA_PLATFORM=offscreen ./build/client-qt/hexproof_qml_test \

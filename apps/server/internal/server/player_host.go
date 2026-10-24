@@ -81,15 +81,6 @@ func (h *Handler) allocatePlayerHost(r *room.Room, seat ...int) *forgehost.Link 
 	return link
 }
 
-func (h *Handler) grantPlayerHost(sess *Session, r *room.Room, requestID string) {
-	link := h.allocatePlayerHost(r)
-	if link == nil {
-		h.sendError(sess, requestID, protocol.ErrServerLimit, "player hosting capacity is full")
-		return
-	}
-	h.sendPlayerHostGrant(sess, link, requestID)
-}
-
 func (h *Handler) sendPlayerHostGrant(sess *Session, link *forgehost.Link, requestID string) {
 	h.forgeMu.Lock()
 	backup := h.playerBackups[link.RoomID]

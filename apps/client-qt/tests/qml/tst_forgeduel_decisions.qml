@@ -1752,15 +1752,14 @@ ForgeDuelTestCase {
         const localized = []
         for (const data of cases) {
             for (const language of ["en", "zh"])
-                for (const hosting of ["server", "player"])
-                    localized.push(Object.assign({}, data, {tag:data.tag + "-" + language + "-" + hosting,
-                        language:language, hosting:hosting}))
+                localized.push(Object.assign({}, data, {tag:data.tag + "-" + language,
+                    language:language}))
         }
         return localized
     }
     function test_tableControlsShareDecisionDockAndFreeTopEdge(data) {
         window.width = data.width; window.height = data.height; Theme.uiScale = data.scale
-        room.hostingMode = data.hosting
+        room.hostingMode = "server"
         testTranslations.setLanguage(data.language)
         action("playLand", "hand-0")
         const dock = item("rulesDecisionDock"), opponent = item("rulesPlayerTarget1")
@@ -1786,8 +1785,6 @@ ForgeDuelTestCase {
             verify(point.y >= 0 && point.y + control.height <= dock.height + 1, name + " fits dock height")
         }
         const settingsOnly = ["forgeGameMenu", "rulesToggleGameLogButton", "rulesPriorityMode"]
-            .concat(data.hosting === "player" ? ["forgeHostingOptions", "forgePeerStatus",
-                "forgePeerEnable", "forgePeerConsentNotice"] : [])
         for (const name of settingsOnly)
             verify(findChild(dock, name) === null, name + " stays out of the decision dock")
         const settings = item("forgeGameMenu")
@@ -1798,10 +1795,6 @@ ForgeDuelTestCase {
         openSettings()
         verify(item("rulesPriorityMode").visible)
         verify(item("rulesToggleGameLogButton").visible)
-        if (data.hosting === "player") {
-            verify(item("forgeHostingOptions").visible)
-            verify(item("forgeTablePeerConnection").visible)
-        }
         verify(!table.priority.fullControl)
         mouseClick(item("rulesPriorityMode"), item("rulesPriorityMode").width * 0.75, item("rulesPriorityMode").height / 2)
         verify(table.priority.fullControl)
@@ -1875,6 +1868,10 @@ ForgeDuelTestCase {
         room.hostingMode = "player"; room.seatIndex = data.seat
         match.sideboarding = data.sideboarding
         openSettings()
+        const dock = item("rulesDecisionDock")
+        for (const name of ["forgeHostingOptions", "forgePeerStatus", "forgePeerEnable", "forgePeerConsentNotice"])
+            verify(findChild(dock, name) === null, name + " stays out of the decision dock")
+        verify(item("forgeHostingOptions").visible)
         const panel = item("forgeTablePeerConnection")
         waitForRendering(table)
         const enable = findChild(panel, "forgePeerEnable")
@@ -2001,13 +1998,13 @@ ForgeDuelTestCase {
         ]
         for (const [kind, extra] of decisions) {
             prompt(kind, extra)
-            waitForRendering(table)
+            settleLayout()
             compare(boardGeometry(ids), baseline, kind + " must not move battlefield cards")
             verifyBattlefieldClearOfOverlay(ownLanes, reservation, "the decision reservation during " + kind)
             verifyBattlefieldClearOfOverlay(ownLanes, plateRect, "the player plate during " + kind)
         }
         surveilPrompt()
-        waitForRendering(table)
+        settleLayout()
         compare(boardGeometry(ids), baseline, "Overlay decisions must not move battlefield cards")
     }
     function test_offboardTargetsKeepCandidatesAndActionsVisible_data() {
@@ -2109,7 +2106,7 @@ ForgeDuelTestCase {
                     objectId:attackers ? "" : "opponent", seat:attackers ? 1 : -1, label:"Bob",
                     minAssignments:0, maxAssignments:8}]})
         }
-        waitForRendering(table)
+        settleLayout()
         const dock = item("rulesDecisionDock"), cap = table.presentation.boardDecisionHeight
         verify(dock.height <= cap + 0.5,
                data.kind + " occupies " + dock.height + " of " + cap)
@@ -2124,7 +2121,7 @@ ForgeDuelTestCase {
             const actionTop = confirm.mapToItem(footer, 0, 0), actionBottom = confirm.mapToItem(footer, confirm.width, confirm.height)
             verify(actionTop.x >= 0 && actionTop.y >= 0 && actionBottom.x <= footer.width + 0.5 && actionBottom.y <= footer.height + 0.5)
             scroll.contentY = Math.max(0, scroll.contentHeight - scroll.height)
-            waitForRendering(table)
+            renderTable()
             compare(confirm.mapToItem(panel, 0, 0), initial, "Scrolling cannot move the declaration")
             verify(confirm.enabled)
             mouseClick(confirm)

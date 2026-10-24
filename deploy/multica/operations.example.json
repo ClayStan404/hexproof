@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 2,
+  "activation": "disabled",
+  "repositories": {
+    "canonical": "ClayStan404/hexproof",
+    "ref": "refs/heads/master"
+  },
+  "host": {
+    "repositoryRoot": "/path/to/hexproof",
+    "privateStateDirectory": "/path/to/private/operator-state"
+  },
+  "native": {
+    "workspaceId": "00000000-0000-4000-8000-000000000000",
+    "projectId": "00000000-0000-4000-8000-000000000000",
+    "squadId": "00000000-0000-4000-8000-000000000000",
+    "coordinatorId": "00000000-0000-4000-8000-000000000000",
+    "recoveryAgentId": "00000000-0000-4000-8000-000000000000",
+    "continuations": {
+      "enabled": false,
+      "mode": "native-issue-one-shot",
+      "maximumAutomaticContinuationsPerFailedRun": 1,
+      "eventExpiryHours": 72,
+      "releaseCheckIntervalMinutes": 15,
+      "maximumReleaseChecks": 8,
+      "releaseMonitoringMinutes": 120
+    },
+    "allowedAgentIds": [
+      "00000000-0000-4000-8000-000000000000"
+    ],
+    "autopilots": {
+      "intake": {
+        "id": "00000000-0000-4000-8000-000000000000",
+        "triggerId": "00000000-0000-4000-8000-000000000000"
+      },
+      "recovery": {
+        "id": "00000000-0000-4000-8000-000000000000",
+        "triggerId": "00000000-0000-4000-8000-000000000000"
+      },
+      "release": {
+        "id": "00000000-0000-4000-8000-000000000000",
+        "triggerId": "00000000-0000-4000-8000-000000000000"
+      }
+    }
+  },
+  "release": {
+    "publishMode": "draft-only",
+    "cron": "0 18 * * 5",
+    "timezone": "Asia/Shanghai",
+    "workflow": ".github/workflows/release.yml"
+  },
+  "recovery": {
+    "cron": "0 9 * * *",
+    "timezone": "Asia/Shanghai",
+    "maximumAutomaticReplaysPerOriginal": 1,
+    "maximumReplaysPerInvocation": 3,
+    "maximumMinutesPerInvocation": 10
+  },
+  "feedback": {
+    "receiverTarget": "feedback-host",
+    "enabled": false,
+    "removalAcknowledgementEnabled": false,
+    "projectId": "00000000-0000-4000-8000-000000000000",
+    "connectionFile": "/path/to/private/feedback-connection.json",
+    "providerPolicyRevision": "approved-provider-policy-v1"
+  }
+}

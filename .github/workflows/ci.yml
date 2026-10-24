@@ -26,6 +26,7 @@ jobs:
       server: ${{ steps.scope.outputs.server }}
       forge: ${{ steps.scope.outputs.forge }}
       full: ${{ steps.scope.outputs.full }}
+      forge_host_service: ${{ steps.scope.outputs.forge_host_service }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -205,6 +206,32 @@ jobs:
           QT_QPA_PLATFORM: offscreen
           HEXPROOF_SERVER_BINARY: ${{ github.workspace }}/build/server/hexproof-server
         run: ctest --test-dir build/client-qt --parallel 2 --output-on-failure
+
+  forge-host-service:
+    name: Forge helper (${{ matrix.os }})
+    needs: changes
+    # Linux is covered by the selected client suite; manual CI also runs the
+    # complete Windows/macOS suites. Internal development is checked locally.
+    if: github.event_name == 'pull_request' && needs.changes.outputs.forge_host_service == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ./.github/actions/setup-qt
+      - name: Configure isolated helper tests
+        run: cmake -S apps/client-qt/tests/forgehostservice -B build/forgehostservice
+      - name: Build
+        run: cmake --build build/forgehostservice --config Release --parallel 2
+      - name: Test
+        id: tests
+        run: ctest --test-dir build/forgehostservice -C Release --output-on-failure
+      - name: Report Qt test results
+        if: always() && (steps.tests.outcome == 'success' || steps.tests.outcome == 'failure')
+        run: cmake -E cat build/forgehostservice/forgehostservice-results.txt
 
   client-sanitizers:
     name: Qt client (ASan and UBSan)

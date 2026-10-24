@@ -548,8 +548,10 @@ Adventure, modal double-faced cards, ETB triggers, Prepare, and Morph privacy.
 The WebSocket suite uses authenticated client messages and checks reconnect,
 spectator redaction, natural outcomes, and BO3/sideboard transitions. The room
 stress scenario starts multiple fresh JVMs through one shared Go handler. These
-programmatic players do not validate Qt controls; real native UI evidence and
-its exact deck/driver limits are recorded in `docs/forge-native-migration.md`.
+programmatic players do not validate Qt controls. Client interaction claims
+require separate native Qt evidence recording the tested source/runtime,
+decks, input method and exercised decisions. Neither layer certifies every
+card combination or an untested platform.
 
 For the crash diagnostics test, `overlay` is the absolute path to the current
 packaged overlay JAR, or empty when `runtime` is a matching full build. It kills

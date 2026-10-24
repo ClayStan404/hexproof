@@ -507,28 +507,6 @@ Item {
         return groupLabel(key)
     }
 
-    function effectivePreviewCard() {
-        if (previewCard)
-            return previewCard
-        return flatCards.length > 0 ? flatCards[0] : null
-    }
-
-    function effectivePreviewImage() {
-        if (previewCard && previewImageSource.length > 0)
-            return previewImageSource
-        const card = effectivePreviewCard()
-        if (!card)
-            return ""
-        if (card.imageSource)
-            return card.imageSource
-        if (!catalogModel || typeof catalogModel.imageSource !== "function")
-            return ""
-        if (typeof catalogModel.imageRevision !== "undefined")
-            void catalogModel.imageRevision
-        return catalogModel.imageSource(card.name || "", card.setCode || "",
-                                        card.collectorNumber || "")
-    }
-
     function captureScrollPosition(view) {
         let index = -1
         for (let y = 1; view.count > 0 && y < view.height; y += Theme.size(8)) {

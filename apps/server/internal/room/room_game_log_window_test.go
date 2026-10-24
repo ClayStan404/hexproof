@@ -72,12 +72,27 @@ func TestGameLogWindowKeepsChronologyAndIndependentProjections(t *testing.T) {
 			if !reflect.DeepEqual(prior.Log, priorLog) {
 				t.Fatal("later journal changes mutated an earlier projection")
 			}
+			total := int64(added + protocol.MaxRetainedGameLog)
+			if mode == "manual" && r.Game.NextLogID != total+1 {
+				t.Fatalf("next log ID = %d, want %d", r.Game.NextLogID, total+1)
+			}
 			latest := project()
-			wantStart := int64(added + protocol.MaxRetainedGameLog - protocol.MaxProjectedGameLog + 1)
+			wantStart := total - protocol.MaxProjectedGameLog + 1
 			if len(latest.Log) != protocol.MaxProjectedGameLog || latest.LogStartID != wantStart ||
-				!latest.LogTruncated || latest.Log[0].ID != wantStart {
+				!latest.LogTruncated || latest.Log[0].ID != wantStart ||
+				latest.Log[len(latest.Log)-1].ID != total {
 				t.Fatalf("projected tail = length %d, start %d, truncated %v",
 					len(latest.Log), latest.LogStartID, latest.LogTruncated)
+			}
+			if mode != "manual" {
+				projected, start, truncated := r.RulesLogProjection()
+				if start != wantStart || !truncated || !reflect.DeepEqual(projected, latest.Log) {
+					t.Fatal("direct rules log projection differs from the snapshot tail")
+				}
+				projected[0].Text = "changed direct projection"
+				if log[len(log)-protocol.MaxProjectedGameLog].Text != "Public message." {
+					t.Fatal("direct rules log projection aliases the live journal")
+				}
 			}
 			latest.Log[0].Text = "changed projection"
 			if log[len(log)-protocol.MaxProjectedGameLog].Text != "Public message." {
@@ -149,5 +164,13 @@ func TestRulesLogShellResynchronizesAfterLifecycleChanges(t *testing.T) {
 	r.AppendRulesLog("rules_start", 1, "Next game.")
 	if r.Game != nil || r.RulesNextLogID != before+1 {
 		t.Fatal("next game recreated a shell or reset public journal IDs")
+	}
+}
+
+func TestEmptyGameLogProjectsNextIDWithoutTruncation(t *testing.T) {
+	log, startID, truncated := projectGameLog(nil, 1)
+	if len(log) != 0 || startID != 1 || truncated {
+		t.Fatalf("empty projection = log=%v start=%d truncated=%v",
+			log, startID, truncated)
 	}
 }

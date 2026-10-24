@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+#
+# Example standalone unit. Review the service identity and filesystem paths
+# for the target host before installation; real installed units are operator-owned.
+
+[Unit]
+Description=Hexproof multi-room hub (hexproof.v2) - local server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hexproof
+Group=hexproof
+WorkingDirectory=/var/lib/hexproof
+ExecStart=/usr/local/bin/hexproof-server \
+  -bind 127.0.0.1 \
+  -port 57320 \
+  -reconnect-window 3m \
+  -retention-ttl 168h \
+  -retention-dir /var/lib/hexproof/data/retained \
+  -max-rooms 256 \
+  -max-connections 1024 \
+  -max-message-bytes 1048576 \
+  -messages-per-second 60 \
+  -room-creates-per-minute 6 \
+  -trusted-proxies 127.0.0.1/32,::1/128
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+
+# Go module / toolchain fetch if needed at first rebuild (runtime does not need network)
+Environment=CGO_ENABLED=0
+
+[Install]
+WantedBy=multi-user.target

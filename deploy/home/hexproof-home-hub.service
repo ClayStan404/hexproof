@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+[Unit]
+Description=Hexproof home game server with an isolated Forge runtime
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hexproof-home
+Group=hexproof-home
+WorkingDirectory=/var/lib/hexproof-home
+Environment=HEXPROOF_FORGE_JAVA=/opt/hexproof-home/current/java/bin/java
+Environment=HEXPROOF_FORGE_HARNESS=/opt/hexproof-home/current/forge-runtime/forge-harness.jar
+Environment=HEXPROOF_FORGE_HOME=/opt/hexproof-home/current/forge-runtime/forge-gui
+ExecStart=/opt/hexproof-home/current/server/bin/hexproof-server -bind 127.0.0.1 -port 57323 -retention-dir /var/lib/hexproof-home/retained -max-forge-games 256 -allow-player-hosting -max-player-hosted-games 16 -trusted-proxies 127.0.0.1/32,::1/128
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=45
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/hexproof-home
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryHigh=infinity
+MemoryMax=infinity
+TasksMax=512
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

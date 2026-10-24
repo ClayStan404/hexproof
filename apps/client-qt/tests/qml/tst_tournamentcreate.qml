@@ -216,6 +216,35 @@ TestCase {
                 ["Limited via Events", data.mode, "bo1", 75, data.cap, {id: "pid-1"}, "manual", false])
     }
 
+    function test_switchingSealedToDraftClampsCapacity() {
+        const selector = findChild(page, "tournamentEventTypeSelector")
+        const minutes = findChild(page, "tournamentRoundMinutesField")
+        const cap = findChild(page, "tournamentPlayerCapField")
+        const button = findChild(page, "tournamentCreateSubmitButton")
+        compare(selector.currentValue, "constructed")
+        compare(minutes.text, "50")
+        compare(cap.text, "32")
+        selector.currentIndex = 1
+        selector.activated(1)
+        compare(selector.currentValue, "set_sealed")
+        compare(cap.text, "32")
+        findChild(page, "tournamentNameField").text = "Limited Swiss"
+        minutes.text = "75"
+        cap.text = "12"
+        verify(button.enabled)
+        button.clicked()
+        compare(mockWs.submittedLimited,
+                ["Limited Swiss", "set_sealed", "bo3", 75, 12, {id: "pid-1"}, "manual", false])
+        selector.currentIndex = 2
+        selector.activated(2)
+        compare(cap.text, "8")
+        verify(button.enabled)
+        button.clicked()
+        compare(mockWs.submittedLimited,
+                ["Limited Swiss", "set_draft", "bo3", 75, 8, {id: "pid-1"}, "manual", false])
+        compare(mockWs.submitted.length, 0)
+    }
+
     function test_cubeTournamentRemainsInEventsAndValidatesCapacity() {
         const selector = findChild(page, "tournamentEventTypeSelector")
         selector.currentIndex = 3

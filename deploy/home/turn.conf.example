@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+# Example: replace the documentation addresses with reviewed target addresses.
+# Separate listener; the deployed STUN-only 3478 service remains untouched.
+# For cloud NAT, set relay-ip to the interface's real private IPv4 and set
+# external-ip to PUBLIC/PRIVATE. Never advertise a wildcard relay address.
+listening-port=3479
+listening-ip=0.0.0.0
+relay-ip=192.0.2.10
+external-ip=203.0.113.10/192.0.2.10
+realm=hexproof-home
+fingerprint
+use-auth-secret
+# Inject a generated credential into the private deployed file, not this file.
+# static-auth-secret=...
+min-port=49160
+max-port=49260
+user-quota=4
+total-quota=256
+max-bps=1048576
+no-tls
+no-dtls
+no-cli
+no-multicast-peers
+# Loopback peers remain disabled by coturn's default.
+denied-peer-ip=0.0.0.0-0.255.255.255
+denied-peer-ip=10.0.0.0-10.255.255.255
+denied-peer-ip=100.64.0.0-100.127.255.255
+denied-peer-ip=127.0.0.0-127.255.255.255
+denied-peer-ip=169.254.0.0-169.254.255.255
+denied-peer-ip=172.16.0.0-172.31.255.255
+denied-peer-ip=192.168.0.0-192.168.255.255
+denied-peer-ip=::1
+denied-peer-ip=fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+log-file=stdout
+simple-log

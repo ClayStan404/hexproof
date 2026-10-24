@@ -14,6 +14,7 @@
 #include "CatalogRepository.h"
 #include "CatalogStorage.h"
 #include "CustomCardArtStore.h"
+#include "PreferenceValues.h"
 
 #include <algorithm>
 
@@ -288,12 +289,7 @@ void CardCatalog::setLanguage(const QString &language)
 
 void CardCatalog::setCardArtProvider(const QString &provider)
 {
-    const QString lowered = provider.toLower();
-    const QString normalized = lowered == QStringLiteral("mtgch") ||
-                                       lowered == QStringLiteral("scryfall") ||
-                                       lowered == QStringLiteral("parallel")
-                                   ? lowered
-                                   : QStringLiteral("auto");
+    const QString normalized = preferenceValues::cardArtProvider(provider);
     if (normalized == m_cardArtProvider)
         return;
     m_cardArtProvider = normalized;

@@ -12,6 +12,9 @@ run_race=1
 scope=all
 clean_build=0
 qml_per_file=0
+client_targets=()
+test_regex=""
+focused_client=0
 tool_test_patterns=()
 format_base=""
 started_at=$SECONDS
@@ -28,9 +31,14 @@ Options:
                       shared static checks; all/static run all tool tests.
                       Client tests build a local server
                       for integration tests, but do not run the Go test suite.
-  --quick             Skip CTest and Go race tests; keep builds and other gates.
+  --quick             For client builds, build only the application target;
+                      skip CTest and Go race tests.
   --clean             Force clean rebuilds and uncached Go tests (opt-in).
   --qml-per-file      Register every QML test file separately for parallel CTest.
+  --target NAME       Build a specific client target (repeatable); requires --tests.
+  --tests REGEX       Run matching CTest tests; requires --scope client and --target.
+                      These focused options cannot be combined with --quick.
+                      Integration labels select a matching local server automatically.
   --tool-tests GLOB   Run selected tool tests (repeatable, e.g. test_ci_scope.py).
                       Only for scoped checks; complete all scope stays complete.
   --format-base REF   Check changed C/C++ lines against REF (default: working
@@ -68,6 +76,22 @@ while (($# > 0)); do
         --qml-per-file)
             qml_per_file=1
             ;;
+        --target)
+            if (($# < 2)) || [[ ! "$2" =~ ^[[:alnum:]_][[:alnum:]_.+-]*$ ]]; then
+                echo "--target requires a CMake target name." >&2
+                exit 2
+            fi
+            client_targets+=("$2")
+            shift
+            ;;
+        --tests)
+            if (($# < 2)) || [[ -z "$2" || -n "$test_regex" ]]; then
+                echo "--tests requires one nonempty CTest regular expression." >&2
+                exit 2
+            fi
+            test_regex="$2"
+            shift
+            ;;
         --tool-tests)
             if (($# < 2)) || [[ "$2" != test_*.py || "$2" == */* ]]; then
                 echo "--tool-tests requires a test_*.py filename or glob." >&2
@@ -98,6 +122,14 @@ while (($# > 0)); do
 done
 
 cd "$repo_root"
+if ((${#client_targets[@]})) || [[ -n "$test_regex" ]]; then
+    if [[ "$scope" != client || -z "$test_regex" ]] ||
+       ((${#client_targets[@]} == 0 || !run_ctest)); then
+        echo "Focused checks require --scope client, --target and --tests, without --quick." >&2
+        exit 2
+    fi
+    focused_client=1
+fi
 if [[ "$scope" == all ]] && ((${#tool_test_patterns[@]})); then
     echo "Use a scoped check to select tool tests; all scope always runs the full suite." >&2
     exit 2
@@ -113,7 +145,7 @@ build_server=0
 test_server=0
 if [[ "$scope" == all || "$scope" == client ]]; then
     build_client=1
-    if ((run_ctest)); then
+    if ((run_ctest && !focused_client)); then
         build_server=1
     fi
 fi
@@ -236,6 +268,41 @@ if ((clean_build)); then
     client_build_flags+=(--clean-first)
 fi
 
+configure_client() {
+    local -a flags=(-DHEXPROOF_VERSION_OVERRIDE=)
+    if ((qml_per_file)); then
+        flags+=(-DHEXPROOF_QML_TESTS_PER_FILE=ON)
+    fi
+    cmake -S apps/client-qt -B "$client_build_dir" -G Ninja "${flags[@]}"
+}
+
+if ((focused_client)); then
+    section "Select focused client checks"
+    configure_client
+    # Use CTest's selected names and labels, never infer dependencies from regex text.
+    selection="$(ctest --test-dir "$client_build_dir" --show-only=json-v1 -R "$test_regex" |
+        python3 -c '
+import json
+import sys
+tests = json.load(sys.stdin)["tests"]
+if not tests:
+    sys.exit("No CTest tests match the requested regular expression.")
+print("Focused CTest selection: " + ", ".join(test["name"] for test in tests), file=sys.stderr)
+needs_server = any("integration" in prop["value"]
+                   for test in tests for prop in test.get("properties", [])
+                   if prop["name"] == "LABELS")
+needs_catalog = any(test["name"] == "limited-catalog-builder" for test in tests)
+print(int(needs_server), int(needs_catalog))
+')"
+    read -r build_server build_catalog <<< "$selection"
+    if ((build_server)); then
+        require_command go
+    fi
+    if ((build_catalog)) && [[ " ${client_targets[*]} " != *" hexproof_card_database_builder "* ]]; then
+        client_targets+=(hexproof_card_database_builder)
+    fi
+fi
+
 if ((test_server)); then
     section "Go formatting"
     go_files="$(cd apps/server && gofmt -l .)"
@@ -277,36 +344,55 @@ fi
 
 if ((build_client)); then
     section "Client configure and build"
-    client_configure_flags=()
-    if ((qml_per_file)); then
-        client_configure_flags+=(-DHEXPROOF_QML_TESTS_PER_FILE=ON)
+    if ((!focused_client)); then
+        configure_client
     fi
-    cmake -S apps/client-qt -B "$client_build_dir" -G Ninja \
-        -DHEXPROOF_VERSION_OVERRIDE= "${client_configure_flags[@]}"
+    if ((!run_ctest)); then
+        client_targets=(hexproof)
+    fi
+    if ((${#client_targets[@]})); then
+        client_build_flags+=(--target "${client_targets[@]}")
+    fi
     cmake --build "$client_build_dir" "${client_build_flags[@]}"
 
-    client_version_output="$(
-        QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
-            "$client_build_dir/hexproof" --version
-    )"
-    printf '%s\n' "$client_version_output"
-    if [[ "$client_version_output" != "Hexproof $source_version" ]]; then
-        echo "Client build version does not match source version $source_version." >&2
-        exit 1
+    check_client_version=$((!focused_client))
+    for target in "${client_targets[@]}"; do
+        if [[ "$target" == hexproof ]]; then
+            check_client_version=1
+        fi
+    done
+    if ((check_client_version)); then
+        client_version_output="$(
+            QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
+                "$client_build_dir/hexproof" --version
+        )"
+        printf '%s\n' "$client_version_output"
+        if [[ "$client_version_output" != "Hexproof $source_version" ]]; then
+            echo "Client build version does not match source version $source_version." >&2
+            exit 1
+        fi
     fi
 
     if ((run_ctest)); then
         section "Client CTest"
-        # The catalog builder is intentionally excluded from normal app builds.
-        cmake --build "$client_build_dir" --target hexproof_card_database_builder
+        ctest_flags=(--output-on-failure --no-tests=error)
+        if ((focused_client)); then
+            ctest_flags+=(-R "$test_regex")
+        else
+            # The catalog builder is intentionally excluded from normal app builds.
+            cmake --build "$client_build_dir" --target hexproof_card_database_builder
+        fi
         QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
             HEXPROOF_SERVER_BINARY="$server_binary" \
-            ctest --test-dir "$client_build_dir" --output-on-failure
+            ctest --test-dir "$client_build_dir" "${ctest_flags[@]}"
     else
         echo "Skipping CTest (--quick)."
     fi
 fi
 
 elapsed=$((SECONDS - started_at))
+if ((focused_client)); then
+    echo "Focused client checks only; the complete application/release suite was not run."
+fi
 printf '\nAll requested checks passed in %dm %ds.\n' \
     "$((elapsed / 60))" "$((elapsed % 60))"

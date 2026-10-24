@@ -150,19 +150,12 @@ print({str(package)!r})
 
     def test_native_runtime_forwards_arguments_without_building(self):
         self.prepare_native_runtime()
-        result = self.run_launcher("--native", "-port", "57321")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn(f"runtime:{self.runtime}/forge-gui", result.stdout)
-        self.assertIn("server:-port 57321", result.stdout)
-        self.assertNotIn("build:", result.stdout)
-
-    def test_default_mode_is_native(self):
-        self.prepare_native_runtime()
         result = self.run_launcher("-port", "57321")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(f"runtime:{self.runtime}/forge-gui", result.stdout)
         self.assertIn("server:-port 57321", result.stdout)
         self.assertNotIn("build:", result.stdout)
+
         help_result = self.run_launcher("--help")
         self.assertEqual(help_result.returncode, 0, help_result.stderr)
         self.assertIn("Only official Forge", help_result.stdout)
@@ -189,23 +182,22 @@ print({str(package)!r})
         self.assertIn("printing resources changed", result.stderr)
         self.assertNotIn("server:", result.stdout)
 
-    def test_native_prepare_and_mode_can_be_reordered(self):
+    def test_prepare_builds_server_and_forwards_arguments(self):
         self.prepare_native_runtime()
-        for args in (("--prepare", "--native"), ("--native", "--prepare")):
-            result = self.run_launcher(*args, "-port", "57321")
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("build:", result.stdout)
-            self.assertIn("server:-port 57321", result.stdout)
+        result = self.run_launcher("--prepare", "-port", "57321")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("build:", result.stdout)
+        self.assertIn("server:-port 57321", result.stdout)
 
     def test_double_dash_preserves_server_arguments(self):
         self.prepare_native_runtime()
-        result = self.run_launcher("--native", "--", "--prepare", "--legacy")
+        result = self.run_launcher("--", "--prepare", "--legacy")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("server:--prepare --legacy", result.stdout)
         self.assertNotIn("build:", result.stdout)
 
     def test_legacy_selection_is_rejected_before_startup(self):
-        for args in (("--legacy",), ("--native", "--legacy"), ("--prepare", "--legacy")):
+        for args in (("--legacy",), ("--prepare", "--legacy")):
             result = self.run_launcher(*args)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("has been retired", result.stderr)
@@ -226,7 +218,7 @@ print({str(package)!r})
         self.env["HEXPROOF_FORGE_SOURCE_DIR"] = "source with spaces"
         self.env["HEXPROOF_FORGE_OUTPUT_DIR"] = "native output"
         self.env["HEXPROOF_FORGE_LOCAL_ROOT"] = "runtime"
-        result = self.run_launcher("--native", "--prepare")
+        result = self.run_launcher("--prepare")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(self.runtime.is_symlink())
         self.assertEqual(self.runtime.resolve(), package)
@@ -262,7 +254,7 @@ print({str(package)!r})
         index.parent.mkdir(parents=True)
         index.write_text(json.dumps({"schema": 1, "runtimeRoot": str(old)}))
         del self.env["HEXPROOF_FORGE_LOCAL_ROOT"]
-        result = self.run_launcher("--native", "--prepare")
+        result = self.run_launcher("--prepare")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(index.read_text())["runtimeRoot"], str(fresh))
         self.assertEqual(provenance.read_bytes(), old_bytes)
@@ -271,7 +263,7 @@ print({str(package)!r})
         self.prepare_native_runtime()
         dependency = self.runtime / "lib/official.jar"
         dependency.write_text("modified dependency")
-        for args in (("--native",), ("--native", "--prepare")):
+        for args in ((), ("--prepare",)):
             result = self.run_launcher(*args)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("checksum mismatch", result.stderr)
@@ -281,7 +273,7 @@ print({str(package)!r})
     def test_native_changed_host_source_requires_rebuild(self):
         self.prepare_native_runtime()
         (self.native_host / "src/main/java/NewHost.java").write_text("// changed host\n")
-        result = self.run_launcher("--native", "--prepare")
+        result = self.run_launcher("--prepare")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("host source changed", result.stderr)
 
@@ -291,7 +283,7 @@ print({str(package)!r})
         with zipfile.ZipFile(jar_path, "a") as jar:
             jar.writestr("org/hexproof/forge/NativeHost.class", b"substituted bytecode")
         changed = jar_path.read_bytes()
-        result = self.run_launcher("--native", "--prepare")
+        result = self.run_launcher("--prepare")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("host JAR checksum mismatch", result.stderr)
         self.assertEqual(jar_path.read_bytes(), changed)
@@ -303,20 +295,20 @@ print({str(package)!r})
         value = json.loads(path.read_text())
         del value["hostArtifact"]
         path.write_text(json.dumps(value))
-        result = self.run_launcher("--native")
+        result = self.run_launcher()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("host artifact provenance is missing", result.stderr)
 
     def test_native_dangling_override_is_preserved(self):
         self.runtime.symlink_to(self.root / "missing-runtime")
-        result = self.run_launcher("--native", "--prepare")
+        result = self.run_launcher("--prepare")
         self.assertNotEqual(result.returncode, 0)
         self.assertTrue(self.runtime.is_symlink())
 
     def test_native_does_not_replace_destination_created_during_build(self):
         package = self.prepare_native_runtime(self.root / "generated/runtime-unique")
         self.native_builder(package, f"Path({str(self.runtime)!r}).mkdir()")
-        result = self.run_launcher("--native", "--prepare")
+        result = self.run_launcher("--prepare")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("destination appeared", result.stderr)
         self.assertTrue(self.runtime.is_dir())
@@ -330,7 +322,7 @@ print({str(package)!r})
         index.write_text(original)
         del self.env["HEXPROOF_FORGE_LOCAL_ROOT"]
         self.native_builder(self.root / "never-published", "sys.exit(17)")
-        result = self.run_launcher("--native", "--prepare")
+        result = self.run_launcher("--prepare")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(index.read_text(), original)
         self.assertNotIn("build:", result.stdout)
@@ -340,7 +332,7 @@ print({str(package)!r})
         index.parent.mkdir(parents=True)
         index.write_text('{"ownerNote":"keep"}')
         del self.env["HEXPROOF_FORGE_LOCAL_ROOT"]
-        result = self.run_launcher("--native", "--prepare")
+        result = self.run_launcher("--prepare")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(index.read_text(), '{"ownerNote":"keep"}')
 

@@ -117,10 +117,6 @@ Item {
         assignments = result
     }
     function sourceFor(id) { return sources.find(value => value.objectId === id) || null }
-    function isCombatant(id) {
-        return !!id && sources.some(source => source.objectId === id
-            || source.validTargets.some(target => target.objectId === id))
-    }
     function canAssign(source, target) {
         const selected = selectedTargets(source.responseId)
         if (selected.includes(target.responseId)) return true

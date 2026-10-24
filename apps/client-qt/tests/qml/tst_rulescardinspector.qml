@@ -40,26 +40,9 @@ TestCase {
             }
         }
 
-        RulesCardSurface {
-            id: card
-            x: 20; y: 20; width: 100; height: 140
-            cardCatalogModel: catalog
-            cardBackSource: ""
-            visibleIdentity: true
-            name: "Walking Ballista"
-            setCode: "AER"
-            collectorNumber: "181"
-            tapped: false
-            faceDown: false
-            attacking: false
-            power: "4"
-            toughness: "4"
-            countersSummary: "+1/+1 4"
-            inspectable: true
-            onPreviewRequested: inspector.previewCard("ballista", card)
-            onPreviewEnded: inspector.hidePreview(card)
-            onInspectRequested: inspector.showCard("ballista")
-        }
+        // A source anchor is enough for inspector state tests. Production card
+        // hover, keyboard and click routing is exercised by ForgeDuelInspection.
+        Item { id: card; x: 20; y: 20; width: 100; height: 140 }
         Item { id: otherSource; x: 160; y: 20; width: 100; height: 100 }
         RulesCardInspector {
             id: inspector
@@ -79,7 +62,6 @@ TestCase {
         inspector.clear()
         inspector.width = 410
         inspector.height = 700
-        card.previewEnabled = true
         card.focus = false
         mouseMove(otherSource)
         catalog.requestedNames = []
@@ -171,28 +153,6 @@ TestCase {
         testRulesPrompt.clear()
     }
 
-    function test_hoverAndFocusPreviewWithoutBlockingAndClickPins() {
-        mouseMove(card)
-        tryCompare(inspector, "hasCard", true)
-        compare(inspector.cardId, "ballista")
-        verify(!inspector.pinned)
-        mouseMove(otherSource)
-        tryCompare(inspector, "hasCard", false)
-        card.forceActiveFocus()
-        tryCompare(card, "activeFocus", true)
-        tryCompare(inspector, "hasCard", true)
-        keyClick(Qt.Key_Return)
-        verify(inspector.pinned)
-        otherSource.forceActiveFocus()
-        tryCompare(otherSource, "activeFocus", true)
-        compare(inspector.cardId, "ballista")
-        waitForRendering(inspector)
-        mouseClick(findChild(inspector, "clearRulesCardInspectorButton"))
-        tryCompare(inspector, "hasCard", false)
-        mouseClick(card)
-        verify(inspector.pinned)
-    }
-
     function test_newHoverRestoresPinnedCardAndIgnoresOldSourceExit() {
         verify(inspector.showCard("ballista"))
         verify(inspector.previewCard("hand-card", otherSource))
@@ -204,14 +164,6 @@ TestCase {
         verify(inspector.pinned)
         verify(!inspector.previewCard("private-hand", otherSource))
         compare(inspector.cardId, "ballista")
-    }
-
-    function test_dragSuspendsHoverWithoutPinning() {
-        mouseMove(card)
-        tryCompare(inspector, "hasCard", true)
-        card.previewEnabled = false
-        tryCompare(inspector, "hasCard", false)
-        verify(!inspector.pinned)
     }
 
     function test_currentProjectionUpdatesAndHidesUnavailableIdentity() {

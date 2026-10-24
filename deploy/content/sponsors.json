@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "revision": 5,
+  "sponsors": [
+    {
+      "id": "qingbao",
+      "name": "情报",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/qingbao.jpg",
+        "sha256": "efad24c191f973f080cde3b26d013aa78206abcccac15f3579969475a503f9a5"
+      },
+      "profileUrl": "https://space.bilibili.com/7963465"
+    },
+    {
+      "id": "dodo",
+      "name": "豆豆(dodo)",
+      "tier": "dockside",
+      "avatar": {
+        "path": "avatars/dodo.jpg",
+        "sha256": "95dffa154735d391cb65eed63524404a9982d28024e1e34388df5a814b2b60ed"
+      },
+      "profileUrl": ""
+    },
+    {
+      "id": "m0nta9e",
+      "name": "M0nta9e不太奇",
+      "tier": "dockside",
+      "avatar": {
+        "path": "avatars/m0nta9e.jpg",
+        "sha256": "5f0bff977835651de490cc1ed33c32ca4555f9fabbdc094711319726ad2655e7"
+      },
+      "profileUrl": ""
+    },
+    {
+      "id": "orangezihan",
+      "name": "Orangezihan",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/orangezihan.jpeg",
+        "sha256": "70213e019853825fce7b76b753edc56d93735b2220f4404017e28b4952aeadac"
+      },
+      "profileUrl": "https://afdian.com/u/5eeb2b8c1ba811ed985d52540025c377"
+    },
+    {
+      "id": "guafu",
+      "name": "寡妇门前是非多",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/guafu.jpeg",
+        "sha256": "803038aff2aaed40a0f985f6f41d9d5f33b38d7db05b1d380b3bab1fa033e865"
+      },
+      "profileUrl": "https://afdian.com/u/76b1c06e60b911ecb38952540025c377"
+    },
+    {
+      "id": "beidi",
+      "name": "贝蒂小熊-乱世不败",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/beidi.jpeg",
+        "sha256": "bb6155c18e2e580c9d44a9f8ed64f3ea5f94be840b9d2c48de640282320b201a"
+      },
+      "profileUrl": "https://afdian.com/u/50a0ee26bef411efa2a35254001e7c00"
+    },
+    {
+      "id": "anjisuan",
+      "name": "鹌姬酸",
+      "tier": "omniscience",
+      "avatar": {
+        "path": "avatars/anjisuan.jpg",
+        "sha256": "4a0a5c65c38026f117422072e5d4fed61fd1911040106681b886dc415d8b5b5a"
+      },
+      "profileUrl": "https://space.bilibili.com/6167941",
+      "featured": true,
+      "description": {
+        "en": "TCG enthusiast and organizer, Magic: The Gathering judge, Shenyang XYZ team. Creates Magic: The Gathering videos on Bilibili. Visit the profile to follow.",
+        "zh": "TCG 爱好者、组织者，万智牌裁判，沈阳 XYZ 战队。在 B 站制作万智牌相关视频，欢迎点击主页关注。"
+      }
+    },
+    {
+      "id": "afdian-1a326",
+      "name": "爱发电用户_1a326",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/afdian-1a326.png",
+        "sha256": "dacfb0bb9f8ae5eca89f354fc5bcef39740528121fedb93479f0e434ccd8cc33"
+      },
+      "profileUrl": "https://afdian.com/u/1a32609cb19e11f1b6925254001e7c00"
+    },
+    {
+      "id": "a1100011",
+      "name": "a1100011",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/a1100011.jpg",
+        "sha256": "27a47aa0c24bfac01fdf37f8ed570f09d3a47d61b2b3046a34524d229455ce54"
+      },
+      "profileUrl": ""
+    },
+    {
+      "id": "afdian-e848ed",
+      "name": "徐赵英航",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/afdian-e848ed.jpeg",
+        "sha256": "50dc33d817d1180bb45078489249c3a40ef26a461a252a312553962aa60040b3"
+      },
+      "profileUrl": "https://afdian.com/u/e848ed087f0711ec9d1152540025c377"
+    },
+    {
+      "id": "afdian-bcd466",
+      "name": "ZZM",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/afdian-bcd466.jpeg",
+        "sha256": "37e011311eafd93c352458970ab4c319d3c6ac73740a9ff7763a0eb2e830049d"
+      },
+      "profileUrl": "https://afdian.com/a/ZZM7895"
+    },
+    {
+      "id": "afdian-d039b5",
+      "name": "Akilo",
+      "tier": "omniscience",
+      "featured": true,
+      "avatar": {
+        "path": "avatars/afdian-d039b5.jpeg",
+        "sha256": "b11eda19dc242371a799fb11856e144b3659c383355f6880e243e39eeea1d42d"
+      },
+      "profileUrl": "https://afdian.com/u/d039b5f0b5ab11f1b3335254001e7c00"
+    },
+    {
+      "id": "afdian-a7197d",
+      "name": "Sirius_Wolf",
+      "tier": "omniscience",
+      "featured": true,
+      "avatar": {
+        "path": "avatars/afdian-a7197d.jpg",
+        "sha256": "84f43dc921f80eea3adae30ea2b14d0bf8ab97c693be414fc76bb6469b514956"
+      },
+      "profileUrl": "https://space.bilibili.com/255031959"
+    },
+    {
+      "id": "afdian-48d6a4",
+      "name": "废柴",
+      "tier": "dockside",
+      "avatar": {
+        "path": "avatars/afdian-48d6a4.jpeg",
+        "sha256": "3c5a4fcf6fdda31f8badf1675a0e535c3e22a4196c4e1becbc4651817d19b724"
+      },
+      "profileUrl": "https://afdian.com/u/48d6a4b6bd9811f1a4bc5254001e7c00"
+    },
+    {
+      "id": "afdian-b0b855",
+      "name": "筠以凊_summer",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/afdian-b0b855.jpeg",
+        "sha256": "ca66d6907481114ce5be1f86da3f0a256ec27246e863aeac17216d740828211a"
+      },
+      "profileUrl": "https://afdian.com/u/b0b85544bbfd11f1bb355254001e7c00"
+    },
+    {
+      "id": "afdian-1946dd",
+      "name": "misaka5201314",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/afdian-1946dd.png",
+        "sha256": "b772fca50846eb4faeb6307d0c7dc04d59a12ba1306c91c0900c3c33d466739f"
+      },
+      "profileUrl": "https://afdian.com/u/1946dd5e8e3711ed830352540025c377"
+    },
+    {
+      "id": "afdian-d89646",
+      "name": "陆壹捌",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/afdian-d89646.png",
+        "sha256": "0f24184330e050d1311361bfa2dc321dbeba8c09a765246fd4bf8376bb383746"
+      },
+      "profileUrl": "https://afdian.com/u/d89646e8522811efbfbb52540025c377"
+    },
+    {
+      "id": "afdian-f96c0f",
+      "name": "Roberry",
+      "tier": "ragavan",
+      "avatar": {
+        "path": "avatars/afdian-f96c0f.jpeg",
+        "sha256": "c1456f1a2087db8478e751636c9b5a27f3be9dec6e4b497348c47959591cf39d"
+      },
+      "profileUrl": "https://afdian.com/u/f96c0fcc729f11eb8af352540025c377"
+    }
+  ]
+}

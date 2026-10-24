@@ -443,35 +443,6 @@ func (h *Hub) TournamentForRoom(r *room.Room) string {
 	return entry.tournamentID
 }
 
-// tournamentHasOccupiedPairingRoom reports whether any private pairing room
-// tagged with tournamentID still has a seated player or spectator. Occupied
-// rooms keep a running event alive even if every tournament lobby session has
-// disconnected. Callers may hold tournament opMu; this takes Hub.mu then each
-// room entry.mu, matching ListRooms.
-func (h *Hub) tournamentHasOccupiedPairingRoom(tournamentID string) bool {
-	if tournamentID == "" {
-		return false
-	}
-	h.mu.Lock()
-	entries := make([]*roomEntry, 0)
-	for _, entry := range h.rooms {
-		if entry.tournamentID == tournamentID {
-			entries = append(entries, entry)
-		}
-	}
-	h.mu.Unlock()
-
-	for _, entry := range entries {
-		entry.mu.Lock()
-		occupied := pairingRoomOccupied(entry.room)
-		entry.mu.Unlock()
-		if occupied {
-			return true
-		}
-	}
-	return false
-}
-
 func pairingRoomOccupied(r *room.Room) bool {
 	if r == nil || r.Disbanded {
 		return false

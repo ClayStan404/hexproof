@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+[Unit]
+Description=Renew the Hexproof public IP TLS certificate
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+UMask=0077
+ExecStart=/opt/hexproof-certbot/bin/certbot renew --quiet --deploy-hook "/usr/bin/systemctl reload nginx"

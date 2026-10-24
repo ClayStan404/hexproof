@@ -30,18 +30,14 @@ class ReleaseVerificationTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
-        self.repo = self.root / "private"
+        self.repo = self.root / "source"
         self.repo.mkdir()
         self.init(self.repo)
         (self.repo / ".gitignore").write_text("build/\n")
         (self.repo / "apps/client-qt").mkdir(parents=True)
         (self.repo / "apps/client-qt/CMakeLists.txt").write_text('set(HEXPROOF_VERSION "3.1.1")\n')
-        (self.repo / "private-notes").write_text("PRIVATE TASK DETAILS\n")
+        (self.repo / "source-file").write_text("application source\n")
         (self.repo / "tools").mkdir()
-        (self.repo / "tools/private-config").write_text("EXCLUDED PRIVATE CONFIG\n")
-        (self.repo / "tools/public_export_policy.json").write_text(json.dumps(
-            {"schemaVersion": 1, "include": [".gitignore", "apps", "tools"],
-             "exclude": ["tools/private-config"]}))
         verifier = self.repo / "tools/verify.sh"
         verifier.write_text('''#!/bin/sh
 set -eu
@@ -49,11 +45,14 @@ test "$#" = 1
 test "$1" = --qml-per-file
 test "$CTEST_PARALLEL_LEVEL" = 2
 test -z "$GOFLAGS"
+test -z "${GIT_DIR:-}"
+test -z "${GIT_INDEX_FILE:-}"
+test -z "${GIT_CONFIG_COUNT:-}"
 mkdir -p build
 printf 'run\n' >> build/verifier-count
 case "${FIXTURE_VERIFY_BEHAVIOR:-pass}" in
   fail) echo 'Failed fixture gate'; exit 3 ;;
-  dirty) echo changed >> private-notes ;;
+  dirty) echo changed >> source-file ;;
   commit) git -c commit.gpgSign=false commit --quiet --allow-empty -m changed ;;
 esac
 echo 'Complete fixture verification passed'
@@ -62,7 +61,6 @@ echo 'Complete fixture verification passed'
         self.source_commit = self.commit(self.repo)
         self.receipt = self.repo / "build/release/verified.json"
         self.args = argparse.Namespace(repo=str(self.repo), receipt=str(self.receipt))
-        self.public = self.root / "public"
         self.api_calls = []
         self.statuses = []
 
@@ -76,6 +74,7 @@ echo 'Complete fixture verification passed'
         self.git(repo, "init", "--quiet", "--initial-branch=main")
         self.git(repo, "config", "user.name", "Fixture")
         self.git(repo, "config", "user.email", "fixture@example.invalid")
+        self.git(repo, "remote", "add", "origin", f"https://github.com/{VERIFY.REPOSITORY}.git")
 
     def commit(self, repo):
         self.git(repo, "add", "--all")
@@ -88,23 +87,9 @@ echo 'Complete fixture verification passed'
 
     def prepare_publication(self):
         self.qualify()
-        exported = VERIFY.export_snapshot(self.repo, self.source_commit, self.public,
-                                          self.repo / "tools/public_export_policy.json")
-        self.init(self.public)
-        self.public_commit = self.commit(self.public)
-        self.public_tree = self.git(self.public, "rev-parse", "HEAD^{tree}")
-        self.publication = {"state": "published", "publicCommit": self.public_commit,
-                            "export": exported,
-                            "intent": {"sourceCommit": self.source_commit,
-                                       "publicRepository": f"git@github.com:{VERIFY.REPOSITORY}.git",
-                                       "exportPolicyDigest": exported["exportPolicyDigest"]}}
-        self.publication_path = self.repo / "build/publication.json"
-        self.write_publication()
-        return argparse.Namespace(repo=str(self.repo), receipt=str(self.receipt),
-                                  publication_receipt=str(self.publication_path), public_repo=str(self.public))
-
-    def write_publication(self):
-        self.publication_path.write_text(json.dumps(self.publication))
+        self.public_commit = self.source_commit
+        self.public_tree = self.git(self.repo, "rev-parse", "HEAD^{tree}")
+        return self.args
 
     def api(self, path, payload=None):
         self.api_calls.append((path, payload))
@@ -124,9 +109,13 @@ echo 'Complete fixture verification passed'
                 "description": VERIFY.description("3.1.1", self.public_tree)}
 
     def test_complete_run_writes_private_receipt_and_reuses_only_exact_source(self):
-        with patch.dict(os.environ, GOFLAGS="-run=NoTestsShouldMatch"):
+        with patch.dict(os.environ, GOFLAGS="-run=NoTestsShouldMatch",
+                        GIT_DIR=str(self.root / "missing.git"),
+                        GIT_INDEX_FILE=str(self.root / "missing-index"), GIT_CONFIG_COUNT="0"):
             first = self.qualify()
         self.assertEqual(first["sourceCommit"], self.source_commit)
+        self.assertEqual(first["sourceRepository"], VERIFY.REPOSITORY)
+        self.assertEqual(first["schemaVersion"], 2)
         self.assertEqual(first["profile"], "full-v1")
         self.assertEqual(first["command"], ["tools/verify.sh", "--qml-per-file"])
         self.assertEqual(Path(first["logPath"]).stat().st_mode & 0o777, 0o600)
@@ -154,7 +143,7 @@ echo 'Complete fixture verification passed'
     def test_initial_staged_unstaged_and_untracked_changes_are_rejected(self):
         for mode in ("unstaged", "staged", "untracked"):
             with self.subTest(mode=mode):
-                target = self.repo / ("new-source" if mode == "untracked" else "private-notes")
+                target = self.repo / ("new-source" if mode == "untracked" else "source-file")
                 target.write_text("changed\n")
                 if mode == "staged":
                     self.git(self.repo, "add", target.name)
@@ -178,17 +167,17 @@ echo 'Complete fixture verification passed'
     def test_index_flags_cannot_hide_modified_source(self):
         for flag in ("assume-unchanged", "skip-worktree"):
             with self.subTest(flag=flag):
-                self.git(self.repo, "update-index", "--" + flag, "private-notes")
-                (self.repo / "private-notes").write_text("hidden changed bytes\n")
+                self.git(self.repo, "update-index", "--" + flag, "source-file")
+                (self.repo / "source-file").write_text("hidden changed bytes\n")
                 self.assertEqual(self.git(self.repo, "status", "--porcelain"), "")
                 with self.assertRaisesRegex(VERIFY.VerificationError, "flags before verification"):
                     self.qualify()
                 self.assertFalse(self.receipt.exists())
-                self.git(self.repo, "update-index", "--no-" + flag, "private-notes")
+                self.git(self.repo, "update-index", "--no-" + flag, "source-file")
                 self.git(self.repo, "reset", "--hard", self.source_commit)
     def test_new_commit_requires_new_full_evidence(self):
         self.qualify()
-        (self.repo / "private-notes").write_text("next source\n")
+        (self.repo / "source-file").write_text("next source\n")
         self.commit(self.repo)
         with self.assertRaisesRegex(VERIFY.VerificationError, "exact source"):
             self.qualify()
@@ -197,7 +186,7 @@ echo 'Complete fixture verification passed'
         receipt = self.qualify()
         changed_fields = {"profile": "quick", "result": "failed", "command": ["true"],
                           "sourceVersion": "3.0.0", "sourceTree": "a" * 40,
-                          "schemaVersion": True}
+                          "schemaVersion": 1, "sourceRepository": "someone/else"}
         for name, value in changed_fields.items():
             self.receipt.write_text(json.dumps(dict(receipt, **{name: value})))
             with self.subTest(name=name), self.assertRaises(VERIFY.VerificationError):
@@ -207,7 +196,7 @@ echo 'Complete fixture verification passed'
             self.qualify()
 
     def test_output_cannot_overwrite_source_or_follow_symlinks(self):
-        for path in (self.repo / "private-notes", self.repo / "new.json"):
+        for path in (self.repo / "source-file", self.repo / "new.json"):
             with self.subTest(path=path):
                 with self.assertRaises(VERIFY.VerificationError):
                     VERIFY.run(argparse.Namespace(repo=str(self.repo), receipt=str(path)))
@@ -223,39 +212,69 @@ echo 'Complete fixture verification passed'
                     VERIFY.main(["run", "--receipt", str(self.receipt), option])
                 self.assertEqual(failed.exception.code, 2)
 
-    def test_publish_validates_mapping_and_sends_only_public_status(self):
+    def test_publish_validates_same_commit_and_sends_only_public_status(self):
         args = self.prepare_publication()
         with patch.object(VERIFY, "gh_api", side_effect=self.api):
             result = VERIFY.publish(args)
             VERIFY.publish(args)
         self.assertEqual(result["publicCommit"], self.public_commit)
-        self.assertNotIn("tools/private-config", self.git(self.public, "ls-tree", "-r", "--name-only", "HEAD").splitlines())
+        self.assertEqual(result["publicTree"], self.git(self.repo, "rev-parse", "HEAD^{tree}"))
         writes = [(path, payload) for path, payload in self.api_calls if payload is not None]
         self.assertEqual(len(writes), 1, "Reconciliation must not duplicate an existing success")
         public_payload = json.dumps(writes)
-        for private in (self.source_commit, str(self.repo), str(self.receipt),
-                        "PRIVATE TASK DETAILS", "EXCLUDED PRIVATE CONFIG"):
+        for private in (str(self.repo), str(self.receipt), "application source"):
             self.assertNotIn(private, public_payload)
         self.assertEqual(set(writes[0][1]), {"state", "context", "description"})
 
-    def test_stale_export_state_commit_policy_or_destination_blocks_publication(self):
+    def test_wrong_missing_or_private_origin_blocks_run_and_publish(self):
         args = self.prepare_publication()
-        original = json.loads(json.dumps(self.publication))
-        mutations = [lambda data: data.update(state="prepared"),
-                     lambda data: data["intent"].update(sourceCommit="a" * 40),
-                     lambda data: data["intent"].update(exportPolicyDigest="b" * 64),
-                     lambda data: data["intent"].update(publicRepository="https://github.com/other/repo.git"),
-                     lambda data: data["export"].update(exportTreeDigest="c" * 64),
-                     lambda data: data.update(publicCommit="d" * 40)]
-        for mutation in mutations:
-            with self.subTest(mutation=mutation):
-                self.publication = json.loads(json.dumps(original))
-                mutation(self.publication)
-                self.write_publication()
-                with patch.object(VERIFY, "gh_api") as api:
-                    with self.assertRaises(VERIFY.VerificationError):
-                        VERIFY.publish(args)
-                    api.assert_not_called()
+        for remote in ("https://github.com/someone/else.git",
+                       "git@github.com:ClayStan404/hexproof-private.git",
+                       "https://github.com/ClayStan404/hexproof.git.attacker.invalid",
+                       "https://credential@github.com/ClayStan404/hexproof.git"):
+            self.git(self.repo, "remote", "set-url", "origin", remote)
+            with self.subTest(remote=remote), patch.object(VERIFY, "gh_api") as api:
+                for operation in (VERIFY.run, VERIFY.publish):
+                    with self.assertRaisesRegex(VERIFY.GitError, "official public repository"):
+                        operation(args)
+                api.assert_not_called()
+        self.git(self.repo, "remote", "remove", "origin")
+        with patch.object(VERIFY, "gh_api") as api, self.assertRaises(VERIFY.GitError):
+            VERIFY.publish(args)
+        api.assert_not_called()
+
+    def test_push_destination_and_git_url_rewrites_cannot_bypass_origin_check(self):
+        args = self.prepare_publication()
+        settings = [("remote.origin.pushurl", "https://github.com/other/repo.git"),
+                    ("url.https://github.com/other/repo.git.insteadOf",
+                     f"https://github.com/{VERIFY.REPOSITORY}.git"),
+                    ("url.https://github.com/other/repo.git.pushInsteadOf",
+                     f"https://github.com/{VERIFY.REPOSITORY}.git")]
+        for key, value in settings:
+            self.git(self.repo, "config", key, value)
+            with self.subTest(key=key), patch.object(VERIFY, "gh_api") as api:
+                with self.assertRaisesRegex(VERIFY.GitError, "official public repository"):
+                    VERIFY.publish(args)
+                api.assert_not_called()
+            self.git(self.repo, "config", "--unset", key)
+        self.git(self.repo, "config", "--add", "remote.origin.url", "https://github.com/other/repo.git")
+        with self.assertRaisesRegex(VERIFY.GitError, "official public repository"):
+            VERIFY.publish(args)
+
+    def test_official_https_and_ssh_origin_forms_are_accepted(self):
+        for remote in (f"https://github.com/{VERIFY.REPOSITORY}",
+                       f"git@github.com:{VERIFY.REPOSITORY}.git",
+                       f"ssh://git@github.com/{VERIFY.REPOSITORY}.git"):
+            self.git(self.repo, "remote", "set-url", "origin", remote)
+            with self.subTest(remote=remote):
+                self.assertEqual(self.qualify()["sourceCommit"], self.source_commit)
+
+    def test_inherited_git_redirection_cannot_change_verified_checkout(self):
+        with patch.dict(os.environ, GIT_DIR=str(self.root / "missing.git"),
+                        GIT_INDEX_FILE=str(self.root / "missing-index"),
+                        GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="remote.origin.url",
+                        GIT_CONFIG_VALUE_0="https://github.com/other/repo.git"):
+            self.assertEqual(VERIFY.clean_source(self.repo)["sourceCommit"], self.source_commit)
 
     def test_cached_receipt_cannot_overwrite_a_revoked_public_status(self):
         args = self.prepare_publication()
@@ -269,15 +288,50 @@ echo 'Complete fixture verification passed'
                     VERIFY.publish(args)
         self.assertFalse(any(payload for _, payload in self.api_calls))
 
-    def test_extra_public_source_file_blocks_even_when_receipt_names_that_commit(self):
+    def test_new_local_commit_cannot_publish_previous_receipt(self):
         args = self.prepare_publication()
-        (self.public / "extra-source").write_text("unverified")
-        self.publication["publicCommit"] = self.commit(self.public)
-        self.write_publication()
+        (self.repo / "extra-source").write_text("unverified")
+        self.commit(self.repo)
         with patch.object(VERIFY, "gh_api") as api:
-            with self.assertRaisesRegex(VERIFY.VerificationError, "committed files differ"):
+            with self.assertRaisesRegex(VERIFY.VerificationError, "exact source"):
                 VERIFY.publish(args)
             api.assert_not_called()
+
+    def test_source_or_log_changes_during_github_lookup_block_status_write(self):
+        args = self.prepare_publication()
+        receipt = json.loads(self.receipt.read_text())
+        log = Path(receipt["logPath"])
+        log_text = log.read_text()
+        for mutation in ("source", "commit", "log", "receipt", "origin"):
+            def mutate_on_lookup(path, payload=None):
+                result = self.api(path, payload)
+                if path == f"repos/{VERIFY.REPOSITORY}":
+                    if mutation == "source":
+                        (self.repo / "source-file").write_text("changed")
+                    elif mutation == "commit":
+                        self.git(self.repo, "commit", "--quiet", "--allow-empty", "-m", "changed")
+                    elif mutation == "log":
+                        log.write_text("changed")
+                    elif mutation == "receipt":
+                        self.receipt.write_text(json.dumps(dict(receipt, sourceCommit="a" * 40)))
+                    else:
+                        self.git(self.repo, "remote", "set-url", "origin", "https://github.com/other/repo.git")
+                return result
+            with self.subTest(mutation=mutation), patch.object(VERIFY, "gh_api", side_effect=mutate_on_lookup):
+                with self.assertRaises((VERIFY.VerificationError, VERIFY.GitError)):
+                    VERIFY.publish(args)
+            self.git(self.repo, "reset", "--hard", self.source_commit)
+            self.git(self.repo, "remote", "set-url", "origin", f"https://github.com/{VERIFY.REPOSITORY}.git")
+            log.write_text(log_text)
+            self.receipt.write_text(json.dumps(receipt))
+        self.assertFalse(any(payload for _, payload in self.api_calls))
+
+    def test_publish_cli_has_no_second_checkout_or_export_receipt(self):
+        for option in ("--publication-receipt", "--public-repo"):
+            with self.subTest(option=option), redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as failed:
+                    VERIFY.main(["publish", "--receipt", str(self.receipt), option, "unused"])
+                self.assertEqual(failed.exception.code, 2)
 
     def test_github_tree_or_repository_mismatch_blocks_write(self):
         args = self.prepare_publication()

@@ -28,10 +28,9 @@ func loadFixture(t *testing.T, name string) []byte {
 	return data
 }
 
-// TestAllFixturesParseAndRoundTrip keeps every shared JSON fixture live. This
-// intentionally auto-discovers files so adding a fixture cannot silently leave
-// the Go side behind the client fixture traversal.
-func TestAllFixturesParseAndRoundTrip(t *testing.T) {
+// TestAllFixturesRoundTripAndTypedMarshalShape keeps every shared JSON fixture
+// live. Auto-discovery prevents adding a fixture without Go-side verification.
+func TestAllFixturesRoundTripAndTypedMarshalShape(t *testing.T) {
 	paths, err := filepath.Glob(filepath.Join(fixtureDir, "*.json"))
 	if err != nil {
 		t.Fatalf("list fixtures: %v", err)
@@ -50,6 +49,7 @@ func TestAllFixturesParseAndRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse fixture: %v", err)
 			}
+			// Check the original envelope before update mode can rewrite the fixture.
 			roundTripped, err := env.Marshal()
 			if err != nil {
 				t.Fatalf("marshal fixture: %v", err)
@@ -64,6 +64,63 @@ func TestAllFixturesParseAndRoundTrip(t *testing.T) {
 			if !reflect.DeepEqual(got, want) {
 				t.Fatalf("round trip changed fixture:\nwant: %s\n got: %s",
 					data, roundTripped)
+			}
+			payload := fixturePayloadForType(env.Type)
+			if payload == nil {
+				t.Fatalf("fixture type %q has no typed payload mapping", env.Type)
+			}
+			payloadWasAbsent := len(env.Payload) == 0
+			rawPayload := env.Payload
+			if len(rawPayload) == 0 {
+				rawPayload = json.RawMessage(`{}`)
+			}
+			if err := json.Unmarshal(rawPayload, payload); err != nil {
+				t.Fatalf("decode typed payload: %v", err)
+			}
+			if snapshot, ok := payload.(*GameSnapshot); ok &&
+				os.Getenv("UPDATE_PROTOCOL_FIXTURES") == "1" {
+				normalizeGameSnapshotFixture(snapshot, rawPayload)
+			}
+			typedPayload, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatalf("marshal typed payload: %v", err)
+			}
+			if os.Getenv("UPDATE_PROTOCOL_FIXTURES") == "1" {
+				if payloadWasAbsent &&
+					bytes.Equal(typedPayload, []byte(`{}`)) {
+					env.Payload = nil
+				} else {
+					env.Payload = typedPayload
+				}
+				updated, err := json.MarshalIndent(env, "", "  ")
+				if err != nil {
+					t.Fatalf("marshal updated fixture: %v", err)
+				}
+				updated = append(updated, '\n')
+				if err := os.WriteFile(path, updated, 0o644); err != nil {
+					t.Fatalf("write updated fixture: %v", err)
+				}
+				return
+			}
+			var wantPayload, gotPayload any
+			if err := json.Unmarshal(rawPayload, &wantPayload); err != nil {
+				t.Fatalf("normalize fixture payload: %v", err)
+			}
+			if err := json.Unmarshal(typedPayload, &gotPayload); err != nil {
+				t.Fatalf("normalize typed payload: %v", err)
+			}
+			if !reflect.DeepEqual(gotPayload, wantPayload) {
+				t.Fatalf("fixture payload differs from typed marshal:\nwant: %s\n got: %s",
+					rawPayload, typedPayload)
+			}
+			if snapshot, ok := payload.(*GameSnapshot); ok {
+				for _, seat := range snapshot.Seats {
+					if len(seat.Counters) != PlayerCounterSlotCount {
+						t.Fatalf("seat %d has %d counters, want %d",
+							seat.Seat, len(seat.Counters),
+							PlayerCounterSlotCount)
+					}
+				}
 			}
 		})
 	}
@@ -522,83 +579,6 @@ func fillMissingOwnerSeats(cards []GameCard, rawCards any, seat int) {
 		if _, present := rawCard["ownerSeat"]; !present {
 			cards[index].OwnerSeat = seat
 		}
-	}
-}
-
-func TestAllFixturesMatchTypedMarshalShape(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join(fixtureDir, "*.json"))
-	if err != nil {
-		t.Fatalf("list fixtures: %v", err)
-	}
-	for _, path := range paths {
-		path := path
-		t.Run(filepath.Base(path), func(t *testing.T) {
-			data, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatalf("read fixture: %v", err)
-			}
-			env, err := ParseEnvelope(data)
-			if err != nil {
-				t.Fatalf("parse fixture: %v", err)
-			}
-			payload := fixturePayloadForType(env.Type)
-			if payload == nil {
-				t.Fatalf("fixture type %q has no typed payload mapping", env.Type)
-			}
-			payloadWasAbsent := len(env.Payload) == 0
-			rawPayload := env.Payload
-			if len(rawPayload) == 0 {
-				rawPayload = json.RawMessage(`{}`)
-			}
-			if err := json.Unmarshal(rawPayload, payload); err != nil {
-				t.Fatalf("decode typed payload: %v", err)
-			}
-			if snapshot, ok := payload.(*GameSnapshot); ok &&
-				os.Getenv("UPDATE_PROTOCOL_FIXTURES") == "1" {
-				normalizeGameSnapshotFixture(snapshot, rawPayload)
-			}
-			typedPayload, err := json.Marshal(payload)
-			if err != nil {
-				t.Fatalf("marshal typed payload: %v", err)
-			}
-			if os.Getenv("UPDATE_PROTOCOL_FIXTURES") == "1" {
-				if payloadWasAbsent &&
-					bytes.Equal(typedPayload, []byte(`{}`)) {
-					env.Payload = nil
-				} else {
-					env.Payload = typedPayload
-				}
-				updated, err := json.MarshalIndent(env, "", "  ")
-				if err != nil {
-					t.Fatalf("marshal updated fixture: %v", err)
-				}
-				updated = append(updated, '\n')
-				if err := os.WriteFile(path, updated, 0o644); err != nil {
-					t.Fatalf("write updated fixture: %v", err)
-				}
-				return
-			}
-			var want, got any
-			if err := json.Unmarshal(rawPayload, &want); err != nil {
-				t.Fatalf("normalize fixture payload: %v", err)
-			}
-			if err := json.Unmarshal(typedPayload, &got); err != nil {
-				t.Fatalf("normalize typed payload: %v", err)
-			}
-			if !reflect.DeepEqual(got, want) {
-				t.Fatalf("fixture payload differs from typed marshal:\nwant: %s\n got: %s",
-					rawPayload, typedPayload)
-			}
-			if snapshot, ok := payload.(*GameSnapshot); ok {
-				for _, seat := range snapshot.Seats {
-					if len(seat.Counters) != PlayerCounterSlotCount {
-						t.Fatalf("seat %d has %d counters, want %d",
-							seat.Seat, len(seat.Counters),
-							PlayerCounterSlotCount)
-					}
-				}
-			}
-		})
 	}
 }
 

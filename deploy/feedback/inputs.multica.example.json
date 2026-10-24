@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 2,
+  "target": "owner-selected-ssh-alias",
+  "arch": "amd64",
+  "configFile": "/private/receiver.multica.json",
+  "githubTokenFile": "/private/github-token",
+  "multicaWebhookFile": "/private/multica-webhook"
+}

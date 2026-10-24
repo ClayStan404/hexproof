@@ -10,7 +10,6 @@ Page {
     id: root
 
     readonly property var appWindow: ApplicationWindow.window
-    property bool limitedOnly: false
     property var wsModel
     property var cardCatalogModel
     property var deckLibraryModel
@@ -47,10 +46,7 @@ Page {
         {"label": I18n.tournamentFormatLabel("Duel Commander"),
          "value": "Duel Commander"}
     ]
-    readonly property var eventOptions: limitedOnly ? [
-        {"label": qsTr("Set sealed"), "value": "set_sealed"},
-        {"label": qsTr("Set draft"), "value": "set_draft"}
-    ] : [
+    readonly property var eventOptions: [
         {"label": qsTr("Constructed"), "value": "constructed"},
         {"label": qsTr("Set sealed"), "value": "set_sealed"},
         {"label": qsTr("Set draft"), "value": "set_draft"},
@@ -79,10 +75,8 @@ Page {
 
         ScreenHeader {
             Layout.fillWidth: true
-            title: root.limitedOnly ? qsTr("Create Limited tournament") : qsTr("Create tournament")
-            subtitle: root.limitedOnly
-                      ? qsTr("Open pools, build 40-card decks, then play Swiss rounds with standings")
-                      : qsTr("Individual Swiss · choose manual tabletop or Forge rules")
+            title: qsTr("Create tournament")
+            subtitle: qsTr("Individual Swiss · choose manual tabletop or Forge rules")
             onBackRequested: root.appWindow.popScreen()
         }
 
@@ -107,7 +101,7 @@ Page {
 
         Flickable {
             id: formBody
-            objectName: root.limitedOnly ? "limitedRoomCreateBody" : "tournamentCreateBody"
+            objectName: "tournamentCreateBody"
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
@@ -129,7 +123,7 @@ Page {
 
             Surface {
                 id: formCard
-                objectName: root.limitedOnly ? "limitedRoomCreateCard" : "tournamentCreateCard"
+                objectName: "tournamentCreateCard"
                 width: Math.min(Theme.size(720), formBody.width - Theme.size(48))
                 implicitHeight: form.implicitHeight + Theme.size(60)
                 height: implicitHeight
@@ -157,7 +151,7 @@ Page {
                         id: nameField
                         objectName: "tournamentNameField"
                         Layout.fillWidth: true
-                        placeholderText: root.limitedOnly ? qsTr("Friday Limited tournament") : qsTr("Saturday Swiss")
+                        placeholderText: qsTr("Saturday Swiss")
                         maximumLength: 128
                     }
 
@@ -173,7 +167,7 @@ Page {
 
                     AppComboBox {
                         id: eventSelector
-                        objectName: root.limitedOnly ? "limitedEventTypeSelector" : "tournamentEventTypeSelector"
+                        objectName: "tournamentEventTypeSelector"
                         Layout.fillWidth: true
                         model: root.eventOptions
                         textRole: "label"
@@ -362,7 +356,7 @@ Page {
                                 id: capField
                                 objectName: "tournamentPlayerCapField"
                                 Layout.fillWidth: true
-                                text: root.limitedOnly ? "8" : "32"
+                                text: "32"
                                 inputMethodHints: Qt.ImhDigitsOnly
                                 validator: IntValidator {
                                     bottom: root.isLimited ? 2 : 4
@@ -438,7 +432,7 @@ Page {
                         Layout.topMargin: Theme.size(18)
                         Item { Layout.fillWidth: true }
                         AppButton {
-                            objectName: root.limitedOnly ? "limitedRoomCreateSubmitButton" : "tournamentCreateSubmitButton"
+                            objectName: "tournamentCreateSubmitButton"
                             variant: "primary"
                             text: root.isLimited ? qsTr("Create Limited tournament") : qsTr("Create tournament")
                             enabled: root.hub.connected && !root.hub.inRoom && root.rulesAvailable

@@ -156,7 +156,7 @@ python3 tools/public-content.py \
   --announcements deploy/content/announcements.json \
   --avatars apps/client-qt/assets/sponsors \
   --revision 3 --output build/public-content/revision-3
-python3 deploy/publish-public-content.py build/public-content/revision-3 --target aws
+python3 deploy/publish-public-content.py build/public-content/revision-3 --target "$HEXPROOF_SELECTED_TARGET"
 ```
 
 Choose the next index revision from the live index; `3` above is an example.
@@ -176,24 +176,10 @@ not an effect of building or testing the client. Later content publications
 need no configuration reload. No initial public announcement is invented by
 the client; the bundled announcement archive is empty.
 
-The owner authorized initial public activation on 2026-09-24. The `aws` nginx
-snippet now serves the content paths above. Operational announcement history
-is maintained in `deploy/content/announcements.json`; the bundled empty file is
-only an offline bootstrap, not the source for subsequent publications. Before
-the next edit, compare this operational source with the latest published
-document and preserve every existing ID.
-
-The first publication used index/announcement revision 2 and the unchanged
-bundled sponsor document at revision 1. Its global test announcement,
-`announcement-test-20260924-032223`, was initially scheduled from
-`2026-09-24T03:27:13Z` until `2026-09-25T03:27:13Z`. The owner withdrew it on
-2026-09-24; its retained `withdrawn: true` record hides it from both Current
-and History after synchronization, including on clients that cached it earlier.
-Public HTTPS payload hashes and conditional `304` responses passed; the server
-directory bytes and game-hub/gateway process IDs were unchanged. Evidence is in
-`build/public-announcement-test/publish-20260924-032650/`. The prior nginx snippet
-is backed up under
-`/var/backups/hexproof-public-content/publish-20260924-032650/` on `aws`.
+Keep operational announcement input and publication/rollback evidence in private
+operator storage. Before editing, compare the current input with the latest
+published document and preserve existing IDs. The bundled empty announcement
+file is an offline bootstrap, not an operator publication history.
 
 Verification covers real loopback HTTP, conditional responses, disk reuse,
 partial failures, removal/empty snapshots, shared-avatar collection, cancellation,
@@ -214,16 +200,3 @@ HEXPROOF_AUDIT_STARTUP_NOTICES=1 python3 tools/ui-automation/run-native.py \
   --next-scenario tools/ui-automation/scenarios/PublicContent.qml \
   --next-scenario tools/ui-automation/scenarios/PublicContent.qml
 ```
-
-On 2026-09-23 this passed on the workstation's native Wayland display with
-maximized 1914×1015 logical-pixel test windows on a 1920×1080 display at DPR 2,
-using isolated profiles. It covered the startup popup,
-unread menu, announcement detail/history, sponsor expiration, cached restart,
-and a newcomer announced on the following launch. The fixture observed five
-index checks with only three index bodies, one announcement-body download,
-and one avatar download across all three launches. Final evidence is retained in
-ignored `build/public-content-native-final/` and
-`build/public-content-native-final-fixture/`. The complete client verification
-scope passed all 36 CTest targets and the shared static/tool checks; focused
-cache, popup, and publication regressions also passed after the final changes.
-No public content or remote service was changed by this verification.

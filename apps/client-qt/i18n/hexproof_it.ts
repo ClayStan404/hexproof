@@ -2432,11 +2432,6 @@
         </message>
         <message>
             <location line="+2" />
-            <source>Player hosting supports two-player formats, including Duel Commander.</source>
-            <translation type="vanished">L'hosting del giocatore supporta i formati per due giocatori, incluso il Duel Commander.</translation>
-        </message>
-        <message>
-            <location line="+2" />
             <source>Prepare the local rules engine first</source>
             <translation>Prepara prima il motore di regole locale</translation>
         </message>
@@ -4159,11 +4154,6 @@
             <source>Remove emblem</source>
             <translation>Rimuovi emblema</translation>
         </message>
-        <message>
-            <location line="+38" />
-            <source>No emblems</source>
-            <translation type="vanished">Nessun emblema</translation>
-        </message>
     </context>
     <context>
         <name>ExportDeckDialog</name>
@@ -4406,77 +4396,6 @@
             <location line="+1" />
             <source>Hidden zone</source>
             <translation>Zona nascosta</translation>
-        </message>
-        <message>
-            <location line="+57" />
-            <source>+%1 · %2</source>
-            <translation type="vanished">+%1 · %2</translation>
-        </message>
-        <message>
-            <location line="+2" />
-            <source>Hidden</source>
-            <translation type="vanished">Nascoste</translation>
-        </message>
-        <message>
-            <location line="+10" />
-            <source>Tax is additional to the spell's cost; Forge calculates payment.</source>
-            <translation type="vanished">La tassa si aggiunge al costo della magia; Forge calcola il pagamento.</translation>
-        </message>
-        <message>
-            <location line="+32" />
-            <source>Untap</source>
-            <translation type="vanished">Stappa</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Upkeep</source>
-            <translation type="vanished">Mantenimento</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Draw</source>
-            <translation type="vanished">Pesca</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <location line="+6" />
-            <source>Main</source>
-            <translation type="vanished">Principale</translation>
-        </message>
-        <message>
-            <location line="-5" />
-            <source>Combat</source>
-            <translation type="vanished">Combattimento</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Attack</source>
-            <translation type="vanished">Attacco</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Block</source>
-            <translation type="vanished">Blocco</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Damage</source>
-            <translation type="vanished">Danno</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Combat end</source>
-            <translation type="vanished">Fine combattimento</translation>
-        </message>
-        <message>
-            <location line="+2" />
-            <source>End</source>
-            <translation type="vanished">Fine turno</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Cleanup</source>
-            <translation type="vanished">Pulizia</translation>
         </message>
         <message>
             <location line="+53" />
@@ -6621,11 +6540,6 @@
         </message>
         <message>
             <location line="+1" />
-            <source>The Forge decision is stale or no longer available</source>
-            <translation type="vanished">La decisione di Forge non è più valida o non è più disponibile</translation>
-        </message>
-        <message>
-            <location line="+1" />
             <source>Only players can do that</source>
             <translation>Solo i giocatori possono farlo</translation>
         </message>
@@ -8417,16 +8331,6 @@ a modo tuo.</translation>
             <translation>Scegli una versione per visualizzare in anteprima l'immagine della carta prima di usarla.</translation>
         </message>
         <message>
-            <location line="+89" />
-            <source>Could not load this card image.</source>
-            <translation type="vanished">Impossibile caricare l'immagine di questa carta.</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>No card image is available for this version.</source>
-            <translation type="vanished">Nessuna immagine della carta disponibile per questa versione.</translation>
-        </message>
-        <message>
             <location line="+27" />
             <location line="+129" />
             <source>Current</source>
@@ -8825,36 +8729,6 @@ a modo tuo.</translation>
     <context>
         <name>RulesBattlefieldView</name>
         <message>
-            <location filename="../qml/components/RulesBattlefieldView.qml" line="+267" />
-            <source>Life %1</source>
-            <translation>Punti vita %1</translation>
-        </message>
-        <message>
-            <location line="+2" />
-            <source>H</source>
-            <translation>M</translation>
-        </message>
-        <message>
-            <location line="+2" />
-            <source>D</source>
-            <translation>B</translation>
-        </message>
-        <message>
-            <location line="+36" />
-            <source>Auto arrange</source>
-            <translation>Disposizione automatica</translation>
-        </message>
-        <message>
-            <location line="+11" />
-            <source>View hand</source>
-            <translation>Visualizza la mano</translation>
-        </message>
-        <message>
-            <location line="+9" />
-            <source>Your turn</source>
-            <translation>Il tuo turno</translation>
-        </message>
-        <message>
             <location line="+1" />
             <source>Current turn</source>
             <translation>Turno attuale</translation>
@@ -8863,31 +8737,6 @@ a modo tuo.</translation>
             <location line="+8" />
             <source>Priority</source>
             <translation>Priorità</translation>
-        </message>
-        <message>
-            <location line="+76" />
-            <source>Drag a legal card from your hand here</source>
-            <translation>Trascina qui una carta giocabile dalla tua mano</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>No permanents on the battlefield</source>
-            <translation>Nessun permanente sul campo di battaglia</translation>
-        </message>
-        <message>
-            <location line="+44" />
-            <source>Creatures</source>
-            <translation>Creature</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Lands</source>
-            <translation>Terre</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Other permanents</source>
-            <translation>Altri permanenti</translation>
         </message>
     </context>
     <context>
@@ -8959,11 +8808,6 @@ a modo tuo.</translation>
             <location filename="../qml/components/RulesCardChoiceDialog.qml" line="+49" />
             <source>Use %1's opening ability?</source>
             <translation>Usare l'abilità iniziale di %1?</translation>
-        </message>
-        <message>
-            <location line="+22" />
-            <source>You may reveal it from your opening hand, or leave it there.</source>
-            <translation type="vanished">Puoi rivelarla dalla tua mano iniziale, oppure lasciarla lì.</translation>
         </message>
         <message>
             <location line="+62" />
@@ -9283,36 +9127,7 @@ a modo tuo.</translation>
             <translation>Annulla</translation>
         </message>
     </context>
-    <context>
-        <name>RulesCardSurface</name>
-        <message>
-            <location filename="../qml/components/RulesCardSurface.qml" line="+39" />
-            <source>Face-down card</source>
-            <translation>Carta a faccia in giù</translation>
-        </message>
-        <message>
-            <location line="+56" />
-            <source>Hidden card</source>
-            <translation>Carta nascosta</translation>
-        </message>
-        <message>
-            <location line="+64" />
-            <source>%1 dmg</source>
-            <translation>%1 danni</translation>
-        </message>
-        <message>
-            <location line="+21" />
-            <location line="+76" />
-            <source>Attached</source>
-            <translation>Agganciata</translation>
-        </message>
-        <message>
-            <location line="-2" />
-            <source>Damage marked: %1</source>
-            <translation>Danni segnati: %1</translation>
-        </message>
-    </context>
-    <context>
+        <context>
         <name>RulesCombatAssignmentPrompt</name>
         <message>
             <location filename="../qml/components/RulesCombatAssignmentPrompt.qml" line="+42" />
@@ -9527,30 +9342,7 @@ a modo tuo.</translation>
             <translation>Torna alla scelta</translation>
         </message>
     </context>
-    <context>
-        <name>RulesHandArea</name>
-        <message>
-            <location filename="../qml/components/RulesHandArea.qml" line="+49" />
-            <source>Hands are hidden from spectators in this room</source>
-            <translation>Le mani sono nascoste agli spettatori in questa stanza</translation>
-        </message>
-        <message>
-            <location line="+13" />
-            <source>%1 — hand (read only)</source>
-            <translation>%1 — mano (sola lettura)</translation>
-        </message>
-        <message>
-            <location line="+15" />
-            <source>Hand is empty</source>
-            <translation>La mano è vuota</translation>
-        </message>
-        <message>
-            <location line="+206" />
-            <source>Your zones</source>
-            <translation>Le tue zone</translation>
-        </message>
-    </context>
-    <context>
+        <context>
         <name>RulesMatchControls</name>
         <message>
             <location filename="../qml/components/RulesMatchControls.qml" line="+28" />
@@ -9627,15 +9419,7 @@ a modo tuo.</translation>
             <translation>Scegli un numero maggiore o uguale a %1</translation>
         </message>
     </context>
-    <context>
-        <name>RulesOpponentZoneDock</name>
-        <message>
-            <location filename="../qml/components/RulesOpponentZoneDock.qml" line="+183" />
-            <source>Command</source>
-            <translation>Zona comando</translation>
-        </message>
-    </context>
-    <context>
+        <context>
         <name>RulesOrderPrompt</name>
         <message>
             <location filename="../qml/components/RulesOrderPrompt.qml" line="+140" />
@@ -9902,30 +9686,7 @@ a modo tuo.</translation>
             <translation>Conferma posizionamento</translation>
         </message>
     </context>
-    <context>
-        <name>RulesStackRail</name>
-        <message>
-            <location filename="../qml/components/RulesStackRail.qml" line="+33" />
-            <source>Stack</source>
-            <translation>Pila</translation>
-        </message>
-        <message>
-            <location line="+23" />
-            <source>The stack is empty</source>
-            <translation>La pila è vuota</translation>
-        </message>
-        <message>
-            <location line="+31" />
-            <source>Face-down spell</source>
-            <translation>Magia a faccia in giù</translation>
-        </message>
-        <message>
-            <location line="+34" />
-            <source>Seat %1</source>
-            <translation>Posto %1</translation>
-        </message>
-    </context>
-    <context>
+        <context>
         <name>RulesStartFailureNotice</name>
         <message>
             <location filename="../qml/components/RulesStartFailureNotice.qml" line="+47" />
@@ -10292,11 +10053,6 @@ a modo tuo.</translation>
             <location line="+1" />
             <source>Spell on stack</source>
             <translation>Magia in pila</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Permanent</source>
-            <translation type="vanished">Permanente</translation>
         </message>
         <message>
             <location line="+178" />

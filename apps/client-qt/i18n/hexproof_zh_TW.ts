@@ -2432,11 +2432,6 @@
         </message>
         <message>
             <location line="+2" />
-            <source>Player hosting supports two-player formats, including Duel Commander.</source>
-            <translation type="vanished">玩家託管支援雙人賽制，包括法禁。</translation>
-        </message>
-        <message>
-            <location line="+2" />
             <source>Prepare the local rules engine first</source>
             <translation>請先準備本機規則引擎</translation>
         </message>
@@ -4153,11 +4148,6 @@
             <source>Remove emblem</source>
             <translation>移除徽記</translation>
         </message>
-        <message>
-            <location line="+38" />
-            <source>No emblems</source>
-            <translation type="vanished">暫無徽記</translation>
-        </message>
     </context>
     <context>
         <name>ExportDeckDialog</name>
@@ -4400,77 +4390,6 @@
             <location line="+1" />
             <source>Hidden zone</source>
             <translation>隱藏區域</translation>
-        </message>
-        <message>
-            <location line="+57" />
-            <source>+%1 · %2</source>
-            <translation type="vanished">+%1 · %2</translation>
-        </message>
-        <message>
-            <location line="+2" />
-            <source>Hidden</source>
-            <translation type="vanished">隱藏</translation>
-        </message>
-        <message>
-            <location line="+10" />
-            <source>Tax is additional to the spell's cost; Forge calculates payment.</source>
-            <translation type="vanished">指揮官稅會加在咒語費用上；最終支付費用由 Forge 計算。</translation>
-        </message>
-        <message>
-            <location line="+32" />
-            <source>Untap</source>
-            <translation type="vanished">重置</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Upkeep</source>
-            <translation type="vanished">維持</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Draw</source>
-            <translation type="vanished">抓牌</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <location line="+6" />
-            <source>Main</source>
-            <translation type="vanished">主階段</translation>
-        </message>
-        <message>
-            <location line="-5" />
-            <source>Combat</source>
-            <translation type="vanished">戰鬥</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Attack</source>
-            <translation type="vanished">攻擊</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Block</source>
-            <translation type="vanished">阻擋</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Damage</source>
-            <translation type="vanished">傷害</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Combat end</source>
-            <translation type="vanished">戰鬥結束</translation>
-        </message>
-        <message>
-            <location line="+2" />
-            <source>End</source>
-            <translation type="vanished">結束</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Cleanup</source>
-            <translation type="vanished">清除</translation>
         </message>
         <message>
             <location line="+53" />
@@ -6604,11 +6523,6 @@
         </message>
         <message>
             <location line="+1" />
-            <source>The Forge decision is stale or no longer available</source>
-            <translation type="vanished">該 Forge 決策已過期或不再可用</translation>
-        </message>
-        <message>
-            <location line="+1" />
             <source>Only players can do that</source>
             <translation>只有玩家可以執行此操作</translation>
         </message>
@@ -8400,16 +8314,6 @@ your way.</source>
             <translation>選擇版本並預覽卡圖，確認後再應用。</translation>
         </message>
         <message>
-            <location line="+89" />
-            <source>Could not load this card image.</source>
-            <translation type="vanished">無法載入這張卡圖。</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>No card image is available for this version.</source>
-            <translation type="vanished">這個版本暫無可用卡圖。</translation>
-        </message>
-        <message>
             <location line="+27" />
             <location line="+129" />
             <source>Current</source>
@@ -8806,36 +8710,6 @@ your way.</source>
     <context>
         <name>RulesBattlefieldView</name>
         <message>
-            <location filename="../qml/components/RulesBattlefieldView.qml" line="+267" />
-            <source>Life %1</source>
-            <translation>生命 %1</translation>
-        </message>
-        <message>
-            <location line="+2" />
-            <source>H</source>
-            <translation>手</translation>
-        </message>
-        <message>
-            <location line="+2" />
-            <source>D</source>
-            <translation>庫</translation>
-        </message>
-        <message>
-            <location line="+36" />
-            <source>Auto arrange</source>
-            <translation>自動排列</translation>
-        </message>
-        <message>
-            <location line="+11" />
-            <source>View hand</source>
-            <translation>檢視手牌</translation>
-        </message>
-        <message>
-            <location line="+9" />
-            <source>Your turn</source>
-            <translation>你的回合</translation>
-        </message>
-        <message>
             <location line="+1" />
             <source>Current turn</source>
             <translation>當前回合</translation>
@@ -8844,31 +8718,6 @@ your way.</source>
             <location line="+8" />
             <source>Priority</source>
             <translation>優先權</translation>
-        </message>
-        <message>
-            <location line="+76" />
-            <source>Drag a legal card from your hand here</source>
-            <translation>將可使用的手牌拖到這裡</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>No permanents on the battlefield</source>
-            <translation>戰場上沒有永久物</translation>
-        </message>
-        <message>
-            <location line="+44" />
-            <source>Creatures</source>
-            <translation>生物</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Lands</source>
-            <translation>地</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Other permanents</source>
-            <translation>其他永久物</translation>
         </message>
     </context>
     <context>
@@ -8940,11 +8789,6 @@ your way.</source>
             <location filename="../qml/components/RulesCardChoiceDialog.qml" line="+49" />
             <source>Use %1's opening ability?</source>
             <translation>是否使用%1的開局異能？</translation>
-        </message>
-        <message>
-            <location line="+22" />
-            <source>You may reveal it from your opening hand, or leave it there.</source>
-            <translation type="vanished">可以從起手牌展示它，也可以留在手上。</translation>
         </message>
         <message>
             <location line="+62" />
@@ -9264,36 +9108,7 @@ your way.</source>
             <translation>取消</translation>
         </message>
     </context>
-    <context>
-        <name>RulesCardSurface</name>
-        <message>
-            <location filename="../qml/components/RulesCardSurface.qml" line="+39" />
-            <source>Face-down card</source>
-            <translation>牌面朝下的牌</translation>
-        </message>
-        <message>
-            <location line="+56" />
-            <source>Hidden card</source>
-            <translation>隱藏卡牌</translation>
-        </message>
-        <message>
-            <location line="+64" />
-            <source>%1 dmg</source>
-            <translation>傷害 %1</translation>
-        </message>
-        <message>
-            <location line="+21" />
-            <location line="+76" />
-            <source>Attached</source>
-            <translation>已結附</translation>
-        </message>
-        <message>
-            <location line="-2" />
-            <source>Damage marked: %1</source>
-            <translation>已標記傷害：%1</translation>
-        </message>
-    </context>
-    <context>
+        <context>
         <name>RulesCombatAssignmentPrompt</name>
         <message>
             <location filename="../qml/components/RulesCombatAssignmentPrompt.qml" line="+42" />
@@ -9508,30 +9323,7 @@ your way.</source>
             <translation>返回選擇</translation>
         </message>
     </context>
-    <context>
-        <name>RulesHandArea</name>
-        <message>
-            <location filename="../qml/components/RulesHandArea.qml" line="+49" />
-            <source>Hands are hidden from spectators in this room</source>
-            <translation>本房間對觀戰者隱藏手牌</translation>
-        </message>
-        <message>
-            <location line="+13" />
-            <source>%1 — hand (read only)</source>
-            <translation>%1 — 手牌（唯讀）</translation>
-        </message>
-        <message>
-            <location line="+15" />
-            <source>Hand is empty</source>
-            <translation>手牌為空</translation>
-        </message>
-        <message>
-            <location line="+206" />
-            <source>Your zones</source>
-            <translation>你的區域</translation>
-        </message>
-    </context>
-    <context>
+        <context>
         <name>RulesMatchControls</name>
         <message>
             <location filename="../qml/components/RulesMatchControls.qml" line="+28" />
@@ -9608,15 +9400,7 @@ your way.</source>
             <translation>請選擇不小於 %1 的數字</translation>
         </message>
     </context>
-    <context>
-        <name>RulesOpponentZoneDock</name>
-        <message>
-            <location filename="../qml/components/RulesOpponentZoneDock.qml" line="+183" />
-            <source>Command</source>
-            <translation>統帥區</translation>
-        </message>
-    </context>
-    <context>
+        <context>
         <name>RulesOrderPrompt</name>
         <message>
             <location filename="../qml/components/RulesOrderPrompt.qml" line="+140" />
@@ -9883,30 +9667,7 @@ your way.</source>
             <translation>確認放置</translation>
         </message>
     </context>
-    <context>
-        <name>RulesStackRail</name>
-        <message>
-            <location filename="../qml/components/RulesStackRail.qml" line="+33" />
-            <source>Stack</source>
-            <translation>堆疊</translation>
-        </message>
-        <message>
-            <location line="+23" />
-            <source>The stack is empty</source>
-            <translation>堆疊為空</translation>
-        </message>
-        <message>
-            <location line="+31" />
-            <source>Face-down spell</source>
-            <translation>牌面朝下的咒語</translation>
-        </message>
-        <message>
-            <location line="+34" />
-            <source>Seat %1</source>
-            <translation>座位 %1</translation>
-        </message>
-    </context>
-    <context>
+        <context>
         <name>RulesStartFailureNotice</name>
         <message>
             <location filename="../qml/components/RulesStartFailureNotice.qml" line="+47" />
@@ -10273,11 +10034,6 @@ your way.</source>
             <location line="+1" />
             <source>Spell on stack</source>
             <translation>堆疊上的咒語</translation>
-        </message>
-        <message>
-            <location line="+1" />
-            <source>Permanent</source>
-            <translation type="vanished">永久物</translation>
         </message>
         <message>
             <location line="+178" />

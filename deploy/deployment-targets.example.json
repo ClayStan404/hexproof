@@ -1,0 +1,22 @@
+{
+  "_example": true,
+  "schemaVersion": 1,
+  "defaults": {
+    "releaseTargets": ["cloud-a", "cloud-b"],
+    "forgeTargets": ["cloud-b"],
+    "testTarget": "cloud-b",
+    "publishTargets": ["cloud-b"]
+  },
+  "cloudTargets": {
+    "cloud-a": {
+      "origin": "https://hub-a.example.com"
+    },
+    "cloud-b": {
+      "origin": "https://hub-b.example.com",
+      "forgeEnabled": true,
+      "testEnabled": true,
+      "publishEnabled": true,
+      "java": "/usr/lib/jvm/java-21-openjdk-amd64/bin/java"
+    }
+  }
+}

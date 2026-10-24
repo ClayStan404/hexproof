@@ -80,7 +80,6 @@ Rectangle {
     }
     readonly property real boardTop: nearSide ? inset : headerHeight
     readonly property real boardHeight: Math.max(0, nearSide ? headerTop - inset : height - headerHeight - inset)
-    readonly property string laneFlow: fieldLayout.placement.flow
     readonly property real infoRight: stackedHeader ? headerAvailableWidth - inset : zoneRow.x - inset
         - (mana.visible ? mana.width + inset : 0) - (viewHand.visible ? viewHand.width + inset : 0)
     readonly property string clockText: presentation.actionClockText(seat)

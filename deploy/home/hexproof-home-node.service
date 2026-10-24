@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+[Unit]
+Description=Hexproof home node outbound connector
+After=network-online.target hexproof-home-hub.service
+Wants=network-online.target hexproof-home-hub.service
+
+[Service]
+Type=simple
+User=hexproof-home
+Group=hexproof-home
+WorkingDirectory=/var/lib/hexproof-home
+ExecStart=/opt/hexproof-home/current/hexproof-home node -config /etc/hexproof-home/node.json
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# Go/Pion uses NETLINK_ROUTE to enumerate interfaces when gathering ICE candidates.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+MemoryHigh=384M
+MemoryMax=512M
+TasksMax=128
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

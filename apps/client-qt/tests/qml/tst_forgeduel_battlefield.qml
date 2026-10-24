@@ -27,7 +27,6 @@ ForgeDuelTestCase {
         tryCompare(table.presentation, "playerSeats", data.seats)
         compare(table.presentation.bottomSeat, data.local)
         compare(table.presentation.commanderFormat, true)
-        compare(findChild(table, "rulesGameLayout"), null)
         compare(item("forgeHand").ownerSeat, data.local)
         for (const seat of data.seats) {
             compare(findChild(table, "forgeCommanders-" + seat), null)
@@ -391,14 +390,11 @@ ForgeDuelTestCase {
 
     function test_sparseCreatureRowsStayCenteredInBattlefield_data() {
         const rows = []
-        for (const seat of [0, 1]) {
-            for (const creatures of [1, 2, 3]) {
-                for (const lands of [[], ["Plains", "Plains"], ["Plains", "Ugin's Labyrinth"]]) {
-                    rows.push({tag:(seat === 0 ? "own" : "opponent") + "-"
-                        + creatures + "-creatures-" + (lands.length === 0 ? "no-lands"
-                            : lands[0] === lands[1] ? "same-lands" : "distinct-lands"),
-                        seat:seat, creatures:creatures, lands:lands})
-                }
+        for (const creatures of [1, 2, 3]) {
+            for (const lands of [[], ["Plains", "Plains"], ["Plains", "Ugin's Labyrinth"]]) {
+                rows.push({tag:creatures + "-creatures-" + (lands.length === 0 ? "no-lands"
+                    : lands[0] === lands[1] ? "same-lands" : "distinct-lands"),
+                    creatures:creatures, lands:lands})
             }
         }
         return rows
@@ -416,36 +412,38 @@ ForgeDuelTestCase {
             state.zones[4 + seat].count = cards.length
         }
         verify(testRulesPrompt.applySnapshot(state))
-        prompt("chooseAction", {options:[{responseId:"$pass", kind:"pass", label:"Pass"}]})
-        verify(waitForPolish(window))
-        waitForRendering(table)
-        const faces = []
-        for (let i = 0; i < data.creatures; ++i) {
-            const face = item("forgeCardFace-center-" + data.seat + "-" + i)
-            faces.push(face.mapToItem(table.presentation, 0, 0, face.width, face.height))
+        for (const seat of [0, 1]) {
+            prompt("chooseAction", {options:[{responseId:"$pass", kind:"pass", label:"Pass"}]})
+            verify(waitForPolish(window))
+            waitForRendering(table)
+            const faces = []
+            for (let i = 0; i < data.creatures; ++i) {
+                const face = item("forgeCardFace-center-" + seat + "-" + i)
+                faces.push(face.mapToItem(table.presentation, 0, 0, face.width, face.height))
+            }
+            const left = Math.min.apply(null, faces.map(face => face.x))
+            const right = Math.max.apply(null, faces.map(face => face.x + face.width))
+            const center = (left + right) / 2
+            const expected = table.presentation.boardLeft + table.presentation.boardWidth / 2
+            verify(Math.abs(center - expected) <= 2 * table.presentation.unit,
+                "Seat " + seat + " sparse creature faces center on the battlefield: actual " + center
+                + ", expected " + expected + ", face bounds " + JSON.stringify(faces))
+            for (const face of faces)
+                verify(Math.abs(face.y - faces[0].y) <= table.presentation.unit,
+                    "A sparse creature row stays on one line")
+            const targetId = "center-" + seat + "-0", responseId = "center-target-" + seat
+            prompt("chooseBoardTargets", {minSelections:1, maxSelections:1,
+                targets:[{responseId:responseId, kind:"card", objectId:targetId, label:"Center Bear 0"}]})
+            for (let i = 0; i < data.creatures; ++i) {
+                const face = item("forgeCardFace-center-" + seat + "-" + i)
+                compare(face.mapToItem(table.presentation, 0, 0, face.width, face.height), faces[i],
+                    "The target decision preserves the centered creature row")
+            }
+            mouseClick(item("forgeCard-" + targetId))
+            compare(transport.responses.length, seat + 1)
+            compare(transport.responses[seat].targets, [responseId],
+                "The centered face remains directly clickable")
         }
-        const left = Math.min.apply(null, faces.map(face => face.x))
-        const right = Math.max.apply(null, faces.map(face => face.x + face.width))
-        const center = (left + right) / 2
-        const expected = table.presentation.boardLeft + table.presentation.boardWidth / 2
-        verify(Math.abs(center - expected) <= 2 * table.presentation.unit,
-            "Sparse creature faces center on the battlefield: actual " + center
-            + ", expected " + expected + ", face bounds " + JSON.stringify(faces))
-        for (const face of faces)
-            verify(Math.abs(face.y - faces[0].y) <= table.presentation.unit,
-                "A sparse creature row stays on one line")
-        const targetId = "center-" + data.seat + "-0"
-        prompt("chooseBoardTargets", {minSelections:1, maxSelections:1,
-            targets:[{responseId:"center-target", kind:"card", objectId:targetId, label:"Center Bear 0"}]})
-        for (let i = 0; i < data.creatures; ++i) {
-            const face = item("forgeCardFace-center-" + data.seat + "-" + i)
-            compare(face.mapToItem(table.presentation, 0, 0, face.width, face.height), faces[i],
-                "The target decision preserves the centered creature row")
-        }
-        mouseClick(item("forgeCard-" + targetId))
-        compare(transport.responses.length, 1)
-        compare(transport.responses[0].targets, ["center-target"],
-            "The centered face remains directly clickable")
     }
 
     function test_edhSparseCreatureRowsCenterInTheirOwnFields_data() {

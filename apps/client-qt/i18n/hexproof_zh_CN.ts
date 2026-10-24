@@ -260,10 +260,6 @@
         <translation>在保留窗口自动适配的同时，统一调整文字、控件、间距和弹窗大小。</translation>
     </message>
     <message>
-        <source>Animate simulated pack openings</source>
-        <translation type="vanished">模拟开包时播放动画</translation>
-    </message>
-    <message>
         <location line="-75"/>
         <location line="+16"/>
         <source>Appearance</source>
@@ -625,42 +621,10 @@
         <translation>徽记 · %1</translation>
     </message>
     <message>
-        <source>Battlefield layout</source>
-        <translation type="vanished">战场布局</translation>
-    </message>
-    <message>
-        <source>Decrease battlefield card size</source>
-        <translation type="vanished">缩小战场卡牌</translation>
-    </message>
-    <message>
-        <source>Auto %1%</source>
-        <translation type="vanished">自动 %1%</translation>
-    </message>
-    <message>
-        <source>%1%</source>
-        <translation type="vanished">%1%</translation>
-    </message>
-    <message>
-        <source>Reset battlefield card size to automatic</source>
-        <translation type="vanished">将战场卡牌大小恢复为自动</translation>
-    </message>
-    <message>
-        <source>Increase battlefield card size</source>
-        <translation type="vanished">放大战场卡牌</translation>
-    </message>
-    <message>
         <location line="+144"/>
         <location line="+8"/>
         <source>Overview layout</source>
         <translation>全局布局</translation>
-    </message>
-    <message>
-        <source>Primary battlefield</source>
-        <translation type="vanished">主战场</translation>
-    </message>
-    <message>
-        <source>Select an arrow target</source>
-        <translation type="vanished">请选择箭头目标</translation>
     </message>
     <message>
         <location line="-301"/>
@@ -693,22 +657,10 @@
         <translation>请选择附着目标</translation>
     </message>
     <message>
-        <source>Playtest battlefield</source>
-        <translation type="vanished">测试战场</translation>
-    </message>
-    <message>
         <location line="-28"/>
         <location line="+195"/>
         <source>Seat</source>
         <translation>座位</translation>
-    </message>
-    <message>
-        <source>Your battlefield</source>
-        <translation type="vanished">你的战场</translation>
-    </message>
-    <message>
-        <source>Eliminated</source>
-        <translation type="vanished">已淘汰</translation>
     </message>
     <message>
         <location line="-172"/>
@@ -760,26 +712,6 @@
         <location line="+89"/>
         <source>Syncing…</source>
         <translation>正在同步…</translation>
-    </message>
-    <message>
-        <source>Primary · %1%</source>
-        <translation type="vanished">主战场 · %1%</translation>
-    </message>
-    <message>
-        <source>Overview · %1%</source>
-        <translation type="vanished">总览 · %1%</translation>
-    </message>
-    <message>
-        <source>Battlefield view controls</source>
-        <translation type="vanished">战场视图控制</translation>
-    </message>
-    <message>
-        <source>Life</source>
-        <translation type="vanished">生命</translation>
-    </message>
-    <message>
-        <source>Hand</source>
-        <translation type="vanished">手牌</translation>
     </message>
     <message>
         <location filename="../qml/components/BattlefieldOpponentZoneDock.qml" line="+290"/>
@@ -1251,37 +1183,9 @@
         <source>Choose card face</source>
         <translation>选择卡牌牌面</translation>
     </message>
-    <message>
-        <source>Close</source>
-        <translation type="vanished">关闭</translation>
-    </message>
 </context>
 <context>
     <name>CardSearchPopup</name>
-    <message>
-        <source>Add to Consider</source>
-        <translation type="vanished">加入考虑区</translation>
-    </message>
-    <message>
-        <source>Search the catalog and click a card to add it.</source>
-        <translation type="vanished">搜索目录并点击卡牌即可添加。</translation>
-    </message>
-    <message>
-        <source>Search the catalog and click a card to add it to Consider.</source>
-        <translation type="vanished">搜索目录并点击卡牌即可加入考虑区。</translation>
-    </message>
-    <message>
-        <source>Choose Main, Sideboard, or Consider, then click a card to add it.</source>
-        <translation type="vanished">先选择主牌、备牌或备选，再点击卡牌添加。</translation>
-    </message>
-    <message>
-        <source>Choose Main or Consider, then click a card to add it.</source>
-        <translation type="vanished">先选择主牌或备选，再点击卡牌添加。</translation>
-    </message>
-    <message>
-        <source>Click a card to add one copy to %1.</source>
-        <translation type="vanished">点击卡牌，将一张加入%1。</translation>
-    </message>
     <message>
         <location filename="../qml/components/CardSearchPopup.qml" line="+94"/>
         <source>Search first, then add the selected card to the main deck, sideboard, or Consider.</source>
@@ -1298,30 +1202,14 @@
         <translation>先点选搜索结果，再添加。</translation>
     </message>
     <message>
-        <source>Add to</source>
-        <translation type="vanished">加入</translation>
-    </message>
-    <message>
         <location line="-91"/>
         <source>Close</source>
         <translation>关闭</translation>
     </message>
     <message>
-        <source>%1 cards</source>
-        <translation type="vanished">%1 张牌</translation>
-    </message>
-    <message>
-        <source>Click a card to add one copy to the selected section.</source>
-        <translation type="vanished">点击卡牌，将一张加入当前选中的区域。</translation>
-    </message>
-    <message>
         <location line="+116"/>
         <source>Consider</source>
         <translation>考虑区</translation>
-    </message>
-    <message>
-        <source>Done</source>
-        <translation type="vanished">完成</translation>
     </message>
     <message>
         <location line="-17"/>
@@ -1339,38 +1227,6 @@
         <translation>备牌</translation>
     </message>
     <message>
-        <source>All types</source>
-        <translation type="vanished">全部类型</translation>
-    </message>
-    <message>
-        <source>Creature</source>
-        <translation type="vanished">生物</translation>
-    </message>
-    <message>
-        <source>Instant</source>
-        <translation type="vanished">瞬间</translation>
-    </message>
-    <message>
-        <source>Sorcery</source>
-        <translation type="vanished">法术</translation>
-    </message>
-    <message>
-        <source>Artifact</source>
-        <translation type="vanished">神器</translation>
-    </message>
-    <message>
-        <source>Enchantment</source>
-        <translation type="vanished">结界</translation>
-    </message>
-    <message>
-        <source>Planeswalker</source>
-        <translation type="vanished">鹏洛客</translation>
-    </message>
-    <message>
-        <source>Land</source>
-        <translation type="vanished">地</translation>
-    </message>
-    <message>
         <location line="-75"/>
         <source>All printings</source>
         <translation>全部印刷版本</translation>
@@ -1384,58 +1240,6 @@
         <location line="+0"/>
         <source>Chinese printings</source>
         <translation>中文印刷版本</translation>
-    </message>
-    <message>
-        <source>Any color identity</source>
-        <translation type="vanished">不限颜色认同</translation>
-    </message>
-    <message>
-        <source>White</source>
-        <translation type="vanished">白色</translation>
-    </message>
-    <message>
-        <source>Blue</source>
-        <translation type="vanished">蓝色</translation>
-    </message>
-    <message>
-        <source>Black</source>
-        <translation type="vanished">黑色</translation>
-    </message>
-    <message>
-        <source>Red</source>
-        <translation type="vanished">红色</translation>
-    </message>
-    <message>
-        <source>Green</source>
-        <translation type="vanished">绿色</translation>
-    </message>
-    <message>
-        <source>Multicolor</source>
-        <translation type="vanished">多色</translation>
-    </message>
-    <message>
-        <source>Colorless</source>
-        <translation type="vanished">无色</translation>
-    </message>
-    <message>
-        <source>All rarities</source>
-        <translation type="vanished">全部稀有度</translation>
-    </message>
-    <message>
-        <source>Common</source>
-        <translation type="vanished">普通</translation>
-    </message>
-    <message>
-        <source>Uncommon</source>
-        <translation type="vanished">非普通</translation>
-    </message>
-    <message>
-        <source>Rare</source>
-        <translation type="vanished">稀有</translation>
-    </message>
-    <message>
-        <source>Mythic</source>
-        <translation type="vanished">秘稀</translation>
     </message>
     <message>
         <location line="-100"/>
@@ -1563,10 +1367,6 @@
         <translation>卡牌搜索</translation>
     </message>
     <message>
-        <source>Search by English or Chinese card name.</source>
-        <translation type="vanished">可按中文或英文卡名搜索。</translation>
-    </message>
-    <message>
         <location line="+31"/>
         <source>Search English or Chinese names…</source>
         <translation>搜索中文或英文卡名…</translation>
@@ -1580,26 +1380,6 @@
         <location line="+24"/>
         <source>Filters narrow database results only; deck legality is not enforced.</source>
         <translation>筛选只会缩小数据库搜索结果，不会校验套牌合法性。</translation>
-    </message>
-    <message>
-        <source>Update the local card database to use search filters.</source>
-        <translation type="vanished">更新本地卡牌数据库后即可使用搜索筛选。</translation>
-    </message>
-    <message>
-        <source>Reset filters</source>
-        <translation type="vanished">重置筛选</translation>
-    </message>
-    <message>
-        <source>+ Main</source>
-        <translation type="vanished">+ 主牌</translation>
-    </message>
-    <message>
-        <source>+ Consider</source>
-        <translation type="vanished">+ 备选</translation>
-    </message>
-    <message>
-        <source>+ Side</source>
-        <translation type="vanished">+ 备牌</translation>
     </message>
     <message>
         <location line="+21"/>
@@ -1991,14 +1771,6 @@
         <translation>服务器</translation>
     </message>
     <message>
-        <source>Auto refresh</source>
-        <translation type="vanished">自动刷新</translation>
-    </message>
-    <message>
-        <source>sec</source>
-        <translation type="vanished">秒</translation>
-    </message>
-    <message>
         <location line="+56"/>
         <source>Server address</source>
         <translation>服务器地址</translation>
@@ -2039,10 +1811,6 @@
         <translation>下载匹配版本</translation>
     </message>
     <message>
-        <source>Cancel</source>
-        <translation type="vanished">取消</translation>
-    </message>
-    <message>
         <location line="-182"/>
         <source>Opening connection…</source>
         <translation>正在建立连接…</translation>
@@ -2066,26 +1834,6 @@
         <location line="+2"/>
         <source>Host migration</source>
         <translation>宿主迁移</translation>
-    </message>
-    <message>
-        <source>Server 1 (sponsored by 情报)</source>
-        <translation type="vanished">服务器 1（由情报赞助）</translation>
-    </message>
-    <message>
-        <source>Server 2</source>
-        <translation type="vanished">服务器 2</translation>
-    </message>
-    <message>
-        <source>Server 3</source>
-        <translation type="vanished">服务器 3</translation>
-    </message>
-    <message>
-        <source>Server 4</source>
-        <translation type="vanished">服务器 4</translation>
-    </message>
-    <message>
-        <source>Test server</source>
-        <translation type="vanished">测试服务器</translation>
     </message>
     <message>
         <location line="-29"/>
@@ -2168,16 +1916,8 @@
         <translation>服务器未运行 Forge</translation>
     </message>
     <message>
-        <source>Supported</source>
-        <translation type="vanished">支持</translation>
-    </message>
-    <message>
         <source>Unknown</source>
         <translation>未知</translation>
-    </message>
-    <message>
-        <source>Player hosting: %1 · Direct connection: %2 · Host migration: %3</source>
-        <translation type="vanished">玩家托管：%1 · 直连：%2 · 宿主迁移：%3</translation>
     </message>
     <message>
         <location line="-2"/>
@@ -2399,10 +2139,6 @@
         <translation>普通 Cube</translation>
     </message>
     <message>
-        <source>Draft three 20-card packs, picking two cards each time. Build at least 60 cards including commanders. Once everyone submits, all 2–4 players enter the same room to ready up. A %1-seat room needs %2 Cube cards; this Cube contains %3.</source>
-        <translation type="vanished">轮抓 3 包，每包 20 张，每次选 2 张，组建至少 60 张（含指挥官）的套牌。所有人提交后，2～4 名玩家自动进入同一房间准备。%1 人房间需要 %2 张 Cube 牌；当前 Cube 共 %3 张。</translation>
-    </message>
-    <message>
         <location line="+138"/>
         <source>Start when everyone is ready (at least two players). Each player drafts three 15-card packs. A %1-seat room needs %2 Cube cards; this Cube contains %3.</source>
         <translation>至少两名玩家入座，所有人准备后开始。每人轮抓三包，每包 15 张。%1 人房间需要 %2 张 Cube 卡牌，当前有 %3 张。</translation>
@@ -2419,21 +2155,9 @@
         <translation>轮抓 Cube、完成组牌，然后一起对战</translation>
     </message>
     <message>
-        <source>Free play</source>
-        <translation type="vanished">自由对战</translation>
-    </message>
-    <message>
-        <source>Swiss tournament</source>
-        <translation type="vanished">瑞士赛</translation>
-    </message>
-    <message>
         <location line="-6"/>
         <source>Playtest</source>
         <translation>单人测试</translation>
-    </message>
-    <message>
-        <source>Create Cube tournament</source>
-        <translation type="vanished">创建 Cube 比赛</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -2447,45 +2171,9 @@
         <translation>在完整牌桌上独自测试套牌</translation>
     </message>
     <message>
-        <source>Draft the Cube, build decks, then play ranked Swiss rounds</source>
-        <translation type="vanished">轮抓 Cube、完成组牌，然后进行瑞士轮比赛并查看排名</translation>
-    </message>
-    <message>
         <location line="+3"/>
         <source>Set the table, then share its room code</source>
         <translation>设置牌桌，然后分享房间码</translation>
-    </message>
-    <message>
-        <source>Solo tabletop</source>
-        <translation type="vanished">单人牌桌</translation>
-    </message>
-    <message>
-        <source>New tabletop</source>
-        <translation type="vanished">新牌桌</translation>
-    </message>
-    <message>
-        <source>Choose a format, then select any ready deck.</source>
-        <translation type="vanished">选择赛制，然后选择一副可用套牌。</translation>
-    </message>
-    <message>
-        <source>You will enter as organizer; register if you also want to draft.</source>
-        <translation type="vanished">你将以主办人身份进入；如果也要参加轮抓，请再报名。</translation>
-    </message>
-    <message>
-        <source>You will enter as the host in seat one.</source>
-        <translation type="vanished">你将作为房主进入一号座位。</translation>
-    </message>
-    <message>
-        <source>One player</source>
-        <translation type="vanished">单人</translation>
-    </message>
-    <message>
-        <source>Connected</source>
-        <translation type="vanished">已连接</translation>
-    </message>
-    <message>
-        <source>EVENT NAME</source>
-        <translation type="vanished">比赛名称</translation>
     </message>
     <message>
         <location line="+73"/>
@@ -2493,69 +2181,9 @@
         <translation>房间名称</translation>
     </message>
     <message>
-        <source>Friday Cube Draft</source>
-        <translation type="vanished">周五 Cube 轮抓</translation>
-    </message>
-    <message>
-        <source>Friday game night</source>
-        <translation type="vanished">周五晚间牌局</translation>
-    </message>
-    <message>
-        <source>The selected Cube is locked when the eight-player draft starts.</source>
-        <translation type="vanished">八人轮抓开始时会锁定所选 Cube。</translation>
-    </message>
-    <message>
-        <source>Include the exact format in the room name so players know which card pool to bring.</source>
-        <translation type="vanished">建议在房间名称中写明具体赛制，方便玩家确认应使用的牌池。</translation>
-    </message>
-    <message>
         <location line="+27"/>
         <source>FORMAT</source>
         <translation>赛制</translation>
-    </message>
-    <message>
-        <source>Generic 1v1</source>
-        <translation type="vanished">通用 1v1</translation>
-    </message>
-    <message>
-        <source>Duel Commander</source>
-        <translation type="vanished">法禁</translation>
-    </message>
-    <message>
-        <source>Commander</source>
-        <translation type="vanished">指挥官</translation>
-    </message>
-    <message>
-        <source>Generic 1v1 · 2</source>
-        <translation type="vanished">通用 1v1 · 2 人</translation>
-    </message>
-    <message>
-        <source>Duel Commander · 2</source>
-        <translation type="vanished">法禁 · 2 人</translation>
-    </message>
-    <message>
-        <source>Commander · 4</source>
-        <translation type="vanished">指挥官 · 4 人</translation>
-    </message>
-    <message>
-        <source>For Standard, Pioneer, Modern, Legacy, Vintage, Pauper, and other commander-free 1v1 formats. Rules and card-pool legality are not enforced.</source>
-        <translation type="vanished">适用于标准、先驱、摩登、薪传、特选、纯铁等无指挥官的 1v1 赛制；Hexproof 不执行规则，也不校验牌池合法性。</translation>
-    </message>
-    <message>
-        <source>A two-player commander table at 20 life with command zones and manual commander tax. Rules and card-pool legality are not enforced.</source>
-        <translation type="vanished">双人指挥官牌桌，初始 20 点生命，包含指挥官区与手动指挥官税；Hexproof 不执行规则，也不校验牌池合法性。</translation>
-    </message>
-    <message>
-        <source>Custom 1v1 keeps manual deck construction and card-pool decisions.</source>
-        <translation type="vanished">自定义 1v1 保留手动构筑和牌池约定。</translation>
-    </message>
-    <message>
-        <source>A two-player commander table at 20 life with command zones and manual commander tax.</source>
-        <translation type="vanished">双人指挥官牌桌，初始生命 20，包含指挥官区和手动指挥官税。</translation>
-    </message>
-    <message>
-        <source>A four-seat Commander table that can start with three or four players.</source>
-        <translation type="vanished">四座指挥官牌桌，可由三名或四名玩家开始游戏。</translation>
     </message>
     <message>
         <location line="+34"/>
@@ -2574,29 +2202,9 @@
         <translation>BO 3</translation>
     </message>
     <message>
-        <source>Commander is a single multiplayer game.</source>
-        <translation type="vanished">指挥官为单局多人对战。</translation>
-    </message>
-    <message>
         <location line="+263"/>
         <source>CUBE POOL</source>
         <translation>CUBE 牌池</translation>
-    </message>
-    <message>
-        <source>Manage Cubes</source>
-        <translation type="vanished">管理 Cube</translation>
-    </message>
-    <message>
-        <source>Import a Cube before creating this room.</source>
-        <translation type="vanished">创建此房间前请先导入 Cube。</translation>
-    </message>
-    <message>
-        <source>Draft the Cube, build decks, then play Swiss rounds with standings</source>
-        <translation type="vanished">轮抓 Cube、完成组牌，然后进行瑞士轮比赛并查看排名</translation>
-    </message>
-    <message>
-        <source>The selected Cube is locked when the draft starts.</source>
-        <translation type="vanished">轮抓开始时会锁定所选 Cube。</translation>
     </message>
     <message>
         <location line="-238"/>
@@ -2614,17 +2222,9 @@
         <translation>Forge 规则</translation>
     </message>
     <message>
-        <source>Forge validates legal actions, priority, the stack, triggers, combat, and state-based actions. Two-player rooms support BO1 and BO3.</source>
-        <translation type="vanished">Forge 会验证合法动作、优先权、堆叠、触发式异能、战斗和状态动作。双人房间支持 BO1 和 BO3。</translation>
-    </message>
-    <message>
         <location line="+68"/>
         <source>This server does not provide the Forge rules runtime.</source>
         <translation>此服务器未提供 Forge 规则引擎。</translation>
-    </message>
-    <message>
-        <source>Players control every move and resolve unusual interactions together.</source>
-        <translation type="vanished">玩家自行操作每一步，并共同处理特殊互动。</translation>
     </message>
     <message>
         <location line="+182"/>
@@ -2642,14 +2242,6 @@
         <translation>请先导入一副 Cube 赛制套牌，再创建此房间。</translation>
     </message>
     <message>
-        <source>Eight players draft three 15-card packs, passing left, right, then left. This Cube contains %1 cards.</source>
-        <translation type="vanished">8 名玩家各轮抓 3 包、每包 15 张，并按左、右、左传包。此 Cube 包含 %1 张牌。</translation>
-    </message>
-    <message>
-        <source>A Cube draft starts with at least two checked-in players. Each player drafts three 15-card packs, passing left, right, then left. A full %1-player lobby needs %2 cards; this Cube contains %3.</source>
-        <translation type="vanished">Cube 轮抓至少有 2 名已签到玩家即可开始。每人轮抓 3 包、每包 15 张，并按左、右、左传包。满员 %1 人需要 %2 张牌；当前 Cube 有 %3 张。</translation>
-    </message>
-    <message>
         <location line="+21"/>
         <source>Playtest uses one private seat with no opponent or spectators. Commander-free 1v1 and Duel Commander start at 20 life; commander formats include a command zone.</source>
         <translation>单人测试只有一个私有座位，没有对手或观战者。无指挥官的 1v1 赛制与法禁从 20 点生命开始；指挥官赛制均包含指挥官区。</translation>
@@ -2660,17 +2252,9 @@
         <translation>允许观战</translation>
     </message>
     <message>
-        <source>Up to eight people can watch public information.</source>
-        <translation type="vanished">最多八人可观看公开信息。</translation>
-    </message>
-    <message>
         <location line="+39"/>
         <source>Spectators can see hands</source>
         <translation>观战者可见手牌</translation>
-    </message>
-    <message>
-        <source>All spectators can continuously inspect every player&apos;s hand. Players still cannot see each other&apos;s hands.</source>
-        <translation type="vanished">所有观战者都可以持续查看每位玩家的手牌；玩家之间仍不可互看手牌。</translation>
     </message>
     <message>
         <location line="+35"/>
@@ -2745,10 +2329,6 @@
         <translation>请选择 2 至 8 人的 Cube 人数上限</translation>
     </message>
     <message>
-        <source>Choose a Commander Cube player cap from 2 to 4</source>
-        <translation type="vanished">请选择 2～4 人的指挥官 Cube 人数上限</translation>
-    </message>
-    <message>
         <location line="+5"/>
         <source>A %1-player Cube draft needs at least %2 cards</source>
         <translation>%1 人 Cube 轮抓至少需要 %2 张牌</translation>
@@ -2764,17 +2344,9 @@
         <translation>此服务器不支持 Forge 规则</translation>
     </message>
     <message>
-        <source>Import and select a Cube</source>
-        <translation type="vanished">请导入并选择一个 Cube</translation>
-    </message>
-    <message>
         <location line="-19"/>
         <source>Every Cube card needs an exact printing</source>
         <translation>Cube 中的每张牌都需要精确印刷版本</translation>
-    </message>
-    <message>
-        <source>An eight-player Cube draft needs at least 360 cards</source>
-        <translation type="vanished">八人 Cube 轮抓至少需要 360 张牌</translation>
     </message>
     <message>
         <location line="-572"/>
@@ -2792,19 +2364,10 @@
         <translation>准备本地 Forge</translation>
     </message>
     <message>
-        <source>This server can relay player-hosted games.</source>
-        <translation type="vanished">此服务器支持中转玩家托管的对局。</translation>
-    </message>
-    <message>
         <location line="+24"/>
         <location line="+534"/>
         <source>Player hosting is unavailable on this server.</source>
         <translation>此服务器暂不支持玩家托管。</translation>
-    </message>
-    <message>
-        <location line="-1"/>
-        <source>Player hosting supports two-player formats, including Duel Commander.</source>
-        <translation type="vanished">玩家托管支持双人赛制，包括法禁。</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -2843,18 +2406,6 @@
         <translation>当前托管方式不支持 Forge AI。</translation>
     </message>
     <message>
-        <source>OPPONENT · Local/online models are experimental</source>
-        <translation type="vanished">对手 · 本地与在线模型为实验性功能</translation>
-    </message>
-    <message>
-        <source>One game against Forge AI. Choose both decks in the waiting room. Hard uses Forge&apos;s default strategy; lower levels simplify tactics.</source>
-        <translation type="vanished">与 Forge AI 进行单局对战。在等候室分别选择双方套牌。困难档使用 Forge 默认策略，较低档位会简化战术。</translation>
-    </message>
-    <message>
-        <source>Choose both decks in the waiting room. Model strength is uncalibrated; connection and thinking limits are configured in Settings.</source>
-        <translation type="vanished">在等候室中选择双方套牌。模型强度尚未校准；连接与思考限额可在设置中配置。</translation>
-    </message>
-    <message>
         <location line="-415"/>
         <source>Configure model connection</source>
         <translation>配置模型连接</translation>
@@ -2889,105 +2440,6 @@
         <location line="+45"/>
         <source>Starting this game sends the AI&apos;s permitted game view, including its hand, to your configured online provider.</source>
         <translation>开始对局后，AI 可见的对局信息（包括其手牌）将发送到你配置的在线服务商。</translation>
-    </message>
-</context>
-<context>
-    <name>CubeLibrary</name>
-    <message>
-        <source>Cube library</source>
-        <translation type="vanished">Cube 库</translation>
-    </message>
-    <message>
-        <source>Save exact physical Cube cards for private random-pool rooms</source>
-        <translation type="vanished">保存精确的 Cube 实体牌，用于私人随机牌池房间</translation>
-    </message>
-    <message>
-        <source>Save exact physical Cube cards for eight-player draft rooms</source>
-        <translation type="vanished">保存精确的 Cube 实体牌，用于八人轮抓房间</translation>
-    </message>
-    <message>
-        <source>YOUR CUBES</source>
-        <translation type="vanished">你的 CUBE</translation>
-    </message>
-    <message>
-        <source>%1 cards</source>
-        <translation type="vanished">%1 张牌</translation>
-    </message>
-    <message>
-        <source>Remove</source>
-        <translation type="vanished">移除</translation>
-    </message>
-    <message>
-        <source>Cube name</source>
-        <translation type="vanished">Cube 名称</translation>
-    </message>
-    <message>
-        <source>Paste exact Cube printings, for example:
-1 Lightning Bolt (2XM) 117
-1 Counterspell (MH2) 267</source>
-        <translation type="vanished">粘贴精确的 Cube 印刷版本，例如：
-1 Lightning Bolt (2XM) 117
-1 Counterspell (MH2) 267</translation>
-    </message>
-    <message>
-        <source>Import Cube</source>
-        <translation type="vanished">导入 Cube</translation>
-    </message>
-    <message>
-        <source>Select a Cube</source>
-        <translation type="vanished">选择一个 Cube</translation>
-    </message>
-    <message>
-        <source>%1 physical cards · drafted without replacement</source>
-        <translation type="vanished">%1 张实体牌 · 不放回轮抓</translation>
-    </message>
-    <message>
-        <source>An eight-player Cube draft needs at least 360 physical cards.</source>
-        <translation type="vanished">八人 Cube 轮抓至少需要 360 张实体牌。</translation>
-    </message>
-    <message>
-        <source>%1 physical cards · dealt without replacement</source>
-        <translation type="vanished">%1 张实体牌 · 不放回分发</translation>
-    </message>
-    <message>
-        <source>Cube cards and quantities appear here.</source>
-        <translation type="vanished">Cube 卡牌和数量会显示在这里。</translation>
-    </message>
-    <message>
-        <source>This legacy Cube contains cards without exact printings. Export, correct, and re-import it before creating a room.</source>
-        <translation type="vanished">这个旧版 Cube 含有没有精确印刷版本的卡牌。请先导出、修正并重新导入，再创建房间。</translation>
-    </message>
-    <message>
-        <source>CREATE CUBE ROOM</source>
-        <translation type="vanished">创建 CUBE 房间</translation>
-    </message>
-    <message>
-        <source>Room name</source>
-        <translation type="vanished">房间名称</translation>
-    </message>
-    <message>
-        <source>Cards per player</source>
-        <translation type="vanished">每名玩家牌数</translation>
-    </message>
-    <message>
-        <source>Players</source>
-        <translation type="vanished">玩家</translation>
-    </message>
-    <message>
-        <source>BO 1</source>
-        <translation type="vanished">BO 1</translation>
-    </message>
-    <message>
-        <source>BO 3</source>
-        <translation type="vanished">BO 3</translation>
-    </message>
-    <message>
-        <source>Maximum %1 players at this pool size</source>
-        <translation type="vanished">当前牌池大小最多支持 %1 名玩家</translation>
-    </message>
-    <message>
-        <source>Create Cube room</source>
-        <translation type="vanished">创建 Cube 房间</translation>
     </message>
 </context>
 <context>
@@ -3049,10 +2501,6 @@
         <translation>轮抓：每人 3 包，每包 15 张，每次抓 1 张。每包交替传递方向。</translation>
     </message>
     <message>
-        <source>Draft: 3 packs of 20 cards per player. Choose 2 cards together each pick. Passing direction alternates each pack.</source>
-        <translation type="vanished">轮抓：每人 3 包，每包 20 张，每次一起抓 2 张。每包交替传递方向。</translation>
-    </message>
-    <message>
         <location line="+10"/>
         <source>During building, you may sit out while keeping your seat, pool and deck. At least 2 participating players must submit before free play begins. You can return later; once free play has started, submit a deck before rejoining.</source>
         <translation>组牌阶段可退出本次对战，保留座位、牌池和套牌。至少 2 位继续参与的玩家全部提交套牌后，进入自由对战。之后可以恢复参与；自由对战已开始时，需先提交套牌再恢复。</translation>
@@ -3067,10 +2515,6 @@
         <location filename="../qml/screens/CubeRoom.qml" line="-2"/>
         <source>Enable auto-draft for %1?</source>
         <translation>为 %1 开启托管？</translation>
-    </message>
-    <message>
-        <source>All participating players enter one 2–4-player EDH room (BO 1) after submitting their decks. Ready up in that room to start. There are no scheduled rounds or standings.</source>
-        <translation type="vanished">所有参战玩家提交套牌后，自动进入同一个 2～4 人 EDH 房间（BO 1），在房间内准备后开赛。不安排轮次或排名。</translation>
     </message>
     <message>
         <location filename="../qml/components/CubeRoomRules.qml" line="+3"/>
@@ -4132,45 +3576,9 @@
         <translation>添加套牌衍生物与徽记</translation>
     </message>
     <message>
-        <source>Manage tokens and emblems</source>
-        <translation type="vanished">管理衍生物与徽记</translation>
-    </message>
-    <message>
-        <source>None saved</source>
-        <translation type="vanished">尚未保存</translation>
-    </message>
-    <message>
-        <source>Tokens and emblems</source>
-        <translation type="vanished">衍生物与徽记</translation>
-    </message>
-    <message>
         <location line="-334"/>
         <source>Deck editor</source>
         <translation>套牌编辑器</translation>
-    </message>
-    <message>
-        <source>Changes save automatically</source>
-        <translation type="vanished">修改会自动保存</translation>
-    </message>
-    <message>
-        <source>Main deck</source>
-        <translation type="vanished">主牌</translation>
-    </message>
-    <message>
-        <source>Cube pool</source>
-        <translation type="vanished">Cube 牌池</translation>
-    </message>
-    <message numerus="yes">
-        <source>%n physical card(s) · Exact printings required</source>
-        <translation type="vanished">
-            <numerusform>%n 张实体牌 · 需要精确印刷版本</numerusform>
-        </translation>
-    </message>
-    <message numerus="yes">
-        <source>%n cards · Drag a card here from the sideboard</source>
-        <translation type="vanished">
-            <numerusform>%n 张牌 · 从备牌区拖到此处</numerusform>
-        </translation>
     </message>
     <message>
         <location line="+167"/>
@@ -4178,53 +3586,9 @@
         <translation>在套牌内搜索…</translation>
     </message>
     <message>
-        <source>Deck name</source>
-        <translation type="vanished">套牌名称</translation>
-    </message>
-    <message>
-        <source>No cards match this deck search.</source>
-        <translation type="vanished">套牌中没有匹配的卡牌。</translation>
-    </message>
-    <message>
-        <source>Add cards from search or drag them back from the sideboard.</source>
-        <translation type="vanished">从搜索结果添加卡牌，或从备牌区拖回主牌。</translation>
-    </message>
-    <message>
-        <source>Card search</source>
-        <translation type="vanished">卡牌搜索</translation>
-    </message>
-    <message>
-        <source>Database needed</source>
-        <translation type="vanished">需要数据库</translation>
-    </message>
-    <message>
-        <source>Offline catalog</source>
-        <translation type="vanished">离线数据库</translation>
-    </message>
-    <message>
-        <source>Update needed</source>
-        <translation type="vanished">需要更新</translation>
-    </message>
-    <message>
-        <source>Search card names…</source>
-        <translation type="vanished">搜索卡牌名称…</translation>
-    </message>
-    <message>
-        <source>Download a metadata package to search every card while offline.</source>
-        <translation type="vanished">下载元数据包，即可离线搜索全部卡牌。</translation>
-    </message>
-    <message>
         <location line="-75"/>
         <source>Database settings</source>
         <translation>数据库设置</translation>
-    </message>
-    <message>
-        <source>Deck tokens</source>
-        <translation type="vanished">套牌衍生物</translation>
-    </message>
-    <message>
-        <source>Shown first when creating a token in game</source>
-        <translation type="vanished">游戏中创建衍生物时优先显示</translation>
     </message>
     <message>
         <location line="+243"/>
@@ -4232,37 +3596,9 @@
         <translation>添加</translation>
     </message>
     <message>
-        <source>Remove %1</source>
-        <translation type="vanished">移除 %1</translation>
-    </message>
-    <message>
-        <source>Add the tokens this deck commonly creates.</source>
-        <translation type="vanished">添加这副套牌常用的衍生物。</translation>
-    </message>
-    <message>
-        <source>Install the card database to choose deck tokens.</source>
-        <translation type="vanished">安装卡牌数据库后即可选择套牌衍生物。</translation>
-    </message>
-    <message>
-        <source>Add deck token</source>
-        <translation type="vanished">添加套牌衍生物</translation>
-    </message>
-    <message>
-        <source>%1 saved</source>
-        <translation type="vanished">已保存 %1 个</translation>
-    </message>
-    <message>
         <location line="-270"/>
         <source>Consider (%1)</source>
         <translation>备选（%1）</translation>
-    </message>
-    <message>
-        <source>No saved tokens</source>
-        <translation type="vanished">暂无预设衍生物</translation>
-    </message>
-    <message>
-        <source>Manage deck tokens</source>
-        <translation type="vanished">管理套牌衍生物</translation>
     </message>
     <message numerus="yes">
         <location line="+381"/>
@@ -4299,10 +3635,6 @@
         <translation>指挥官身份将被清除。这些卡牌仍会保留在主牌中，不会删除任何卡牌。</translation>
     </message>
     <message>
-        <source>and %1 more</source>
-        <translation type="vanished">以及另外 %1 个</translation>
-    </message>
-    <message>
         <location line="-253"/>
         <source>Sideboard</source>
         <translation>备牌</translation>
@@ -4320,25 +3652,9 @@
         <translation>暂无备牌</translation>
     </message>
     <message>
-        <source>Commander</source>
-        <translation type="vanished">指挥官</translation>
-    </message>
-    <message>
-        <source>No commander selected</source>
-        <translation type="vanished">尚未选择指挥官</translation>
-    </message>
-    <message>
-        <source>Choose up to two commanders using the stars beside main-deck cards.</source>
-        <translation type="vanished">点击主牌卡牌旁的星标，最多指定两位指挥官。</translation>
-    </message>
-    <message>
         <location line="+254"/>
         <source>Export</source>
         <translation>导出</translation>
-    </message>
-    <message>
-        <source>Cache art</source>
-        <translation type="vanished">缓存卡图</translation>
     </message>
     <message>
         <location line="-17"/>
@@ -4433,29 +3749,9 @@
         <translation>双击套牌即可编辑</translation>
     </message>
     <message>
-        <source>All</source>
-        <translation type="vanished">全部</translation>
-    </message>
-    <message>
-        <source>Generic 1v1</source>
-        <translation type="vanished">通用 1v1</translation>
-    </message>
-    <message>
-        <source>Duel Commander</source>
-        <translation type="vanished">法禁</translation>
-    </message>
-    <message>
-        <source>Commander</source>
-        <translation type="vanished">指挥官</translation>
-    </message>
-    <message>
         <location line="-66"/>
         <source>All formats</source>
         <translation>全部赛制</translation>
-    </message>
-    <message>
-        <source>Cubes</source>
-        <translation type="vanished">Cube</translation>
     </message>
     <message>
         <location line="+85"/>
@@ -4526,10 +3822,6 @@
         <location line="-99"/>
         <source>Export</source>
         <translation>导出</translation>
-    </message>
-    <message>
-        <source>Cache art</source>
-        <translation type="vanished">缓存卡图</translation>
     </message>
     <message>
         <location line="+113"/>
@@ -4610,10 +3902,6 @@
         <location line="+12"/>
         <source>Sort: %1</source>
         <translation>排序：%1</translation>
-    </message>
-    <message>
-        <source>%1 categories · %2 cards</source>
-        <translation type="vanished">%1 个类别 · %2 张牌</translation>
     </message>
     <message>
         <location line="+88"/>
@@ -4748,21 +4036,9 @@
         <translation>已保存的衍生物与徽记会优先显示在对局内的选择器中。点击卡图查看规则。</translation>
     </message>
     <message>
-        <source>Manage deck tokens</source>
-        <translation type="vanished">管理套牌衍生物</translation>
-    </message>
-    <message>
-        <source>Saved tokens appear first in the in-game token picker.</source>
-        <translation type="vanished">已保存的衍生物会优先显示在游戏内衍生物选择器中。</translation>
-    </message>
-    <message>
         <location line="+4"/>
         <source>%1 saved</source>
         <translation>已保存 %1 个</translation>
-    </message>
-    <message>
-        <source>Add token</source>
-        <translation type="vanished">添加衍生物</translation>
     </message>
     <message>
         <location line="+17"/>
@@ -4773,18 +4049,6 @@
         <location line="+89"/>
         <source>Remove %1</source>
         <translation>移除 %1</translation>
-    </message>
-    <message>
-        <source>No deck tokens saved</source>
-        <translation type="vanished">尚未预设套牌衍生物</translation>
-    </message>
-    <message>
-        <source>Add the tokens this deck commonly creates.</source>
-        <translation type="vanished">添加这副套牌常用的衍生物。</translation>
-    </message>
-    <message>
-        <source>Install the card database to choose deck tokens.</source>
-        <translation type="vanished">安装卡牌数据库后即可选择套牌衍生物。</translation>
     </message>
 </context>
 <context>
@@ -4871,18 +4135,9 @@
         <translation>%1 · 徽记</translation>
     </message>
     <message>
-        <source>Close</source>
-        <translation type="vanished">关闭</translation>
-    </message>
-    <message>
         <location line="+1"/>
         <source>Command zone · Emblems are not battlefield permanents.</source>
         <translation>指挥官区 · 徽记不是战场上的永久物。</translation>
-    </message>
-    <message>
-        <location line="+86"/>
-        <source>No emblems</source>
-        <translation type="vanished">暂无徽记</translation>
     </message>
     <message>
         <location line="-87"/>
@@ -4946,17 +4201,9 @@
         <translation>起动异能</translation>
     </message>
     <message>
-        <source>Exiled: %1</source>
-        <translation type="vanished">已放逐：%1</translation>
-    </message>
-    <message>
         <location line="+145"/>
         <source>%1 dmg</source>
         <translation>%1 点伤害</translation>
-    </message>
-    <message>
-        <source>Attached</source>
-        <translation type="vanished">已贴附</translation>
     </message>
     <message>
         <location line="-151"/>
@@ -5101,62 +4348,6 @@
         <translation>对手正在决定</translation>
     </message>
     <message>
-        <location line="-64"/>
-        <source>Untap</source>
-        <translation type="vanished">重置</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Upkeep</source>
-        <translation type="vanished">维持</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Draw</source>
-        <translation type="vanished">抽牌</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <location line="+6"/>
-        <source>Main</source>
-        <translation type="vanished">主阶段</translation>
-    </message>
-    <message>
-        <location line="-5"/>
-        <source>Combat</source>
-        <translation type="vanished">战斗</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Attack</source>
-        <translation type="vanished">攻击</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Block</source>
-        <translation type="vanished">阻挡</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Damage</source>
-        <translation type="vanished">伤害</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Combat end</source>
-        <translation type="vanished">战斗结束</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>End</source>
-        <translation type="vanished">结束</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Cleanup</source>
-        <translation type="vanished">清除</translation>
-    </message>
-    <message>
         <location line="-550"/>
         <source>%1&apos;s turn</source>
         <translation>%1 的回合</translation>
@@ -5165,10 +4356,6 @@
         <location line="+999"/>
         <source>Close</source>
         <translation>关闭</translation>
-    </message>
-    <message>
-        <source>Creatures</source>
-        <translation type="vanished">生物</translation>
     </message>
     <message>
         <location line="-749"/>
@@ -5191,34 +4378,14 @@
         <translation>牌库 · %1</translation>
     </message>
     <message>
-        <source>Hide log / chat</source>
-        <translation type="vanished">隐藏日志 / 聊天</translation>
-    </message>
-    <message>
         <location line="-37"/>
         <source>Life %1</source>
         <translation>生命 %1</translation>
     </message>
     <message>
-        <source>Opponent&apos;s creatures</source>
-        <translation type="vanished">对手的生物</translation>
-    </message>
-    <message>
-        <source>Opponent&apos;s lands</source>
-        <translation type="vanished">对手的地</translation>
-    </message>
-    <message>
         <location line="+584"/>
         <source>Opponent&apos;s zones</source>
         <translation>对手的区域</translation>
-    </message>
-    <message>
-        <source>Other permanents</source>
-        <translation type="vanished">其他永久物</translation>
-    </message>
-    <message>
-        <source>Show log / chat</source>
-        <translation type="vanished">显示日志 / 聊天</translation>
     </message>
     <message>
         <location line="+263"/>
@@ -5231,22 +4398,6 @@
         <translation>查看手牌</translation>
     </message>
     <message>
-        <source>Waiting for another player</source>
-        <translation type="vanished">等待另一位玩家</translation>
-    </message>
-    <message>
-        <source>Waiting for the first rules snapshot…</source>
-        <translation type="vanished">等待首个规则状态…</translation>
-    </message>
-    <message>
-        <source>Your creatures</source>
-        <translation type="vanished">你的生物</translation>
-    </message>
-    <message>
-        <source>Your lands</source>
-        <translation type="vanished">你的地</translation>
-    </message>
-    <message>
         <location line="+35"/>
         <source>Casts %1 · Tax +%2 · %3</source>
         <translation>施放 %1 次 · 附加税 +%2 · %3</translation>
@@ -5257,35 +4408,14 @@
         <translation>隐藏区域</translation>
     </message>
     <message>
-        <location line="+69"/>
-        <source>Tax is additional to the spell&apos;s cost; Forge calculates payment.</source>
-        <translation type="vanished">指挥官税会加在咒语费用上；最终支付费用由 Forge 计算。</translation>
-    </message>
-    <message>
         <location line="+622"/>
         <source>Waiting for the host to reconnect… The game is paused.</source>
         <translation>正在等待房主重新连接… 对局已暂停。</translation>
     </message>
     <message>
-        <source>Player-hosted game</source>
-        <translation type="vanished">玩家托管对局</translation>
-    </message>
-    <message>
-        <source>Hosting</source>
-        <translation type="vanished">托管</translation>
-    </message>
-    <message>
         <location line="-1"/>
         <source>Verifying host transfer… The game is paused.</source>
         <translation>正在验证宿主迁移… 对局已暂停。</translation>
-    </message>
-    <message>
-        <source>Player hosted · direct connection</source>
-        <translation type="vanished">玩家托管 · 直连</translation>
-    </message>
-    <message>
-        <source>Player hosted · server relay</source>
-        <translation type="vanished">玩家托管 · 服务器中转</translation>
     </message>
     <message>
         <location line="-1003"/>
@@ -5298,19 +4428,9 @@
         <translation>对手</translation>
     </message>
     <message>
-        <location line="+370"/>
-        <source>Hidden</source>
-        <translation type="vanished">隐藏</translation>
-    </message>
-    <message>
         <location line="+478"/>
         <source>%1 · %2</source>
         <translation>%1 · %2</translation>
-    </message>
-    <message>
-        <location line="-480"/>
-        <source>+%1 · %2</source>
-        <translation type="vanished">+%1 · %2</translation>
     </message>
     <message>
         <location line="-223"/>
@@ -5624,17 +4744,9 @@
         <translation>服务器中转</translation>
     </message>
     <message>
-        <source>Both players must agree to share network addresses and use a STUN service.</source>
-        <translation type="vanished">双方需同意共享网络地址，并使用 STUN 服务。</translation>
-    </message>
-    <message>
         <location line="+31"/>
         <source>Use relay only</source>
         <translation>仅使用中转</translation>
-    </message>
-    <message>
-        <source>Agree to P2P</source>
-        <translation type="vanished">同意直连</translation>
     </message>
     <message>
         <location line="+19"/>
@@ -5962,21 +5074,9 @@
         <translation>Forge 优先权</translation>
     </message>
     <message>
-        <source>Smart priority passes routine priority windows automatically. Full control waits for you at every priority window.</source>
-        <translation type="vanished">智能优先权会自动让过常规优先权时点；完全控制会在每个优先权时点等待你的操作。</translation>
-    </message>
-    <message>
-        <source>Pause at the selected phases on your turns or other players&apos; turns. Changes here and at the table are saved for future games.</source>
-        <translation type="vanished">在自己或其他玩家回合的指定阶段停下。此处与牌桌内的修改会同步保存，后续对局继续沿用。</translation>
-    </message>
-    <message>
         <location line="+29"/>
         <source>Prefer direct connection (P2P)</source>
         <translation>优先使用 P2P 直连</translation>
-    </message>
-    <message>
-        <source>Enabled by default for supported player-hosted games with two human players. If direct connection fails, the game uses server relay. Direct connections share network addresses with the other player and use a STUN service.</source>
-        <translation type="vanished">在支持直连的双真人玩家托管对局中默认启用。连接失败时自动使用服务器中转。直连会向对方共享网络地址，并使用 STUN 服务。</translation>
     </message>
 </context>
 <context>
@@ -6272,10 +5372,6 @@
         <translation>指挥官</translation>
     </message>
     <message>
-        <source>Generic 1v1</source>
-        <translation type="vanished">通用 1v1</translation>
-    </message>
-    <message>
         <location line="-16"/>
         <location line="+55"/>
         <source>Standard</source>
@@ -6549,10 +5645,6 @@
         <translation>备牌最多只能有 15 张。</translation>
     </message>
     <message>
-        <source>The Cube needs at least 360 physical cards for an eight-player draft.</source>
-        <translation type="vanished">用于八人轮抓的 Cube 至少需要 360 张实体牌。</translation>
-    </message>
-    <message>
         <location line="+2"/>
         <source>Cube cards must stay in the main pool.</source>
         <translation>Cube 卡牌必须全部放在主牌池中。</translation>
@@ -6816,10 +5908,6 @@
         <translation>%1 离开了对局并被淘汰。</translation>
     </message>
     <message>
-        <source>%1 is searching their library.</source>
-        <translation type="vanished">%1 正在搜寻牌库。</translation>
-    </message>
-    <message>
         <location line="+38"/>
         <source>%1 attached a permanent.</source>
         <translation>%1 附着了一个永久物。</translation>
@@ -6838,10 +5926,6 @@
         <location line="+6"/>
         <source>%1 revealed %2 card(s) from hand.</source>
         <translation>%1 从手牌展示了 %2 张牌。</translation>
-    </message>
-    <message>
-        <source>%1 searched their library and put %2 %3.</source>
-        <translation type="vanished">%1 搜寻了牌库，并将%2%3。</translation>
     </message>
     <message>
         <location line="+239"/>
@@ -6872,10 +5956,6 @@
         <location line="+5"/>
         <source>%1 renamed counter %2 to %3.</source>
         <translation>%1 将 %2 重命名为 %3。</translation>
-    </message>
-    <message>
-        <source>%1 cast %2 from the command zone; commander tax is now %3.</source>
-        <translation type="vanished">%1 从指挥官区施放了 %2；其指挥官税现在为 %3。</translation>
     </message>
     <message>
         <location line="+100"/>
@@ -6921,30 +6001,6 @@
         <location line="+2"/>
         <source>could not write the image cache</source>
         <translation>无法写入卡图缓存</translation>
-    </message>
-    <message>
-        <source>into hand</source>
-        <translation type="vanished">置入手牌</translation>
-    </message>
-    <message>
-        <source>onto battlefield</source>
-        <translation type="vanished">置于战场</translation>
-    </message>
-    <message>
-        <source>on top of their library</source>
-        <translation type="vanished">置于牌库顶</translation>
-    </message>
-    <message>
-        <source>on bottom of their library</source>
-        <translation type="vanished">置于牌库底</translation>
-    </message>
-    <message>
-        <source>into graveyard</source>
-        <translation type="vanished">置入墓地</translation>
-    </message>
-    <message>
-        <source>into exile</source>
-        <translation type="vanished">置入放逐区</translation>
     </message>
     <message>
         <location line="+9"/>
@@ -7110,11 +6166,6 @@
         <location line="+3"/>
         <source>Forge rules are unavailable on this server</source>
         <translation>此服务器不支持 Forge 规则</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>The Forge decision is stale or no longer available</source>
-        <translation type="vanished">该 Forge 决策已过期或不再可用</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -7707,10 +6758,6 @@
         <translation>支持 Moxfield 与常见纯文本套牌表</translation>
     </message>
     <message>
-        <source>Build from a pasted list</source>
-        <translation type="vanished">从粘贴的牌表创建</translation>
-    </message>
-    <message>
         <location line="+55"/>
         <source>Import the list first. Choose printings in the editor, then cache art when the versions look right.</source>
         <translation>先导入牌表。在编辑器中选好印刷版本后，再缓存卡图。</translation>
@@ -7731,18 +6778,6 @@
         <translation>赛制</translation>
     </message>
     <message>
-        <source>Generic 1v1</source>
-        <translation type="vanished">通用 1v1</translation>
-    </message>
-    <message>
-        <source>Duel Commander</source>
-        <translation type="vanished">法禁</translation>
-    </message>
-    <message>
-        <source>Commander</source>
-        <translation type="vanished">指挥官</translation>
-    </message>
-    <message>
         <location line="+27"/>
         <source>DECK LIST</source>
         <translation>套牌表</translation>
@@ -7756,10 +6791,6 @@
         <location line="+8"/>
         <source>Choose file…</source>
         <translation>选择文件…</translation>
-    </message>
-    <message>
-        <source>Cube uses every imported card as one pool. Exact set and collector numbers are required before creating an eight-player draft.</source>
-        <translation type="vanished">Cube 会把所有导入的卡牌组成一个牌池。创建八人轮抓前，每张牌都必须指定系列和收藏编号。</translation>
     </message>
     <message>
         <location line="+78"/>
@@ -7836,10 +6867,6 @@
         <source>Enter a deck name</source>
         <translation>请输入套牌名称</translation>
     </message>
-    <message>
-        <source>Paste a deck list</source>
-        <translation type="vanished">请粘贴套牌表</translation>
-    </message>
 </context>
 <context>
     <name>JoinRoom</name>
@@ -7857,10 +6884,6 @@
         <location line="+37"/>
         <source>Find your table</source>
         <translation>找到你的牌桌</translation>
-    </message>
-    <message>
-        <source>Join by code or select a room from this hub. No account required.</source>
-        <translation type="vanished">输入房间码，或从当前服务器选择房间；无需账号。</translation>
     </message>
     <message>
         <location line="+18"/>
@@ -7961,10 +6984,6 @@
         <translation>记录地牌使用</translation>
     </message>
     <message>
-        <source>Close</source>
-        <translation type="vanished">关闭</translation>
-    </message>
-    <message>
         <location line="+59"/>
         <source>Recorded this turn: %1</source>
         <translation>本回合已记录：%1</translation>
@@ -8016,10 +7035,6 @@
         <location line="-38"/>
         <source>Choose the language used by menus, buttons, and game screens.</source>
         <translation>选择菜单、按钮与游戏界面使用的语言。</translation>
-    </message>
-    <message>
-        <source>English</source>
-        <translation type="vanished">English</translation>
     </message>
     <message>
         <location line="+47"/>
@@ -8101,10 +7116,6 @@
         <location line="+20"/>
         <source>When the requested printing is not cached, reuse a cached printing of the same card and language instead of downloading another image.</source>
         <translation>请求的印刷版本未缓存时，优先复用本地同一张牌、同一语言的其他版本卡图，不再重复下载。</translation>
-    </message>
-    <message>
-        <source>简体中文</source>
-        <translation type="vanished">简体中文</translation>
     </message>
 </context>
 <context>
@@ -8201,14 +7212,6 @@
         <translation>搜寻牌库</translation>
     </message>
     <message>
-        <source>Select cards to move to hand, battlefield, or the bottom of the library, then choose how the remaining cards return.</source>
-        <translation type="vanished">选择要置入手牌、战场或牌库底的卡牌，然后决定剩余卡牌如何放回牌库。</translation>
-    </message>
-    <message>
-        <source>Choose a destination for every viewed card. Use the arrows to set the relative order of cards returning to the same end of the library.</source>
-        <translation type="vanished">为每张查看到的牌选择目的区域。使用箭头调整放回同一牌库端的牌之间的相对顺序。</translation>
-    </message>
-    <message>
         <location line="+19"/>
         <source>Only you can see this card. Right-click it to move it.</source>
         <translation>只有你能看到这张牌。右键可将其移动到其他区域。</translation>
@@ -8255,17 +7258,9 @@
         <translation>选择一张牌</translation>
     </message>
     <message>
-        <source>Move selected cards to</source>
-        <translation type="vanished">将已选卡牌移至</translation>
-    </message>
-    <message>
         <location line="+33"/>
         <source>Face-down battlefield placement</source>
         <translation>牌面朝下置入战场</translation>
-    </message>
-    <message>
-        <source>Put onto battlefield face down</source>
-        <translation type="vanished">牌面朝下置入战场</translation>
     </message>
     <message>
         <location line="+14"/>
@@ -8273,17 +7268,9 @@
         <translation>将这张牌牌面朝下置入战场</translation>
     </message>
     <message>
-        <source>Return remaining cards to</source>
-        <translation type="vanished">将剩余卡牌放回</translation>
-    </message>
-    <message>
         <location line="-93"/>
         <source>Library order</source>
         <translation>牌库顺序</translation>
-    </message>
-    <message>
-        <source>Randomize remaining cards</source>
-        <translation type="vanished">随机排列剩余卡牌</translation>
     </message>
     <message>
         <location line="+9"/>
@@ -8565,30 +7552,14 @@
 <context>
     <name>LimitedHub</name>
     <message>
-        <source>Limited play</source>
-        <translation type="vanished">限制赛玩法</translation>
-    </message>
-    <message>
-        <source>Open packs locally, manage Cubes, or prepare an online limited event</source>
-        <translation type="vanished">在本地开包、管理 Cube，或准备线上限制赛</translation>
-    </message>
-    <message>
         <location filename="../qml/screens/LimitedHub.qml" line="+30"/>
         <source>Pack simulator</source>
         <translation>模拟开包</translation>
     </message>
     <message>
-        <source>Cube library</source>
-        <translation type="vanished">Cube 库</translation>
-    </message>
-    <message>
         <location line="+1"/>
         <source>Open installed set products locally without changing a deck or event</source>
         <translation>在本地开启已安装的系列产品，不会修改套牌或赛事</translation>
-    </message>
-    <message>
-        <source>Create limited room</source>
-        <translation type="vanished">创建限制赛房间</translation>
     </message>
     <message>
         <location line="+42"/>
@@ -8631,46 +7602,6 @@
         <translation>本地开包不会创建收藏或修改套牌。在线系列限制赛使用由服务端负责的实体牌实例。</translation>
     </message>
     <message>
-        <source>YOUR CUBES</source>
-        <translation type="vanished">你的 CUBE</translation>
-    </message>
-    <message>
-        <source>%1 cards</source>
-        <translation type="vanished">%1 张牌</translation>
-    </message>
-    <message>
-        <source>Open Cube packs</source>
-        <translation type="vanished">开 Cube 包</translation>
-    </message>
-    <message>
-        <source>Remove</source>
-        <translation type="vanished">移除</translation>
-    </message>
-    <message>
-        <source>Cube name</source>
-        <translation type="vanished">Cube 名称</translation>
-    </message>
-    <message>
-        <source>Cards per pack</source>
-        <translation type="vanished">每包牌数</translation>
-    </message>
-    <message>
-        <source>Paste one card list, for example:
-1 Lightning Bolt (2XM) 117
-1 Counterspell (MH2) 267</source>
-        <translation type="vanished">粘贴一份牌表，例如：
-1 Lightning Bolt (2XM) 117
-1 Counterspell (MH2) 267</translation>
-    </message>
-    <message>
-        <source>Import Cube</source>
-        <translation type="vanished">导入 Cube</translation>
-    </message>
-    <message>
-        <source>Local pack opening does not create a collection or modify a deck. Online sealed and draft use server-authoritative physical card instances.</source>
-        <translation type="vanished">本地开包不会创建收藏或修改套牌。线上现开和轮抓使用由服务器管理的实体卡牌实例。</translation>
-    </message>
-    <message>
         <location line="+21"/>
         <source>Opened cards appear here.</source>
         <translation>开出的卡牌会显示在这里。</translation>
@@ -8683,109 +7614,6 @@
     <message>
         <source>Draft practice</source>
         <translation>模拟轮抓</translation>
-    </message>
-</context>
-<context>
-    <name>LimitedRoomCreate</name>
-    <message>
-        <source>Set sealed</source>
-        <translation type="vanished">系列现开</translation>
-    </message>
-    <message>
-        <source>Set draft</source>
-        <translation type="vanished">系列轮抓</translation>
-    </message>
-    <message>
-        <source>Create limited room</source>
-        <translation type="vanished">创建限制赛房间</translation>
-    </message>
-    <message>
-        <source>Open pools, build 40-card decks, then play private casual tables</source>
-        <translation type="vanished">开启牌池、组建 40 张套牌，然后在休闲私人牌桌对局</translation>
-    </message>
-    <message>
-        <source>Pack simulator</source>
-        <translation type="vanished">模拟开包</translation>
-    </message>
-    <message>
-        <source>Cube library</source>
-        <translation type="vanished">Cube 库</translation>
-    </message>
-    <message>
-        <source>ROOM NAME</source>
-        <translation type="vanished">房间名称</translation>
-    </message>
-    <message>
-        <source>Friday limited room</source>
-        <translation type="vanished">周五限制赛房间</translation>
-    </message>
-    <message>
-        <source>Create Limited tournament</source>
-        <translation type="vanished">创建限制赛比赛</translation>
-    </message>
-    <message>
-        <source>Open pools, build 40-card decks, then play ranked Swiss rounds</source>
-        <translation type="vanished">开启牌池、构筑 40 张套牌，然后进行瑞士轮比赛并查看排名</translation>
-    </message>
-    <message>
-        <source>Open pools, build 40-card decks, then play Swiss rounds with standings</source>
-        <translation type="vanished">开启牌池、构筑 40 张套牌，然后进行瑞士轮比赛并查看排名</translation>
-    </message>
-    <message>
-        <source>EVENT NAME</source>
-        <translation type="vanished">比赛名称</translation>
-    </message>
-    <message>
-        <source>Friday Limited tournament</source>
-        <translation type="vanished">周五限制赛</translation>
-    </message>
-    <message>
-        <source>LIMITED MODE</source>
-        <translation type="vanished">限制赛模式</translation>
-    </message>
-    <message>
-        <source>LIMITED SET</source>
-        <translation type="vanished">限制赛系列</translation>
-    </message>
-    <message>
-        <source>Uses the installed %1 booster definition.</source>
-        <translation type="vanished">使用已安装的 %1 补充包定义。</translation>
-    </message>
-    <message>
-        <source>Approximate rarity collation; every player will see this warning.</source>
-        <translation type="vanished">按稀有度近似配牌；每名玩家都会看到此警告。</translation>
-    </message>
-    <message>
-        <source>MATCH</source>
-        <translation type="vanished">对局</translation>
-    </message>
-    <message>
-        <source>BO 1</source>
-        <translation type="vanished">BO 1</translation>
-    </message>
-    <message>
-        <source>BO 3</source>
-        <translation type="vanished">BO 3</translation>
-    </message>
-    <message>
-        <source>PLAYER CAP</source>
-        <translation type="vanished">人数上限</translation>
-    </message>
-    <message>
-        <source>Two or more checked-in players draft three packs, then play Swiss rounds with standings. Capacity is two to eight seats.</source>
-        <translation type="vanished">至少 2 名已签到玩家即可轮抓 3 包，然后进行瑞士轮比赛并查看排名。人数上限为 2 至 8 人。</translation>
-    </message>
-    <message>
-        <source>Players receive six boosters, build decks, then play the recommended number of Swiss rounds. Two checked-in players are required to start.</source>
-        <translation type="vanished">参赛者获得 6 包补充包并完成组牌，然后按推荐轮数进行瑞士轮比赛。至少 2 名已签到玩家即可开始。</translation>
-    </message>
-    <message>
-        <source>The room starts with exactly eight checked-in players and runs a three-pack left/right/left draft.</source>
-        <translation type="vanished">房间必须恰好有 8 名已签到玩家才能开始，并进行每人 3 包、左/右/左传包的轮抓。</translation>
-    </message>
-    <message>
-        <source>Every checked-in player receives exactly six boosters and proceeds directly to deck building.</source>
-        <translation type="vanished">每名已签到玩家固定获得 6 包补充包，然后直接进入组牌阶段。</translation>
     </message>
 </context>
 <context>
@@ -8872,10 +7700,6 @@
         <translation>服务器 %1</translation>
     </message>
     <message>
-        <source>Test server</source>
-        <translation type="vanished">测试服务器</translation>
-    </message>
-    <message>
         <location line="-3"/>
         <source>Custom server</source>
         <translation>自定义服务器</translation>
@@ -8898,26 +7722,14 @@ your way.</source>
 畅玩万智牌。</translation>
     </message>
     <message>
-        <source>Sit at a player-judged table, or let Forge resolve the match. Constructed, Sealed, Draft, and Cube.</source>
-        <translation type="vanished">可以开手动牌桌，也可以用 Forge 结算对局。支持构筑、现开、轮抓和 Cube。</translation>
-    </message>
-    <message>
         <location line="+23"/>
         <source>Manual</source>
         <translation>手动</translation>
     </message>
     <message>
-        <source>Player-judged table</source>
-        <translation type="vanished">玩家自行裁定</translation>
-    </message>
-    <message>
         <location line="+12"/>
         <source>Forge</source>
         <translation>Forge</translation>
-    </message>
-    <message>
-        <source>Rules-enforced 1v1</source>
-        <translation type="vanished">规则引擎 1v1</translation>
     </message>
     <message>
         <location line="+11"/>
@@ -8930,17 +7742,9 @@ your way.</source>
         <translation>现开 · 轮抓 · Cube</translation>
     </message>
     <message>
-        <source>Start a room</source>
-        <translation type="vanished">开始一桌</translation>
-    </message>
-    <message>
         <location line="+31"/>
         <source>Start playing</source>
         <translation>开始游戏</translation>
-    </message>
-    <message>
-        <source>Connected as %1. Choose how you want to play.</source>
-        <translation type="vanished">已以 %1 的身份连接。请选择游戏方式。</translation>
     </message>
     <message>
         <location line="+12"/>
@@ -9023,10 +7827,6 @@ your way.</source>
         <translation>套牌库</translation>
     </message>
     <message>
-        <source>Limited play</source>
-        <translation type="vanished">限制赛玩法</translation>
-    </message>
-    <message>
         <location line="+42"/>
         <source>Sponsors &amp; thanks</source>
         <translation>赞助与鸣谢</translation>
@@ -9042,10 +7842,6 @@ your way.</source>
         <translation>退出 Hexproof</translation>
     </message>
     <message>
-        <source>No accounts · Manual or Forge</source>
-        <translation type="vanished">无需账号 · 手动或 Forge</translation>
-    </message>
-    <message>
         <location line="+38"/>
         <source>Connect to a server first</source>
         <translation>请先连接服务器</translation>
@@ -9054,10 +7850,6 @@ your way.</source>
         <location line="+2"/>
         <source>Leave the current room first</source>
         <translation>请先离开当前房间</translation>
-    </message>
-    <message>
-        <source>Tournaments</source>
-        <translation type="vanished">比赛</translation>
     </message>
     <message>
         <location line="-85"/>
@@ -9120,10 +7912,6 @@ your way.</source>
         <location line="+1"/>
         <source>Your card assets are ready. The table opens when every player finishes loading.</source>
         <translation>你的卡牌资源已准备完成；所有玩家加载完毕后将自动进入牌桌。</translation>
-    </message>
-    <message>
-        <source>Downloading missing card information and art for this match.</source>
-        <translation type="vanished">正在下载本场对局缺少的卡牌信息与卡图。</translation>
     </message>
     <message>
         <location line="+25"/>
@@ -9446,10 +8234,6 @@ your way.</source>
         <translation>揭示第 %1 张牌</translation>
     </message>
     <message>
-        <source>Reveal next card</source>
-        <translation type="vanished">揭示下一张牌</translation>
-    </message>
-    <message>
         <location line="+16"/>
         <source>This pack is fully revealed.</source>
         <translation>本包已全部揭示。</translation>
@@ -9498,10 +8282,6 @@ your way.</source>
         <translation>首次点击选中 · 选中后左键 +1 · 右键 -1</translation>
     </message>
     <message>
-        <source>I rename · S set</source>
-        <translation type="vanished">I 重命名 · S 设置</translation>
-    </message>
-    <message>
         <location line="-132"/>
         <source>Counter</source>
         <translation>计数器</translation>
@@ -9515,10 +8295,6 @@ your way.</source>
         <location line="+1"/>
         <source>Press Enter to select this counter.</source>
         <translation>按 Enter 选中此指示物。</translation>
-    </message>
-    <message>
-        <source>Click to select · selected: left +1 · right -1 · I rename · S set</source>
-        <translation type="vanished">首次点击选中 · 选中后左键 +1 · 右键 -1 · 按 I 重命名 · 按 S 设置数值</translation>
     </message>
 </context>
 <context>
@@ -9537,16 +8313,6 @@ your way.</source>
         <location line="-1"/>
         <source>%1 · Choose a version to preview its card image before using it.</source>
         <translation>%1 · 选择版本并预览卡图，确认后再应用。</translation>
-    </message>
-    <message>
-        <location line="+90"/>
-        <source>Could not load this card image.</source>
-        <translation type="vanished">无法加载这张卡图。</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>No card image is available for this version.</source>
-        <translation type="vanished">这个版本暂无可用卡图。</translation>
     </message>
     <message>
         <location line="+27"/>
@@ -9568,10 +8334,6 @@ your way.</source>
         <location line="+111"/>
         <source>Previewing</source>
         <translation>正在预览</translation>
-    </message>
-    <message>
-        <source>Close</source>
-        <translation type="vanished">关闭</translation>
     </message>
 </context>
 <context>
@@ -9785,10 +8547,6 @@ your way.</source>
         <translation>手牌可见</translation>
     </message>
     <message>
-        <source>Forge rules</source>
-        <translation type="vanished">Forge 规则</translation>
-    </message>
-    <message>
         <location line="+35"/>
         <source>Players</source>
         <translation>玩家</translation>
@@ -9864,10 +8622,6 @@ your way.</source>
 <context>
     <name>RulesActionBar</name>
     <message>
-        <source>Smart priority enabled</source>
-        <translation type="vanished">智能优先权已开启</translation>
-    </message>
-    <message>
         <location filename="../qml/components/RulesActionBar.qml" line="+86"/>
         <source>Cancel passing</source>
         <translation>取消让过</translation>
@@ -9881,10 +8635,6 @@ your way.</source>
         <location line="-88"/>
         <source>Disconnected</source>
         <translation>连接已断开</translation>
-    </message>
-    <message>
-        <source>Full control</source>
-        <translation type="vanished">完全控制</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -9961,31 +8711,6 @@ your way.</source>
 <context>
     <name>RulesBattlefieldView</name>
     <message>
-        <location filename="../qml/components/RulesBattlefieldView.qml" line="+318"/>
-        <source>View hand</source>
-        <translation>查看手牌</translation>
-    </message>
-    <message>
-        <location line="-51"/>
-        <source>Life %1</source>
-        <translation>生命 %1</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>H</source>
-        <translation>手</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>D</source>
-        <translation>库</translation>
-    </message>
-    <message>
-        <location line="+56"/>
-        <source>Your turn</source>
-        <translation>你的回合</translation>
-    </message>
-    <message>
         <location line="+1"/>
         <source>Current turn</source>
         <translation>当前回合</translation>
@@ -9994,36 +8719,6 @@ your way.</source>
         <location line="+8"/>
         <source>Priority</source>
         <translation>优先权</translation>
-    </message>
-    <message>
-        <location line="+76"/>
-        <source>Drag a legal card from your hand here</source>
-        <translation>将可使用的手牌拖到这里</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>No permanents on the battlefield</source>
-        <translation>战场上没有永久物</translation>
-    </message>
-    <message>
-        <location line="-106"/>
-        <source>Auto arrange</source>
-        <translation>自动排列</translation>
-    </message>
-    <message>
-        <location line="+150"/>
-        <source>Creatures</source>
-        <translation>生物</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Lands</source>
-        <translation>地</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Other permanents</source>
-        <translation>其他永久物</translation>
     </message>
 </context>
 <context>
@@ -10097,11 +8792,6 @@ your way.</source>
         <translation>是否使用%1的开局异能？</translation>
     </message>
     <message>
-        <location line="+22"/>
-        <source>You may reveal it from your opening hand, or leave it there.</source>
-        <translation type="vanished">可以从开局手牌展示它，也可以留在手里。</translation>
-    </message>
-    <message>
         <location line="+71"/>
         <source>Use it</source>
         <translation>使用</translation>
@@ -10117,86 +8807,7 @@ your way.</source>
     </message>
 </context>
 <context>
-    <name>RulesCardDetailsPopup</name>
-    <message>
-        <source>Controller: Seat %1</source>
-        <translation type="vanished">操控者：座位 %1</translation>
-    </message>
-    <message>
-        <source>Owner: Seat %1</source>
-        <translation type="vanished">拥有者：座位 %1</translation>
-    </message>
-    <message>
-        <source>Power / toughness: %1 / %2</source>
-        <translation type="vanished">力量 / 防御力：%1 / %2</translation>
-    </message>
-    <message>
-        <source>Damage marked: %1</source>
-        <translation type="vanished">已标记伤害：%1</translation>
-    </message>
-    <message>
-        <source>Counters: %1</source>
-        <translation type="vanished">指示物：%1</translation>
-    </message>
-    <message>
-        <source>None</source>
-        <translation type="vanished">无</translation>
-    </message>
-    <message>
-        <source>Tapped</source>
-        <translation type="vanished">已横置</translation>
-    </message>
-    <message>
-        <source>Untapped</source>
-        <translation type="vanished">未横置</translation>
-    </message>
-    <message>
-        <source>Attacking</source>
-        <translation type="vanished">正在攻击</translation>
-    </message>
-    <message>
-        <source>another object</source>
-        <translation type="vanished">另一个物件</translation>
-    </message>
-    <message>
-        <source>Attached to %1</source>
-        <translation type="vanished">附着于 %1</translation>
-    </message>
-    <message>
-        <source>Stack ability</source>
-        <translation type="vanished">堆叠异能</translation>
-    </message>
-    <message>
-        <source>Face-down card</source>
-        <translation type="vanished">牌面朝下的牌</translation>
-    </message>
-    <message>
-        <source>Close</source>
-        <translation type="vanished">关闭</translation>
-    </message>
-    <message>
-        <source>Printed card image</source>
-        <translation type="vanished">印刷牌面</translation>
-    </message>
-    <message>
-        <source>Current game state</source>
-        <translation type="vanished">当前对局状态</translation>
-    </message>
-</context>
-<context>
     <name>RulesCardInspector</name>
-    <message>
-        <source>Exiled with this card: %1</source>
-        <translation type="vanished">由此牌放逐：%1</translation>
-    </message>
-    <message>
-        <source>%1 hidden card(s)</source>
-        <translation type="vanished">%1 张隐藏牌</translation>
-    </message>
-    <message>
-        <source>Attached to %1</source>
-        <translation type="vanished">附着于 %1</translation>
-    </message>
     <message>
         <location filename="../qml/components/RulesCardInspector.qml" line="+129"/>
         <source>Attacking</source>
@@ -10278,10 +8889,6 @@ your way.</source>
         <source>Untapped</source>
         <translation>未横置</translation>
     </message>
-    <message>
-        <source>another object</source>
-        <translation type="vanished">另一个物件</translation>
-    </message>
 </context>
 <context>
     <name>RulesCardNamePrompt</name>
@@ -10322,14 +8929,6 @@ your way.</source>
         <location line="+1"/>
         <source>Attacked</source>
         <translation>被攻击</translation>
-    </message>
-    <message>
-        <source>Attached</source>
-        <translation type="vanished">已结附</translation>
-    </message>
-    <message>
-        <source>Attachments: %1</source>
-        <translation type="vanished">结附：%1</translation>
     </message>
     <message>
         <location line="+12"/>
@@ -10511,35 +9110,6 @@ your way.</source>
     </message>
 </context>
 <context>
-    <name>RulesCardSurface</name>
-    <message>
-        <location filename="../qml/components/RulesCardSurface.qml" line="+95"/>
-        <source>Hidden card</source>
-        <translation>隐藏卡牌</translation>
-    </message>
-    <message>
-        <location line="-56"/>
-        <source>Face-down card</source>
-        <translation>牌面朝下的牌</translation>
-    </message>
-    <message>
-        <location line="+120"/>
-        <source>%1 dmg</source>
-        <translation>伤害 %1</translation>
-    </message>
-    <message>
-        <location line="+21"/>
-        <location line="+76"/>
-        <source>Attached</source>
-        <translation>已附着</translation>
-    </message>
-    <message>
-        <location line="-2"/>
-        <source>Damage marked: %1</source>
-        <translation>已标记伤害：%1</translation>
-    </message>
-</context>
-<context>
     <name>RulesCombatAssignmentPrompt</name>
     <message>
         <location filename="../qml/components/RulesCombatAssignmentPrompt.qml" line="+373"/>
@@ -10609,14 +9179,6 @@ your way.</source>
         <translation>不阻挡</translation>
     </message>
     <message>
-        <source>Must attack</source>
-        <translation type="vanished">必须攻击</translation>
-    </message>
-    <message>
-        <source>Required</source>
-        <translation type="vanished">必须分配</translation>
-    </message>
-    <message>
         <location line="-353"/>
         <source>%1 · must be blocked if able</source>
         <translation>%1 · 若能则必须被阻挡</translation>
@@ -10660,10 +9222,6 @@ your way.</source>
         <location line="+3"/>
         <source>Resolve invalid combat assignments</source>
         <translation>请修正无效的战斗分配</translation>
-    </message>
-    <message>
-        <source>Complete all required combat assignments</source>
-        <translation type="vanished">请完成所有必需的战斗分配</translation>
     </message>
     <message>
         <location filename="../qml/components/RulesCombatAssignmentPrompt.qml" line="443"/>
@@ -10767,29 +9325,6 @@ your way.</source>
     </message>
 </context>
 <context>
-    <name>RulesHandArea</name>
-    <message>
-        <location filename="../qml/components/RulesHandArea.qml" line="+62"/>
-        <source>%1 — hand (read only)</source>
-        <translation>%1 — 手牌（只读）</translation>
-    </message>
-    <message>
-        <location line="-13"/>
-        <source>Hands are hidden from spectators in this room</source>
-        <translation>本房间对观战者隐藏手牌</translation>
-    </message>
-    <message>
-        <location line="+28"/>
-        <source>Hand is empty</source>
-        <translation>手牌为空</translation>
-    </message>
-    <message>
-        <location line="+206"/>
-        <source>Your zones</source>
-        <translation>你的区域</translation>
-    </message>
-</context>
-<context>
     <name>RulesMatchControls</name>
     <message>
         <location filename="../qml/components/RulesMatchControls.qml" line="+168"/>
@@ -10864,14 +9399,6 @@ your way.</source>
     <message>
         <source>Choose a number of at least %1</source>
         <translation>请选择不小于 %1 的数字</translation>
-    </message>
-</context>
-<context>
-    <name>RulesOpponentZoneDock</name>
-    <message>
-        <location filename="../qml/components/RulesOpponentZoneDock.qml" line="+183"/>
-        <source>Command</source>
-        <translation>指挥官区</translation>
     </message>
 </context>
 <context>
@@ -11142,29 +9669,6 @@ your way.</source>
     </message>
 </context>
 <context>
-    <name>RulesStackRail</name>
-    <message>
-        <location filename="../qml/components/RulesStackRail.qml" line="+87"/>
-        <source>Face-down spell</source>
-        <translation>牌面朝下的咒语</translation>
-    </message>
-    <message>
-        <location line="-54"/>
-        <source>Stack</source>
-        <translation>堆叠</translation>
-    </message>
-    <message>
-        <location line="+23"/>
-        <source>The stack is empty</source>
-        <translation>堆叠为空</translation>
-    </message>
-    <message>
-        <location line="+65"/>
-        <source>Seat %1</source>
-        <translation>座位 %1</translation>
-    </message>
-</context>
-<context>
     <name>RulesStartFailureNotice</name>
     <message>
         <location filename="../qml/components/RulesStartFailureNotice.qml" line="+47"/>
@@ -11191,25 +9695,6 @@ your way.</source>
         <location line="+42"/>
         <source>Close</source>
         <translation>关闭</translation>
-    </message>
-</context>
-<context>
-    <name>RulesStateRail</name>
-    <message>
-        <source>Game state</source>
-        <translation type="vanished">游戏状态</translation>
-    </message>
-    <message>
-        <source>Life %1</source>
-        <translation type="vanished">生命 %1</translation>
-    </message>
-    <message>
-        <source>Zones</source>
-        <translation type="vanished">区域</translation>
-    </message>
-    <message>
-        <source>Seat %1 · %2</source>
-        <translation type="vanished">座位 %1 · %2</translation>
     </message>
 </context>
 <context>
@@ -11359,14 +9844,6 @@ your way.</source>
         <translation>Forge 将通过掷骰决定本局先手玩家。</translation>
     </message>
     <message>
-        <source>Choose how to play %1</source>
-        <translation type="vanished">选择如何使用 %1</translation>
-    </message>
-    <message>
-        <source>Choose how to play this card</source>
-        <translation type="vanished">选择如何使用这张牌</translation>
-    </message>
-    <message>
         <location line="+104"/>
         <source>Concede this Forge game?</source>
         <translation>要投降这局 Forge 对局吗？</translation>
@@ -11382,73 +9859,9 @@ your way.</source>
         <translation>投降</translation>
     </message>
     <message>
-        <source>Forge rules game</source>
-        <translation type="vanished">Forge 规则对局</translation>
-    </message>
-    <message>
-        <source>Turn %1 · %2</source>
-        <translation type="vanished">第 %1 回合 · %2</translation>
-    </message>
-    <message>
         <location filename="../qml/components/RulesLegacyLayout.qml" line="+1"/>
         <source>Waiting for the first rules snapshot…</source>
         <translation>正在等待第一份规则快照…</translation>
-    </message>
-    <message>
-        <source>Active · Seat %1</source>
-        <translation type="vanished">当前回合 · 座位 %1</translation>
-    </message>
-    <message>
-        <source>Priority · Seat %1</source>
-        <translation type="vanished">优先权 · 座位 %1</translation>
-    </message>
-    <message>
-        <source>Leave room</source>
-        <translation type="vanished">离开房间</translation>
-    </message>
-    <message>
-        <source>Seat %1</source>
-        <translation type="vanished">座位 %1</translation>
-    </message>
-    <message>
-        <source>Life %1</source>
-        <translation type="vanished">生命 %1</translation>
-    </message>
-    <message>
-        <source>No permanents on the battlefield</source>
-        <translation type="vanished">战场上没有永久物</translation>
-    </message>
-    <message>
-        <source>Face-down card</source>
-        <translation type="vanished">牌面朝下的牌</translation>
-    </message>
-    <message>
-        <source>No visible cards outside the battlefield</source>
-        <translation type="vanished">战场外没有可见卡牌</translation>
-    </message>
-    <message>
-        <source>Hidden card</source>
-        <translation type="vanished">隐藏卡牌</translation>
-    </message>
-    <message>
-        <source>Zones</source>
-        <translation type="vanished">区域</translation>
-    </message>
-    <message>
-        <source>Seat %1 · %2</source>
-        <translation type="vanished">座位 %1 · %2</translation>
-    </message>
-    <message>
-        <source>Stack</source>
-        <translation type="vanished">堆叠</translation>
-    </message>
-    <message>
-        <source>The stack is empty</source>
-        <translation type="vanished">堆叠为空</translation>
-    </message>
-    <message>
-        <source>Read-only Forge projection · Legal-action prompts are coming in the next integration slice.</source>
-        <translation type="vanished">Forge 只读投影 · 合法动作提示将在下一阶段接入。</translation>
     </message>
     <message>
         <location filename="../qml/screens/RulesTable.qml" line="-217"/>
@@ -11485,34 +9898,6 @@ your way.</source>
         <location filename="../qml/screens/RulesTable.qml" line="+1"/>
         <source>Cancel</source>
         <translation>取消</translation>
-    </message>
-    <message>
-        <source>Seat %1 wins the Forge game</source>
-        <translation type="vanished">座位 %1 赢得 Forge 对局</translation>
-    </message>
-    <message>
-        <source>The Forge game ended in a draw</source>
-        <translation type="vanished">Forge 对局以平局结束</translation>
-    </message>
-    <message>
-        <source>Waiting for Forge or another player…</source>
-        <translation type="vanished">正在等待 Forge 或其他玩家…</translation>
-    </message>
-    <message>
-        <source>This Forge decision is not supported by this Hexproof build: %1</source>
-        <translation type="vanished">当前 Hexproof 版本暂不支持此 Forge 决策：%1</translation>
-    </message>
-    <message>
-        <source>Return to room</source>
-        <translation type="vanished">返回房间</translation>
-    </message>
-    <message>
-        <source>Put on library bottom</source>
-        <translation type="vanished">放到牌库底</translation>
-    </message>
-    <message>
-        <source>Confirm cards</source>
-        <translation type="vanished">确认卡牌</translation>
     </message>
 </context>
 <context>
@@ -11588,33 +9973,9 @@ your way.</source>
         <translation>优先权 · 座位 %1</translation>
     </message>
     <message>
-        <source>Forge controls phases and legal actions</source>
-        <translation type="vanished">Forge 控制阶段与合法动作</translation>
-    </message>
-    <message>
         <location line="-145"/>
         <source>Background</source>
         <translation>背景</translation>
-    </message>
-    <message>
-        <source>Others</source>
-        <translation type="vanished">其他</translation>
-    </message>
-    <message>
-        <source>Stop at %1 on other players&apos; turns</source>
-        <translation type="vanished">在其他玩家回合的 %1 停下</translation>
-    </message>
-    <message>
-        <source>Stop at %1 on your turns</source>
-        <translation type="vanished">在自己回合的 %1 停下</translation>
-    </message>
-    <message>
-        <source>Stops</source>
-        <translation type="vanished">停点</translation>
-    </message>
-    <message>
-        <source>You</source>
-        <translation type="vanished">自己</translation>
     </message>
     <message>
         <location line="-8"/>
@@ -11635,14 +9996,6 @@ your way.</source>
         <location line="-11"/>
         <source>Priority</source>
         <translation>优先权</translation>
-    </message>
-    <message>
-        <source>Full control</source>
-        <translation type="vanished">完全控制</translation>
-    </message>
-    <message>
-        <source>Smart priority stays on unless Full control or a phase stop is set.</source>
-        <translation type="vanished">除非开启完全控制或设置阶段停顿，否则保持智能优先权。</translation>
     </message>
     <message>
         <location line="+76"/>
@@ -11692,11 +10045,6 @@ your way.</source>
         <location line="+1"/>
         <source>Spell on stack</source>
         <translation>堆叠上的咒语</translation>
-    </message>
-    <message>
-        <location line="+1"/>
-        <source>Permanent</source>
-        <translation type="vanished">永久物</translation>
     </message>
     <message>
         <location line="+190"/>
@@ -12396,102 +10744,6 @@ your way.</source>
         <translation>设置</translation>
     </message>
     <message>
-        <source>Language and local card data</source>
-        <translation type="vanished">语言与本地卡牌数据</translation>
-    </message>
-    <message>
-        <source>Interface language</source>
-        <translation type="vanished">界面语言</translation>
-    </message>
-    <message>
-        <source>Choose the language used by menus, buttons, and game screens.</source>
-        <translation type="vanished">选择菜单、按钮与游戏界面使用的语言。</translation>
-    </message>
-    <message>
-        <source>English</source>
-        <translation type="vanished">English</translation>
-    </message>
-    <message>
-        <source>简体中文</source>
-        <translation type="vanished">简体中文</translation>
-    </message>
-    <message>
-        <source>Card language and art</source>
-        <translation type="vanished">卡牌语言与卡图</translation>
-    </message>
-    <message>
-        <source>Choose card names, metadata, and preferred card art independently from the interface.</source>
-        <translation type="vanished">单独选择卡牌名称、元数据与首选卡图语言，不受界面语言影响。</translation>
-    </message>
-    <message>
-        <source>English cards</source>
-        <translation type="vanished">英文卡牌</translation>
-    </message>
-    <message>
-        <source>Chinese cards</source>
-        <translation type="vanished">中文卡牌</translation>
-    </message>
-    <message>
-        <source>Preferred card art source</source>
-        <translation type="vanished">卡图首选下载源</translation>
-    </message>
-    <message>
-        <source>Scryfall (default)</source>
-        <translation type="vanished">Scryfall（默认）</translation>
-    </message>
-    <message>
-        <source>MTGCH</source>
-        <translation type="vanished">MTGCH</translation>
-    </message>
-    <message>
-        <source>The preferred source is tried first for uncached art. Missing or unavailable images automatically fall back to the other source.</source>
-        <translation type="vanished">尚未缓存的卡图会优先从所选来源下载；缺图或连接失败时会自动尝试另一个来源。</translation>
-    </message>
-    <message>
-        <source>Prefer existing local art for the same card</source>
-        <translation type="vanished">优先复用本地已有的同卡卡图</translation>
-    </message>
-    <message>
-        <source>When the requested printing is not cached, reuse a cached printing of the same card and language instead of downloading another image.</source>
-        <translation type="vanished">请求的印刷版本未缓存时，优先复用本地同一张牌、同一语言的其他版本卡图，不再重复下载。</translation>
-    </message>
-    <message>
-        <source>Chinese card data prefers Scryfall Chinese art, then MTGCH, then English art.</source>
-        <translation type="vanished">中文卡牌数据优先使用 Scryfall 中文卡图，其次使用 MTGCH，最后回退到英文卡图。</translation>
-    </message>
-    <message>
-        <source>English card metadata and art use Scryfall first, with MTGCH as a network fallback.</source>
-        <translation type="vanished">英文卡牌元数据与图片优先使用 Scryfall，网络不可用时回退到 MTGCH。</translation>
-    </message>
-    <message>
-        <source>Interface scale</source>
-        <translation type="vanished">界面缩放</translation>
-    </message>
-    <message>
-        <source>Adjust text, controls, spacing, and dialogs together while preserving automatic window scaling.</source>
-        <translation type="vanished">在保留窗口自动适配的同时，统一调整文字、控件、间距和弹窗大小。</translation>
-    </message>
-    <message>
-        <source>Reset to 100%</source>
-        <translation type="vanished">恢复到 100%</translation>
-    </message>
-    <message>
-        <source>The scale applies immediately to every theme-aware UI component.</source>
-        <translation type="vanished">缩放会立即应用到所有遵循主题规范的界面组件。</translation>
-    </message>
-    <message>
-        <source>Motion effects</source>
-        <translation type="vanished">动画效果</translation>
-    </message>
-    <message>
-        <source>Animate simulated pack openings</source>
-        <translation type="vanished">模拟开包时播放动画</translation>
-    </message>
-    <message>
-        <source>Turn this off to show simulated pack contents immediately. Every opening animation can also be skipped while it is playing.</source>
-        <translation type="vanished">关闭后将直接显示模拟开包结果；播放动画时也可以随时跳过。</translation>
-    </message>
-    <message>
         <location line="+74"/>
         <source>Keyboard shortcuts</source>
         <translation>键盘快捷键</translation>
@@ -12500,34 +10752,6 @@ your way.</source>
         <location line="+1"/>
         <source>Reassign, disable, or restore application and table actions.</source>
         <translation>重新分配、禁用或恢复应用和牌桌操作。</translation>
-    </message>
-    <message>
-        <source>Customize…</source>
-        <translation type="vanished">自定义…</translation>
-    </message>
-    <message>
-        <source>Searchable card database</source>
-        <translation type="vanished">可搜索卡牌数据库</translation>
-    </message>
-    <message>
-        <source>%1 installed locally</source>
-        <translation type="vanished">%1 已安装在本机</translation>
-    </message>
-    <message>
-        <source>No full metadata package installed</source>
-        <translation type="vanished">尚未安装完整元数据包</translation>
-    </message>
-    <message>
-        <source>Download the card database?</source>
-        <translation type="vanished">下载卡牌数据库？</translation>
-    </message>
-    <message>
-        <source>Hexproof will download and verify the latest prebuilt database. It will not build a database from upstream sources on this device.</source>
-        <translation type="vanished">Hexproof 将下载并校验最新的预构建数据库，不会在此设备上通过上游数据源构建数据库。</translation>
-    </message>
-    <message>
-        <source>Unknown</source>
-        <translation type="vanished">未知</translation>
     </message>
     <message>
         <location line="+37"/>
@@ -12555,25 +10779,9 @@ your way.</source>
         <translation>最新版本未知</translation>
     </message>
     <message>
-        <source>Optional download</source>
-        <translation type="vanished">可选下载</translation>
-    </message>
-    <message>
-        <source>Installed</source>
-        <translation type="vanished">已安装</translation>
-    </message>
-    <message>
         <location line="-5"/>
         <source>Update needed</source>
         <translation>需要更新</translation>
-    </message>
-    <message>
-        <source>The database enables full offline search in the deck editor. Images are still downloaded only when a card is used.</source>
-        <translation type="vanished">安装后可在套牌编辑器中完整离线搜索；卡图仍只会在实际使用时下载。</translation>
-    </message>
-    <message>
-        <source>Language, appearance, updates, and local card data</source>
-        <translation type="vanished">语言、外观、更新与本地卡牌数据</translation>
     </message>
     <message>
         <location line="-102"/>
@@ -12636,57 +10844,9 @@ your way.</source>
         <translation>外观</translation>
     </message>
     <message>
-        <source>Choose Classic or Glass controls and panels. Battlefield backgrounds are selected separately.</source>
-        <translation type="vanished">选择经典或玻璃风格的控件和面板，战场背景可单独设置。</translation>
-    </message>
-    <message>
-        <source>Classic</source>
-        <translation type="vanished">经典</translation>
-    </message>
-    <message>
-        <source>Glass</source>
-        <translation type="vanished">玻璃</translation>
-    </message>
-    <message>
-        <source>Automatic (default)</source>
-        <translation type="vanished">自动（默认）</translation>
-    </message>
-    <message>
-        <source>Scryfall</source>
-        <translation type="vanished">Scryfall</translation>
-    </message>
-    <message>
-        <source>Local art remains first. Automatic mode prefers MTGCH for Chinese cards and Scryfall for English cards, with automatic fallback.</source>
-        <translation type="vanished">始终优先使用本地卡图。自动模式下，中文卡牌优先 MTGCH，英文卡牌优先 Scryfall，并在需要时自动回退。</translation>
-    </message>
-    <message>
-        <source>Parallel</source>
-        <translation type="vanished">双源并行</translation>
-    </message>
-    <message>
-        <source>Use both sources to speed up large card downloads, such as EDH games.</source>
-        <translation type="vanished">同时使用两个来源，加快 EDH 对局等场景下的大批量卡图下载。</translation>
-    </message>
-    <message>
-        <source>Local art remains first. Scryfall and MTGCH download different cards in parallel, with Chinese art preferred for Chinese cards and automatic fallback.</source>
-        <translation type="vanished">始终优先使用本地卡图。Scryfall 与 MTGCH 并行下载不同卡牌，中文模式优先中文卡图，并在需要时自动回退。</translation>
-    </message>
-    <message>
-        <source>Local art remains first. MTGCH is preferred for new downloads; Scryfall remains the automatic fallback.</source>
-        <translation type="vanished">本地卡图始终优先；新下载优先使用 MTGCH，并自动回退到 Scryfall。</translation>
-    </message>
-    <message>
-        <source>Local art remains first. Scryfall is preferred for new downloads; MTGCH remains the automatic fallback.</source>
-        <translation type="vanished">本地卡图始终优先；新下载优先使用 Scryfall，并自动回退到 MTGCH。</translation>
-    </message>
-    <message>
         <location line="+50"/>
         <source>Card art storage</source>
         <translation>卡图存储</translation>
-    </message>
-    <message>
-        <source>View disk usage, remove cached images, or import and export shareable card art packs.</source>
-        <translation type="vanished">查看磁盘占用、删除缓存图片，或导入和导出可分享的卡图包。</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -12694,109 +10854,9 @@ your way.</source>
         <translation>建议修复</translation>
     </message>
     <message>
-        <source>Manage…</source>
-        <translation type="vanished">管理…</translation>
-    </message>
-    <message>
-        <source>Installed version</source>
-        <translation type="vanished">已安装版本</translation>
-    </message>
-    <message>
-        <source>%1 · schema %2</source>
-        <translation type="vanished">%1 · 结构版本 %2</translation>
-    </message>
-    <message>
         <location line="+49"/>
         <source>Not installed</source>
         <translation>未安装</translation>
-    </message>
-    <message>
-        <source>Latest version</source>
-        <translation type="vanished">最新版本</translation>
-    </message>
-    <message>
-        <source>Checking…</source>
-        <translation type="vanished">正在检查…</translation>
-    </message>
-    <message>
-        <source>Unavailable</source>
-        <translation type="vanished">不可用</translation>
-    </message>
-    <message>
-        <source>Check updates</source>
-        <translation type="vanished">检查更新</translation>
-    </message>
-    <message>
-        <source>Default Cards</source>
-        <translation type="vanished">Default Cards</translation>
-    </message>
-    <message>
-        <source>All printings and collector detail · ~80 MiB compressed + Chinese names</source>
-        <translation type="vanished">包含全部印刷版本与收藏编号 · 压缩包约 80 MiB，另含中文牌名</translation>
-    </message>
-    <message>
-        <source>Update Default</source>
-        <translation type="vanished">更新 Default</translation>
-    </message>
-    <message>
-        <source>Download Default</source>
-        <translation type="vanished">下载 Default</translation>
-    </message>
-    <message>
-        <source>Update now</source>
-        <translation type="vanished">立即更新</translation>
-    </message>
-    <message>
-        <source>Reinstall Default</source>
-        <translation type="vanished">重新安装 Default</translation>
-    </message>
-    <message>
-        <source>Import…</source>
-        <translation type="vanished">导入…</translation>
-    </message>
-    <message>
-        <source>Metadata: Scryfall · Chinese names: MTGCH (CC BY-SA 4.0) · Stored only on this device</source>
-        <translation type="vanished">元数据：Scryfall · 中文牌名：MTGCH（CC BY-SA 4.0）· 仅存储在本机</translation>
-    </message>
-    <message>
-        <source>Download Default Cards?</source>
-        <translation type="vanished">下载 Default Cards？</translation>
-    </message>
-    <message>
-        <source>This downloads roughly 80 MiB of compressed card metadata plus the current MTGCH Chinese name index (roughly 75 MiB).</source>
-        <translation type="vanished">将下载约 80 MiB 的压缩卡牌元数据，以及当前约 75 MiB 的 MTGCH 中文牌名索引。</translation>
-    </message>
-    <message>
-        <source>Download</source>
-        <translation type="vanished">下载</translation>
-    </message>
-    <message>
-        <source>Import card database</source>
-        <translation type="vanished">导入卡牌数据库</translation>
-    </message>
-    <message>
-        <source>Card database files</source>
-        <translation type="vanished">卡牌数据库文件</translation>
-    </message>
-    <message>
-        <source>All files</source>
-        <translation type="vanished">所有文件</translation>
-    </message>
-    <message>
-        <source>Legacy card database</source>
-        <translation type="vanished">旧版卡牌数据库</translation>
-    </message>
-    <message>
-        <source>Decrease interface scale</source>
-        <translation type="vanished">缩小界面缩放</translation>
-    </message>
-    <message>
-        <source>Increase interface scale</source>
-        <translation type="vanished">放大界面缩放</translation>
-    </message>
-    <message>
-        <source>Local Forge: download, import and diagnostics</source>
-        <translation type="vanished">本机 Forge：下载、导入与诊断</translation>
     </message>
     <message>
         <location line="-12"/>
@@ -13055,10 +11115,6 @@ your way.</source>
         <location line="+1"/>
         <source>Arrange own battlefield</source>
         <translation>整理自己的战场</translation>
-    </message>
-    <message>
-        <source>Create token</source>
-        <translation type="vanished">创建衍生物</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -13456,10 +11512,6 @@ your way.</source>
         <translation>为下一局选择一至两名指挥官；已登记的套牌内容保持不变。</translation>
     </message>
     <message>
-        <source>Every card is laid out at once; drag cards between tables.</source>
-        <translation type="vanished">所有卡牌一次铺开；直接在两块牌桌间拖动。</translation>
-    </message>
-    <message>
         <location line="+10"/>
         <source>Use the star on a mainboard card, then confirm Ready.</source>
         <translation>点击主牌卡图上的星标选择指挥官，然后确认准备。</translation>
@@ -13500,14 +11552,6 @@ your way.</source>
         <location filename="../qml/components/SideboardPanel.qml" line="+27"/>
         <source>Sideboard</source>
         <translation>备牌</translation>
-    </message>
-    <message>
-        <source>Registered deck locked</source>
-        <translation type="vanished">已锁定登记套牌</translation>
-    </message>
-    <message>
-        <source>Duel Commander has no sideboard. Confirm Ready when you are prepared for the next game.</source>
-        <translation type="vanished">法禁没有备牌。准备好下一局后请确认准备。</translation>
     </message>
     <message>
         <location filename="../qml/components/SideboardPanel.qml" line="+32"/>
@@ -13791,10 +11835,6 @@ your way.</source>
 <context>
     <name>SponsorCatalog</name>
     <message>
-        <source>TCG enthusiast and organizer, Magic: The Gathering judge, Shenyang XYZ team. Creates Magic: The Gathering videos on Bilibili. Visit the profile to follow.</source>
-        <translation type="vanished">TCG 爱好者、组织者，万智牌裁判，沈阳 XYZ 战队。在 B 站制作万智牌相关视频，欢迎点击主页关注。</translation>
-    </message>
-    <message>
         <location filename="../qml/components/SponsorCatalog.qml" line="+15"/>
         <source>Ragavan, Nimble Pilferer</source>
         <translation>巧手窃猴勒格文</translation>
@@ -13828,10 +11868,6 @@ your way.</source>
         <translation>本等级暂无赞助者</translation>
     </message>
     <message>
-        <source>Hexproof sponsor</source>
-        <translation type="vanished">Hexproof 赞助人</translation>
-    </message>
-    <message>
         <location line="-12"/>
         <source>Visit profile</source>
         <translation>访问主页</translation>
@@ -13840,45 +11876,6 @@ your way.</source>
         <location line="-70"/>
         <source>New supporter</source>
         <translation>新加入的赞助者</translation>
-    </message>
-</context>
-<context>
-    <name>SponsorSupportCard</name>
-    <message>
-        <source>Support Hexproof</source>
-        <translation type="vanished">支持 Hexproof</translation>
-    </message>
-    <message>
-        <source>Scan a code to sponsor with WeChat or Alipay, or become a recurring sponsor on Afdian.</source>
-        <translation type="vanished">扫码通过微信或支付宝赞助，或到爱发电成为持续赞助者。</translation>
-    </message>
-    <message>
-        <source>Become a recurring sponsor on Afdian, or scan a one-time payment code below.</source>
-        <translation type="vanished">到爱发电成为持续赞助者，或展开下方收款码进行一次性赞助。</translation>
-    </message>
-    <message>
-        <source>Hide payment codes</source>
-        <translation type="vanished">收起收款码</translation>
-    </message>
-    <message>
-        <source>Show payment codes</source>
-        <translation type="vanished">显示收款码</translation>
-    </message>
-    <message>
-        <source>WeChat</source>
-        <translation type="vanished">微信</translation>
-    </message>
-    <message>
-        <source>Alipay</source>
-        <translation type="vanished">支付宝</translation>
-    </message>
-    <message>
-        <source>Prefer recurring support?</source>
-        <translation type="vanished">想要持续支持？</translation>
-    </message>
-    <message>
-        <source>Sponsor on Afdian</source>
-        <translation type="vanished">到爱发电赞助</translation>
     </message>
 </context>
 <context>
@@ -14085,10 +12082,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location filename="../qml/components/TableOwnCommandZonePile.qml" line="+161"/>
         <source>Command</source>
         <translation>指挥官区</translation>
-    </message>
-    <message>
-        <source>Tax</source>
-        <translation type="vanished">税</translation>
     </message>
     <message>
         <location filename="../qml/components/TableGameValueController.qml" line="-12"/>
@@ -14371,14 +12364,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>%1 · 比分 %2</translation>
     </message>
     <message>
-        <source>Decrease commander tax</source>
-        <translation type="vanished">减少指挥官税</translation>
-    </message>
-    <message>
-        <source>Increase commander tax</source>
-        <translation type="vanished">增加指挥官税</translation>
-    </message>
-    <message>
         <location filename="../qml/components/TableOwnPlayerStatus.qml" line="+4"/>
         <source>Command-zone casts: %1 · Additional cost: +%2</source>
         <translation>从指挥官区施放：%1 次 · 额外费用：+%2</translation>
@@ -14546,230 +12531,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>战场永久物</translation>
     </message>
     <message>
-        <source>Show or hide this list</source>
-        <translation type="vanished">显示或隐藏此列表</translation>
-    </message>
-    <message>
-        <source>Toggle full screen</source>
-        <translation type="vanished">切换全屏</translation>
-    </message>
-    <message>
-        <source>Draw X cards</source>
-        <translation type="vanished">抓 X 张牌</translation>
-    </message>
-    <message>
-        <source>Search own library</source>
-        <translation type="vanished">搜寻自己的牌库</translation>
-    </message>
-    <message>
-        <source>View the top X library cards</source>
-        <translation type="vanished">查看并重新排序牌库顶 X 张</translation>
-    </message>
-    <message>
-        <source>Put top X library cards into graveyard</source>
-        <translation type="vanished">将牌库顶 X 张置入墓地</translation>
-    </message>
-    <message>
-        <source>Put top X library cards into exile</source>
-        <translation type="vanished">将牌库顶 X 张置入放逐区</translation>
-    </message>
-    <message>
-        <source>Shuffle own library</source>
-        <translation type="vanished">洗自己的牌库</translation>
-    </message>
-    <message>
-        <source>Create token</source>
-        <translation type="vanished">创建衍生物</translation>
-    </message>
-    <message>
-        <source>Mulligan</source>
-        <translation type="vanished">调度</translation>
-    </message>
-    <message>
-        <source>Confirm shuffle of own library</source>
-        <translation type="vanished">确认洗自己的牌库</translation>
-    </message>
-    <message>
-        <source>Confirm mulligan</source>
-        <translation type="vanished">确认调度</translation>
-    </message>
-    <message>
-        <source>Reveal or recall hand</source>
-        <translation type="vanished">展示或收回手牌</translation>
-    </message>
-    <message>
-        <source>Advance phase</source>
-        <translation type="vanished">推进阶段</translation>
-    </message>
-    <message>
-        <source>Open table settings</source>
-        <translation type="vanished">打开牌桌设置</translation>
-    </message>
-    <message>
-        <source>Show or hide game log</source>
-        <translation type="vanished">显示或隐藏游戏日志</translation>
-    </message>
-    <message>
-        <source>Show or hide stack / reveal tray</source>
-        <translation type="vanished">显示或隐藏堆叠/展示区域</translation>
-    </message>
-    <message>
-        <source>Advance turn</source>
-        <translation type="vanished">推进回合</translation>
-    </message>
-    <message>
-        <source>Draw one card</source>
-        <translation type="vanished">抓一张牌</translation>
-    </message>
-    <message>
-        <source>View the top library card</source>
-        <translation type="vanished">查看牌库顶牌</translation>
-    </message>
-    <message>
-        <source>View sideboard</source>
-        <translation type="vanished">查看备牌</translation>
-    </message>
-    <message>
-        <source>Untap all own permanents</source>
-        <translation type="vanished">重置自己所有永久物</translation>
-    </message>
-    <message>
-        <source>Arrange own battlefield</source>
-        <translation type="vanished">整理自己的战场</translation>
-    </message>
-    <message>
-        <source>Roll dice</source>
-        <translation type="vanished">掷骰子</translation>
-    </message>
-    <message>
-        <source>Flip a coin</source>
-        <translation type="vanished">抛硬币</translation>
-    </message>
-    <message>
-        <source>Select a random player</source>
-        <translation type="vanished">随机选择一名玩家</translation>
-    </message>
-    <message>
-        <source>Select a random battlefield card</source>
-        <translation type="vanished">随机选择一张战场卡牌</translation>
-    </message>
-    <message>
-        <source>Discard a random card</source>
-        <translation type="vanished">随机弃一张牌</translation>
-    </message>
-    <message>
-        <source>Confirm discard entire hand</source>
-        <translation type="vanished">确认弃掉全部手牌</translation>
-    </message>
-    <message>
-        <source>Set life total</source>
-        <translation type="vanished">设置生命值</translation>
-    </message>
-    <message>
-        <source>Open commander damage</source>
-        <translation type="vanished">打开指挥官伤害</translation>
-    </message>
-    <message>
-        <source>Confirm declare draw</source>
-        <translation type="vanished">确认宣告平局</translation>
-    </message>
-    <message>
-        <source>Confirm restart game</source>
-        <translation type="vanished">确认重新开始游戏</translation>
-    </message>
-    <message>
-        <source>Concede</source>
-        <translation type="vanished">投降</translation>
-    </message>
-    <message>
-        <source>Leave room or end playtest</source>
-        <translation type="vanished">离开房间或结束单人测试</translation>
-    </message>
-    <message>
-        <source>Return to room after the match</source>
-        <translation type="vanished">比赛结束后返回房间</translation>
-    </message>
-    <message>
-        <source>Rename the selected player counter</source>
-        <translation type="vanished">重命名选中的玩家指示物</translation>
-    </message>
-    <message>
-        <source>Set the selected player counter value</source>
-        <translation type="vanished">为选中的玩家指示物设置准确数值</translation>
-    </message>
-    <message>
-        <source>Decrease / increase selected player counter</source>
-        <translation type="vanished">减少/增加选中的玩家指示物</translation>
-    </message>
-    <message>
-        <source>Decrease / increase own life</source>
-        <translation type="vanished">减少/增加自己的生命值</translation>
-    </message>
-    <message>
-        <source>Play selected hand card as land</source>
-        <translation type="vanished">将选中的手牌作为地牌使用</translation>
-    </message>
-    <message>
-        <source>Move selected hand card to battlefield face up / down</source>
-        <translation type="vanished">将选中的手牌正面/牌面朝下移至战场</translation>
-    </message>
-    <message>
-        <source>Move selected card(s) to hand / graveyard / exile</source>
-        <translation type="vanished">将选中卡牌移至手牌/墓地/放逐区</translation>
-    </message>
-    <message>
-        <source>Move selected card(s) to library top / bottom</source>
-        <translation type="vanished">将选中卡牌移至牌库顶/牌库底</translation>
-    </message>
-    <message>
-        <source>Move selected battlefield cards to library in random order</source>
-        <translation type="vanished">将选中的战场卡牌随机排序后移至牌库</translation>
-    </message>
-    <message>
-        <source>Tap or untap selected permanents</source>
-        <translation type="vanished">横置或重置选中的永久物</translation>
-    </message>
-    <message>
-        <source>Tap or untap selected permanent</source>
-        <translation type="vanished">横置或重置选中的永久物</translation>
-    </message>
-    <message>
-        <source>Turn selected permanent face down / choose face</source>
-        <translation type="vanished">将选中的永久物牌面朝下/选择牌面</translation>
-    </message>
-    <message>
-        <source>Attach / detach selected permanent</source>
-        <translation type="vanished">结附/解除结附选中的永久物</translation>
-    </message>
-    <message>
-        <source>Choose / clear target for selected cards</source>
-        <translation type="vanished">为选中卡牌选择/清除目标</translation>
-    </message>
-    <message>
-        <source>Attack a permanent / block an attacker</source>
-        <translation type="vanished">攻击永久物/阻挡攻击者</translation>
-    </message>
-    <message>
-        <source>Clear selected combat declaration</source>
-        <translation type="vanished">清除选中卡牌的战斗声明</translation>
-    </message>
-    <message>
-        <source>Decrease / increase selected permanent&apos;s number counter</source>
-        <translation type="vanished">减少/增加选中永久物的数字指示物</translation>
-    </message>
-    <message>
-        <source>Add a number / ability counter to selected permanent</source>
-        <translation type="vanished">为选中的永久物添加数字/异能指示物</translation>
-    </message>
-    <message>
-        <source>Set selected permanent&apos;s number counter</source>
-        <translation type="vanished">设置选中永久物的数字指示物</translation>
-    </message>
-    <message>
-        <source>Create a token copy of selected permanent</source>
-        <translation type="vanished">创建选中永久物的衍生物复制品</translation>
-    </message>
-    <message>
         <location filename="../qml/components/TableShortcutHelp.qml" line="+29"/>
         <source>Adjust battlefield card size</source>
         <translation>调节战场卡牌大小</translation>
@@ -14793,18 +12554,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location line="+1"/>
         <source>Shortcuts are paused while a text field or modal editor is open.</source>
         <translation>文本框或模态编辑器打开时，快捷键暂停。</translation>
-    </message>
-    <message>
-        <source>Battlefield view · %1 · %2%</source>
-        <translation type="vanished">战场视图 · %1 · %2%</translation>
-    </message>
-    <message>
-        <source>Primary</source>
-        <translation type="vanished">主战场</translation>
-    </message>
-    <message>
-        <source>Overview</source>
-        <translation type="vanished">总览</translation>
     </message>
     <message>
         <location filename="../qml/components/BattlefieldViewControls.qml" line="+121"/>
@@ -14842,14 +12591,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>放大战场卡牌</translation>
     </message>
     <message>
-        <source>Overview layout</source>
-        <translation type="vanished">总览布局</translation>
-    </message>
-    <message>
-        <source>Primary battlefield</source>
-        <translation type="vanished">主战场</translation>
-    </message>
-    <message>
         <location filename="../qml/components/TableHandArea.qml" line="+91"/>
         <source>Hands are hidden from spectators in this room</source>
         <translation>本房间对观战者隐藏手牌</translation>
@@ -14881,10 +12622,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location line="+8"/>
         <source>Arrange battlefield</source>
         <translation>整理战场</translation>
-    </message>
-    <message>
-        <source>Create token</source>
-        <translation type="vanished">创建衍生物</translation>
     </message>
     <message>
         <location line="+18"/>
@@ -15526,245 +13263,6 @@ Downloaded and custom images will be copied and verified before the setting chan
     </message>
 </context>
 <context>
-    <name>TableMenus</name>
-    <message>
-        <source>Seat</source>
-        <translation type="vanished">座位</translation>
-    </message>
-    <message>
-        <source>Draw X cards</source>
-        <translation type="vanished">抓 X 张牌</translation>
-    </message>
-    <message>
-        <source>Shuffle</source>
-        <translation type="vanished">洗牌</translation>
-    </message>
-    <message>
-        <source>Search library</source>
-        <translation type="vanished">搜寻牌库</translation>
-    </message>
-    <message>
-        <source>View sideboard</source>
-        <translation type="vanished">查看备牌</translation>
-    </message>
-    <message>
-        <source>View top card</source>
-        <translation type="vanished">查看牌库顶牌</translation>
-    </message>
-    <message>
-        <source>View top X cards…</source>
-        <translation type="vanished">查看牌库顶 X 张…</translation>
-    </message>
-    <message>
-        <source>Put top X cards into graveyard…</source>
-        <translation type="vanished">将牌库顶 X 张牌置入墓地…</translation>
-    </message>
-    <message>
-        <source>Put top X cards into exile…</source>
-        <translation type="vanished">将牌库顶 X 张牌置入放逐区…</translation>
-    </message>
-    <message>
-        <source>Untap all</source>
-        <translation type="vanished">全部重置</translation>
-    </message>
-    <message>
-        <source>Arrange battlefield</source>
-        <translation type="vanished">整理战场</translation>
-    </message>
-    <message>
-        <source>Create token</source>
-        <translation type="vanished">创建衍生物</translation>
-    </message>
-    <message>
-        <source>Random tools</source>
-        <translation type="vanished">随机工具</translation>
-    </message>
-    <message>
-        <source>Roll dice…</source>
-        <translation type="vanished">掷骰子…</translation>
-    </message>
-    <message>
-        <source>Flip a coin</source>
-        <translation type="vanished">抛硬币</translation>
-    </message>
-    <message>
-        <source>Random player</source>
-        <translation type="vanished">随机玩家</translation>
-    </message>
-    <message>
-        <source>Random battlefield card</source>
-        <translation type="vanished">随机战场牌</translation>
-    </message>
-    <message>
-        <source>Declare draw</source>
-        <translation type="vanished">宣布平局</translation>
-    </message>
-    <message>
-        <source>Restart game</source>
-        <translation type="vanished">重新开始本局</translation>
-    </message>
-    <message>
-        <source>Concede</source>
-        <translation type="vanished">投降</translation>
-    </message>
-    <message>
-        <source>Recall hand</source>
-        <translation type="vanished">收回手牌</translation>
-    </message>
-    <message>
-        <source>Reveal hand</source>
-        <translation type="vanished">展示手牌</translation>
-    </message>
-    <message>
-        <source>Discard a random card</source>
-        <translation type="vanished">随机弃一张牌</translation>
-    </message>
-    <message>
-        <source>Discard entire hand…</source>
-        <translation type="vanished">弃掉全部手牌…</translation>
-    </message>
-    <message>
-        <source>Mulligan</source>
-        <translation type="vanished">调度</translation>
-    </message>
-    <message>
-        <source>Play land…</source>
-        <translation type="vanished">使用地牌…</translation>
-    </message>
-    <message>
-        <source>Move to battlefield</source>
-        <translation type="vanished">移到战场</translation>
-    </message>
-    <message>
-        <source>Move to battlefield face down</source>
-        <translation type="vanished">牌面朝下移到战场</translation>
-    </message>
-    <message>
-        <source>Move to graveyard</source>
-        <translation type="vanished">移到墓地</translation>
-    </message>
-    <message>
-        <source>Move to exile</source>
-        <translation type="vanished">移到放逐区</translation>
-    </message>
-    <message>
-        <source>Move to top of library</source>
-        <translation type="vanished">移到牌库顶</translation>
-    </message>
-    <message>
-        <source>Move to library position…</source>
-        <translation type="vanished">移到牌库指定位置…</translation>
-    </message>
-    <message>
-        <source>Move to bottom of library</source>
-        <translation type="vanished">移到牌库底</translation>
-    </message>
-    <message>
-        <source>Choose card face…</source>
-        <translation type="vanished">选择卡牌牌面…</translation>
-    </message>
-    <message>
-        <source>Turn face up</source>
-        <translation type="vanished">牌面朝上</translation>
-    </message>
-    <message>
-        <source>Turn face down</source>
-        <translation type="vanished">牌面朝下</translation>
-    </message>
-    <message>
-        <source>Attach to…</source>
-        <translation type="vanished">结附到…</translation>
-    </message>
-    <message>
-        <source>Detach</source>
-        <translation type="vanished">解除结附</translation>
-    </message>
-    <message>
-        <source>Choose target</source>
-        <translation type="vanished">选择目标</translation>
-    </message>
-    <message>
-        <source>Target %1</source>
-        <translation type="vanished">指定 %1 为目标</translation>
-    </message>
-    <message>
-        <source>Target a battlefield card…</source>
-        <translation type="vanished">指定一张战场卡牌为目标…</translation>
-    </message>
-    <message>
-        <source>Clear target</source>
-        <translation type="vanished">清除目标</translation>
-    </message>
-    <message>
-        <source>Add counter</source>
-        <translation type="vanished">添加指示物</translation>
-    </message>
-    <message>
-        <source>Attack %1 · %2 selected</source>
-        <translation type="vanished">攻击 %1 · 已选 %2 张</translation>
-    </message>
-    <message>
-        <source>Attack a battlefield permanent…</source>
-        <translation type="vanished">攻击战场永久物…</translation>
-    </message>
-    <message>
-        <source>Block an attacker…</source>
-        <translation type="vanished">阻挡攻击者…</translation>
-    </message>
-    <message>
-        <source>Clear combat declaration</source>
-        <translation type="vanished">清除战斗声明</translation>
-    </message>
-    <message>
-        <source>Number counter</source>
-        <translation type="vanished">数字指示物</translation>
-    </message>
-    <message>
-        <source>Ability counter…</source>
-        <translation type="vanished">异能指示物…</translation>
-    </message>
-    <message>
-        <source>Set counters</source>
-        <translation type="vanished">设置指示物</translation>
-    </message>
-    <message>
-        <source>Number counter…</source>
-        <translation type="vanished">数字指示物…</translation>
-    </message>
-    <message>
-        <source>Move selected</source>
-        <translation type="vanished">移动已选卡牌</translation>
-    </message>
-    <message>
-        <source>Top of library · in order</source>
-        <translation type="vanished">按顺序置于牌库顶</translation>
-    </message>
-    <message>
-        <source>Top of library · random order</source>
-        <translation type="vanished">随机顺序置于牌库顶</translation>
-    </message>
-    <message>
-        <source>Bottom of library · in order</source>
-        <translation type="vanished">按顺序置于牌库底</translation>
-    </message>
-    <message>
-        <source>Bottom of library · random order</source>
-        <translation type="vanished">随机顺序置于牌库底</translation>
-    </message>
-    <message>
-        <source>Randomly select one</source>
-        <translation type="vanished">随机选择一张</translation>
-    </message>
-    <message>
-        <source>Move to hand</source>
-        <translation type="vanished">移到手牌</translation>
-    </message>
-    <message>
-        <source>Create token copy</source>
-        <translation type="vanished">创建衍生物复制</translation>
-    </message>
-</context>
-<context>
     <name>TableRuntimeSyncController</name>
     <message>
         <location filename="../qml/components/TableRuntimeSyncController.qml" line="+192"/>
@@ -15921,10 +13419,6 @@ Downloaded and custom images will be copied and verified before the setting chan
 <context>
     <name>TokenDetailsPopup</name>
     <message>
-        <source>Close</source>
-        <translation type="vanished">关闭</translation>
-    </message>
-    <message>
         <location filename="../qml/components/TokenDetailsPopup.qml" line="+93"/>
         <source>Custom art…</source>
         <translation>自定义卡图…</translation>
@@ -15983,18 +13477,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>衍生物与徽记</translation>
     </message>
     <message>
-        <source>Create token</source>
-        <translation type="vanished">创建衍生物</translation>
-    </message>
-    <message>
-        <source>Search by English or Chinese name, or by set and number · English token art</source>
-        <translation type="vanished">可按中文名、英文名或系列编号搜索 · 使用英文衍生物卡图</translation>
-    </message>
-    <message>
-        <source>Install the token catalog to create tokens.</source>
-        <translation type="vanished">安装衍生物数据库后即可创建衍生物。</translation>
-    </message>
-    <message>
         <location line="+84"/>
         <source>Downloading…</source>
         <translation>正在下载…</translation>
@@ -16003,14 +13485,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location line="+0"/>
         <source>Download token catalog</source>
         <translation>下载衍生物数据库</translation>
-    </message>
-    <message>
-        <source>Search tokens or TUNF #1…</source>
-        <translation type="vanished">搜索衍生物或输入 TUNF #1…</translation>
-    </message>
-    <message>
-        <source>Install the token catalog to search beyond this deck&apos;s saved tokens.</source>
-        <translation type="vanished">安装衍生物数据库后可搜索这副套牌预设项之外的衍生物。</translation>
     </message>
     <message>
         <location line="+222"/>
@@ -16026,14 +13500,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location line="-315"/>
         <source>Create</source>
         <translation>创建</translation>
-    </message>
-    <message>
-        <source>No tokens found</source>
-        <translation type="vanished">没有找到衍生物</translation>
-    </message>
-    <message>
-        <source>Close</source>
-        <translation type="vanished">关闭</translation>
     </message>
     <message>
         <location line="+131"/>
@@ -16059,18 +13525,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>连接服务器</translation>
     </message>
     <message>
-        <source>Tournaments</source>
-        <translation type="vanished">比赛</translation>
-    </message>
-    <message>
-        <source>Register, play Swiss rounds, and follow live standings</source>
-        <translation type="vanished">报名参赛、进行瑞士轮并查看实时积分排名</translation>
-    </message>
-    <message>
-        <source>Tournament code</source>
-        <translation type="vanished">比赛代码</translation>
-    </message>
-    <message>
         <location line="-73"/>
         <source>Open</source>
         <translation>开放</translation>
@@ -16091,17 +13545,9 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>创建比赛</translation>
     </message>
     <message>
-        <source>No public tournaments are available on this hub.</source>
-        <translation type="vanished">此服务器暂无公开比赛。</translation>
-    </message>
-    <message>
         <location line="-53"/>
         <source>Events</source>
         <translation>赛事</translation>
-    </message>
-    <message>
-        <source>Join Swiss tournaments or casual limited rooms</source>
-        <translation type="vanished">加入瑞士轮比赛或休闲限制赛房间</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -16194,10 +13640,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>Cube</translation>
     </message>
     <message>
-        <source>Custom Cube</source>
-        <translation type="vanished">自定义 Cube</translation>
-    </message>
-    <message>
         <location line="+5"/>
         <source>Casual room</source>
         <translation>休闲房间</translation>
@@ -16206,18 +13648,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location line="+0"/>
         <source>Swiss tournament</source>
         <translation>瑞士轮比赛</translation>
-    </message>
-    <message>
-        <source>Booster draft</source>
-        <translation type="vanished">补充包轮抓</translation>
-    </message>
-    <message>
-        <source>Cube sealed</source>
-        <translation type="vanished">Cube 现开</translation>
-    </message>
-    <message>
-        <source>Cube draft</source>
-        <translation type="vanished">Cube 轮抓</translation>
     </message>
     <message>
         <location line="+5"/>
@@ -16305,10 +13735,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>创建比赛</translation>
     </message>
     <message>
-        <source>Individual Swiss · manual tabletop rules enforcement</source>
-        <translation type="vanished">个人瑞士轮 · 牌桌规则由玩家手动执行</translation>
-    </message>
-    <message>
         <location line="-277"/>
         <source>EVENT NAME</source>
         <translation>比赛名称</translation>
@@ -16324,14 +13750,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>赛制名称</translation>
     </message>
     <message>
-        <source>Standard</source>
-        <translation type="vanished">标准赛</translation>
-    </message>
-    <message>
-        <source>Standard, Pioneer, Modern, Legacy…</source>
-        <translation type="vanished">标准、先驱、摩登、薪传……</translation>
-    </message>
-    <message>
         <location line="-136"/>
         <source>Constructed</source>
         <translation>构筑赛</translation>
@@ -16341,14 +13759,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location line="+4"/>
         <source>Set sealed</source>
         <translation>系列现开</translation>
-    </message>
-    <message>
-        <source>Booster draft</source>
-        <translation type="vanished">补充包轮抓</translation>
-    </message>
-    <message>
-        <source>Cube sealed</source>
-        <translation type="vanished">Cube 现开</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -16369,18 +13779,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location line="+1"/>
         <source>The format names the card pool. Matches follow the gameplay rules selected below.</source>
         <translation>赛制规定可用牌池。每场对局遵循下方所选的游戏规则。</translation>
-    </message>
-    <message>
-        <source>CUBE</source>
-        <translation type="vanished">CUBE</translation>
-    </message>
-    <message>
-        <source>BOOSTER PRODUCT</source>
-        <translation type="vanished">补充包产品</translation>
-    </message>
-    <message>
-        <source>Exact generated collation</source>
-        <translation type="vanished">按产品规则精确生成</translation>
     </message>
     <message>
         <location line="-161"/>
@@ -16439,10 +13837,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>人数上限</translation>
     </message>
     <message>
-        <source>SWISS ROUNDS</source>
-        <translation type="vanished">瑞士轮轮数</translation>
-    </message>
-    <message>
         <location line="+57"/>
         <source>Set draft starts with at least two checked-in players, three packs each, and passes left, right, then left. Capacity is two to eight seats.</source>
         <translation>系列轮抓至少有 2 名已签到玩家即可开始，每人 3 包，依次向左、向右、向左传递。人数上限为 2 至 8 人。</translation>
@@ -16451,22 +13845,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location line="+2"/>
         <source>Set sealed gives every player exactly six boosters before deck building. Two checked-in players are required to start.</source>
         <translation>系列现开会在组牌前为每位玩家发放恰好 6 包补充包。至少 2 名已签到玩家即可开始。</translation>
-    </message>
-    <message>
-        <source>Use 0 rounds for the recommended Swiss count based on checked-in attendance. Four checked-in players are required to start.</source>
-        <translation type="vanished">轮数设为 0 时，会根据签到人数使用建议的瑞士轮轮数。至少 4 名玩家签到才能开始。</translation>
-    </message>
-    <message>
-        <source>PACKS PER PLAYER</source>
-        <translation type="vanished">每位玩家的补充包数</translation>
-    </message>
-    <message>
-        <source>Draft uses one four-to-eight-player pod and alternates left, right, then left. Picks remain available after reconnecting.</source>
-        <translation type="vanished">轮抓使用一个 4 至 8 人轮抓组，并按左、右、左方向传包。断线重连后仍可继续选牌。</translation>
-    </message>
-    <message>
-        <source>Use 0 rounds for the official recommended Swiss count based on checked-in attendance. Four checked-in players are required to start.</source>
-        <translation type="vanished">轮数填 0 时，将按签到人数采用官方建议的瑞士轮轮数。至少需要 4 名已签到选手才能开始。</translation>
     </message>
     <message>
         <location line="-17"/>
@@ -16799,17 +14177,9 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>%1 张牌缺少本地标识色数据，请自行核对。</translation>
     </message>
     <message>
-        <source>Add cards to your main deck before choosing commanders.</source>
-        <translation type="vanished">请先将卡牌加入主牌，再选择指挥官。</translation>
-    </message>
-    <message>
         <location filename="../qml/components/LimitedCommanderPicker.qml" line="-64"/>
         <source>Choose commander</source>
         <translation>选择指挥官</translation>
-    </message>
-    <message>
-        <source>Choose one or two commanders. Drafted copies with the same name are allowed. Commanders count toward the 60-card minimum; eligibility and color identity are reminders only.</source>
-        <translation type="vanished">选择 1～2 张指挥官，允许使用抓到的同名牌。指挥官计入至少 60 张的套牌总数；资格和标识色仅作提醒。</translation>
     </message>
     <message>
         <location filename="../qml/components/LimitedCommanderSelection.qml" line="-17"/>
@@ -16833,10 +14203,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>请与同桌玩家确认拍档或其他双指挥官规则。</translation>
     </message>
     <message>
-        <source>Fill to %1 cards using the selected spells&apos; colored mana costs. This is a suggested ratio; adjusting a basic land switches to manual mode.</source>
-        <translation type="vanished">根据已选咒语的有色法术力费用，建议基本地比例并补至 %1 张。手动调整基本地后将切换为手动模式。</translation>
-    </message>
-    <message>
         <location filename="../qml/components/LimitedCommanderPicker.qml" line="-57"/>
         <source>Remove commander</source>
         <translation>取消指挥官指定</translation>
@@ -16850,10 +14216,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location filename="../qml/components/LimitedDraftView.qml" line="+3"/>
         <source>Select %1 cards before passing · %2 selected</source>
         <translation>每次选 %1 张后传包 · 已选 %2 张</translation>
-    </message>
-    <message>
-        <source>Select commanders from your main deck or use the Piper fallback.</source>
-        <translation type="vanished">请从主牌中选择指挥官，或使用 Piper 兜底。</translation>
     </message>
     <message>
         <location filename="../qml/components/LimitedDeckBuilder.qml" line="-252"/>
@@ -16882,10 +14244,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>即使没有抓到，也可额外加入至多两张 Piper 作为指挥官，每张各选一个标识色。它们不能用作普通套牌卡牌或备牌；移除后会回到此兜底区域。</translation>
     </message>
     <message>
-        <source>From your main deck</source>
-        <translation type="vanished">从主牌中选择</translation>
-    </message>
-    <message>
         <location filename="../qml/components/LimitedDeckBuilder.qml" line="+422"/>
         <source>Automatically add basic lands</source>
         <translation>自动补充基本地</translation>
@@ -16894,10 +14252,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location line="-143"/>
         <source>Basic lands · %1 · Auto</source>
         <translation>基本地 · %1 · 自动</translation>
-    </message>
-    <message>
-        <source>Fill to 40 cards using the selected spells&apos; colored mana costs. This is a suggested ratio; adjusting a basic land switches to manual mode.</source>
-        <translation type="vanished">根据所选咒语的有色法术力费用补足 40 张。这只是建议比例；手动调整基本地后会切换为手动模式。</translation>
     </message>
     <message>
         <location line="+15"/>
@@ -17258,10 +14612,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>优先 Scryfall · 回退 MTGCH</translation>
     </message>
     <message>
-        <source>Custom Cube</source>
-        <translation type="vanished">自定义 Cube</translation>
-    </message>
-    <message>
         <location filename="../qml/components/TournamentEventDesk.qml" line="+11"/>
         <location filename="../qml/components/TournamentPlayers.qml" line="+72"/>
         <source>Undo check-in</source>
@@ -17495,18 +14845,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>系列现开</translation>
     </message>
     <message>
-        <source>Booster draft</source>
-        <translation type="vanished">补充包轮抓</translation>
-    </message>
-    <message>
-        <source>Cube sealed</source>
-        <translation type="vanished">Cube 现开</translation>
-    </message>
-    <message>
-        <source>Cube draft</source>
-        <translation type="vanished">Cube 轮抓</translation>
-    </message>
-    <message>
         <location line="+12"/>
         <source>Running</source>
         <translation>进行中</translation>
@@ -17579,14 +14917,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>时间已到</translation>
     </message>
     <message>
-        <source>Build your limited deck</source>
-        <translation type="vanished">组建你的限制赛套牌</translation>
-    </message>
-    <message>
-        <source>%1 main · %2 unselected sideboard · unlimited basic lands</source>
-        <translation type="vanished">主牌 %1 张 · 未选择的备牌 %2 张 · 基本地不限量</translation>
-    </message>
-    <message>
         <location filename="../qml/components/LimitedDeckBuilder.qml" line="-219"/>
         <source>Mana value</source>
         <translation>法术力值</translation>
@@ -17607,42 +14937,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>名称</translation>
     </message>
     <message>
-        <source>All colors</source>
-        <translation type="vanished">全部颜色</translation>
-    </message>
-    <message>
-        <source>All card types</source>
-        <translation type="vanished">全部类别</translation>
-    </message>
-    <message>
-        <source>All mana values</source>
-        <translation type="vanished">全部法术力值</translation>
-    </message>
-    <message>
-        <source>All rarities</source>
-        <translation type="vanished">全部稀有度</translation>
-    </message>
-    <message>
-        <source>Common</source>
-        <translation type="vanished">普通</translation>
-    </message>
-    <message>
-        <source>Uncommon</source>
-        <translation type="vanished">非普通</translation>
-    </message>
-    <message>
-        <source>Rare</source>
-        <translation type="vanished">稀有</translation>
-    </message>
-    <message>
-        <source>Mythic rare</source>
-        <translation type="vanished">秘稀</translation>
-    </message>
-    <message>
-        <source>%1 main · %2 sideboard · unlimited basic lands</source>
-        <translation type="vanished">主牌 %1 张 · 备牌 %2 张 · 普通基本地不限量</translation>
-    </message>
-    <message>
         <location line="+374"/>
         <location filename="../qml/components/LimitedEventProgress.qml" line="+38"/>
         <source>Deck submitted</source>
@@ -17659,14 +14953,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>提交套牌</translation>
     </message>
     <message>
-        <source>Organize cards</source>
-        <translation type="vanished">整理卡牌</translation>
-    </message>
-    <message>
-        <source>Main-deck breakdown</source>
-        <translation type="vanished">主牌构成</translation>
-    </message>
-    <message>
         <location line="-136"/>
         <source>%1 cards · %2 lands · %3 nonlands</source>
         <translation>共 %1 张 · 地 %2 张 · 非地 %3 张</translation>
@@ -17675,30 +14961,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location line="+212"/>
         <source>Basic lands</source>
         <translation>基本地</translation>
-    </message>
-    <message>
-        <source>Group: %1</source>
-        <translation type="vanished">分组：%1</translation>
-    </message>
-    <message>
-        <source>Color: %1</source>
-        <translation type="vanished">颜色：%1</translation>
-    </message>
-    <message>
-        <source>Type: %1</source>
-        <translation type="vanished">类别：%1</translation>
-    </message>
-    <message>
-        <source>Mana: %1</source>
-        <translation type="vanished">费用：%1</translation>
-    </message>
-    <message>
-        <source>Rarity: %1</source>
-        <translation type="vanished">稀有度：%1</translation>
-    </message>
-    <message>
-        <source>Clear filters</source>
-        <translation type="vanished">清除筛选</translation>
     </message>
     <message>
         <location line="-134"/>
@@ -17711,10 +14973,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>主牌</translation>
     </message>
     <message>
-        <source>Click a card to return it to the sideboard</source>
-        <translation type="vanished">点击卡牌将其移回备牌</translation>
-    </message>
-    <message>
         <location line="+45"/>
         <source>Add cards from the sideboard to build your deck.</source>
         <translation>从备牌中加入卡牌来组建套牌。</translation>
@@ -17725,30 +14983,10 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>备牌 / 可用牌池</translation>
     </message>
     <message>
-        <source>Showing %1 of %2 cards · filters combine</source>
-        <translation type="vanished">显示 %1 / %2 张 · 筛选条件同时生效</translation>
-    </message>
-    <message>
-        <source>Click a card to add it to the main deck</source>
-        <translation type="vanished">点击卡牌将其加入主牌</translation>
-    </message>
-    <message>
         <location line="+31"/>
         <location line="+79"/>
         <source>No cards match all active filters.</source>
         <translation>没有卡牌同时满足当前筛选条件。</translation>
-    </message>
-    <message>
-        <source>Every drafted card is currently in the main deck.</source>
-        <translation type="vanished">所有已抓卡牌目前都在主牌中。</translation>
-    </message>
-    <message>
-        <source>Only the participant can see and build from this pool.</source>
-        <translation type="vanished">只有该参赛者可以查看此牌池并用它组牌。</translation>
-    </message>
-    <message>
-        <source>Every deck is submitted. The organizer can publish round one.</source>
-        <translation type="vanished">所有套牌均已提交，主办人现在可以发布第一轮。</translation>
     </message>
     <message>
         <location line="+103"/>
@@ -17927,25 +15165,9 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>限制赛套牌</translation>
     </message>
     <message>
-        <source>Draft pack %1 · %2</source>
-        <translation type="vanished">轮抓第 %1 包 · %2</translation>
-    </message>
-    <message>
         <location filename="../qml/components/LimitedDraftView.qml" line="-236"/>
         <source>Draft pack %1</source>
         <translation>轮抓第 %1 包</translation>
-    </message>
-    <message>
-        <source>pass left</source>
-        <translation type="vanished">向左传</translation>
-    </message>
-    <message>
-        <source>pass right</source>
-        <translation type="vanished">向右传</translation>
-    </message>
-    <message>
-        <source>Choose one card. The rest of this pack goes to %1.</source>
-        <translation type="vanished">选择一张牌，这包剩余的牌将传给 %1。</translation>
     </message>
     <message>
         <location line="+18"/>
@@ -17959,21 +15181,9 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>你抓到的牌会持续显示在这里。</translation>
     </message>
     <message>
-        <source>No picked cards match this rarity.</source>
-        <translation type="vanished">没有已抓卡牌符合此稀有度。</translation>
-    </message>
-    <message>
-        <source>Select one card, then confirm the irreversible pick.</source>
-        <translation type="vanished">选择一张牌，然后确认这次不可撤销的选牌。</translation>
-    </message>
-    <message>
         <location line="-85"/>
         <source>Confirm pick</source>
         <translation>确认选牌</translation>
-    </message>
-    <message>
-        <source>Current pack · %1 cards</source>
-        <translation type="vanished">当前牌包 · %1 张</translation>
     </message>
     <message>
         <location line="-9"/>
@@ -17984,14 +15194,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location line="-21"/>
         <source>Waiting for the next pack…</source>
         <translation>正在等待下一包……</translation>
-    </message>
-    <message>
-        <source>Draft progress is private to participants.</source>
-        <translation type="vanished">轮抓进度仅对参赛者可见。</translation>
-    </message>
-    <message>
-        <source>Your pool: %1 cards</source>
-        <translation type="vanished">你的牌池：%1 张牌</translation>
     </message>
     <message>
         <location filename="../qml/components/LimitedDraftSeatMap.qml" line="+38"/>
@@ -18136,10 +15338,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location line="+17"/>
         <source>Playtest</source>
         <translation>单人测试</translation>
-    </message>
-    <message>
-        <source>Forge rules</source>
-        <translation type="vanished">Forge 规则</translation>
     </message>
     <message>
         <location line="+32"/>
@@ -18502,10 +15700,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>Forge · 服务器托管</translation>
     </message>
     <message>
-        <source>Player-hosted game · The creator must keep Hexproof open.</source>
-        <translation type="vanished">玩家托管对局 · 房主需保持 Hexproof 开启。</translation>
-    </message>
-    <message>
         <location line="+614"/>
         <location line="+308"/>
         <source>Waiting for the creator&apos;s local Forge connection…</source>
@@ -18579,10 +15773,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>选择你的套牌</translation>
     </message>
     <message>
-        <source>Select your deck and the AI deck separately, then ready up. Changing AI settings cancels your ready state.</source>
-        <translation type="vanished">分别选择你和 AI 的套牌，然后准备。更改 AI 设置会取消你的准备状态。</translation>
-    </message>
-    <message>
         <location line="-264"/>
         <source>The game starts when both decks are selected and you are ready.</source>
         <translation>双方套牌选好且你准备后，对局将自动开始。</translation>
@@ -18626,10 +15816,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>所有玩家和观战者都可以查看这些牌。</translation>
     </message>
     <message>
-        <source>Use the checkboxes to select cards, then right-click a selected card to move them together.</source>
-        <translation type="vanished">使用选择框勾选卡牌，然后右键点击任意已选卡牌即可批量移动。</translation>
-    </message>
-    <message>
         <location line="+12"/>
         <source>Right-click a card for move actions.</source>
         <translation>右键点击卡牌可执行移动操作。</translation>
@@ -18638,14 +15824,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location line="+44"/>
         <source>Filter this zone…</source>
         <translation>筛选此区域…</translation>
-    </message>
-    <message>
-        <source>Deselect all</source>
-        <translation type="vanished">取消全选</translation>
-    </message>
-    <message>
-        <source>Select all</source>
-        <translation type="vanished">全选</translation>
     </message>
     <message>
         <location line="+26"/>
@@ -18896,10 +16074,6 @@ Downloaded and custom images will be copied and verified before the setting chan
         <location line="+2"/>
         <source>Checking the local rules engine…</source>
         <translation>正在检查本地规则引擎…</translation>
-    </message>
-    <message>
-        <source>Your computer is hosting Forge.</source>
-        <translation type="vanished">Forge 正由你的电脑托管。</translation>
     </message>
     <message>
         <location line="+18"/>

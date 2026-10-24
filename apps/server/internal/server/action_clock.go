@@ -92,15 +92,6 @@ func (h *Handler) observeActionClockLocked(r *room.Room, prioritySeat int) bool 
 	return !finished
 }
 
-func (h *Handler) pauseActionClock(roomID string) {
-	operation, err := h.hub.lockRoomOperation(roomID)
-	if err != nil {
-		return
-	}
-	defer operation.opMu.Unlock()
-	h.pauseActionClockLocked(operation.room)
-}
-
 func (h *Handler) pauseActionClockLocked(r *room.Room) bool {
 	return h.observeActionClockLocked(r, -1)
 }

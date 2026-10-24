@@ -14,7 +14,7 @@ import socket
 import stat
 import sys
 import tempfile
-from urllib.parse import urlsplit
+import uuid
 
 
 MAX_INPUT = 16 << 10
@@ -22,7 +22,6 @@ MAX_RESPONSE = 2 << 20
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")
 HASH = re.compile(r"[0-9a-f]{64}")
 COMMIT = re.compile(r"[0-9a-f]{40}")
-SOURCE_COMMIT = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
 VERSION = re.compile(r"(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})")
 ASSESSMENTS = {"assessing", "ready", "declined", "deferred", "blocked"}
@@ -99,72 +98,19 @@ def connection_config(value):
     return value
 
 
-def github_repository(location):
-    require(isinstance(location, str), "Invalid source publication destination")
-    ssh = re.fullmatch(r"git@github\.com:([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)", location)
-    if ssh:
-        return ssh[1].removesuffix(".git")
-    try:
-        url = urlsplit(location)
-        require(url.scheme == "https" and url.netloc in ("github.com", "github.com:443")
-                and not url.query and not url.fragment and matches(REPOSITORY, url.path.removeprefix("/")),
-                "Source publication destination must be credential-free GitHub HTTPS or SSH")
-        return url.path.removeprefix("/").removesuffix(".git")
-    except ValueError as error:
-        raise ToolError("Invalid source publication destination") from error
-
-
-def public_commit(receipt, repository, source_commit):
-    """Extract a published mapping, never return its private intent/export fields.
-
-    This local receipt is the publisher's recorded observation, not independent
-    GitHub/release proof. The receiver verifies current public evidence itself.
-    """
-    fields(receipt, {"intent", "export", "publicCommit", "state", "observedPublicHead", "historicalSourceMapping"})
-    require(receipt["state"] == "published", "Source publication is not confirmed")
-    require(receipt["historicalSourceMapping"] in ("unknown", "verified", "absent"), "Invalid source publication receipt")
-    intent, exported = receipt["intent"], receipt["export"]
-    fields(intent, {"schemaVersion", "sourceCommit", "sourceRef", "publicRepository", "publicRef", "publicParent",
-                    "baselineSourceCommit", "adoptPublicParent", "exportPolicyDigest"})
-    fields(exported, {"schemaVersion", "sourceCommit", "exportPolicyDigest", "exportTreeDigest"})
-    require(type(intent["schemaVersion"]) is int and intent["schemaVersion"] == 1
-            and type(exported["schemaVersion"]) is int and exported["schemaVersion"] == 1,
-            "Invalid source publication receipt schema")
-    require(matches(SOURCE_COMMIT, source_commit) and intent["sourceCommit"] == source_commit
-            and exported["sourceCommit"] == source_commit, "Receipt does not match the intended private source commit")
-    require((intent["baselineSourceCommit"] is None or matches(SOURCE_COMMIT, intent["baselineSourceCommit"]))
-            and (intent["publicParent"] is None or matches(COMMIT, intent["publicParent"]))
-            and type(intent["adoptPublicParent"]) is bool
-            and isinstance(intent["sourceRef"], str) and intent["sourceRef"].startswith("refs/"),
-            "Invalid source publication intent")
-    require(github_repository(intent["publicRepository"]).casefold() == repository.casefold(),
-            "Receipt does not match the configured public repository")
-    require(matches(HASH, intent["exportPolicyDigest"])
-            and intent["exportPolicyDigest"] == exported["exportPolicyDigest"]
-            and matches(HASH, exported["exportTreeDigest"]), "Invalid source export receipt binding")
-    require(matches(COMMIT, receipt["publicCommit"]) and matches(COMMIT, receipt["observedPublicHead"])
-            and receipt["publicCommit"] not in (source_commit, intent["baselineSourceCommit"]),
-            "Invalid public commit mapping")
-    require(isinstance(intent["publicRef"], str)
-            and re.fullmatch(r"refs/heads/[A-Za-z0-9_./-]+", intent["publicRef"]), "Invalid public source ref")
-    return receipt["publicCommit"]
-
-
 def public_text(value):
     require(isinstance(value, str) and value.strip() and len(value.encode("utf-8")) <= 4096
             and all(ord(c) >= 32 or c in "\n\t" for c in value), "Invalid bounded public text")
 
 
-def build_request(command, value, config, receipt=None, source_commit=None):
+def build_request(command, value, config):
     fields(value, {"caseId"} if command == "read" else {"caseId", "projection"})
     require(matches(UUID, value["caseId"]), "Invalid case UUIDv4")
     request = {"action": "snapshot" if command == "read" else "project", "caseId": value["caseId"],
                "binding": config["binding"]}
     if command == "read":
-        require(receipt is None and source_commit is None, "Publication evidence is only accepted for source or release outcomes")
         return request
-    # Copy the approved JSON; deriving a public commit must not mutate the caller's
-    # saved intent, its IDs, revisions, text or private publication receipt.
+    # Preserve the caller's immutable intent, IDs, revisions and public text.
     projection = json.loads(json.dumps(value["projection"]))
     fields(projection, {"id", "workflowRevision", "expectedInputRevision", "workState", "summary"}, {"question", "outcome"})
     require(matches(UUID, projection["id"]) and projection["id"] != value["caseId"], "Invalid publication UUIDv4")
@@ -188,22 +134,17 @@ def build_request(command, value, config, receipt=None, source_commit=None):
         outcome = projection["outcome"]
         kind = OUTCOMES[state]
         fields(outcome, {"kind", "repository"} | ({"issueNumber"} if kind == "duplicate" else set())
-               | ({"tag", "version"} if kind == "release" else set()), {"commit"} if kind != "duplicate" else set())
+               | ({"tag", "version"} if kind == "release" else set())
+               | ({"commit"} if kind != "duplicate" else set()))
         require(outcome["kind"] == kind and outcome["repository"] == config["publicRepository"], "Outcome does not match its state and configured repository")
         if kind == "duplicate":
             require(integer(outcome["issueNumber"], maximum=2147483647), "Invalid public issue number")
         else:
-            require(receipt is not None and source_commit is not None, "Source or release outcomes require a published source receipt and explicit source commit")
-            mapped = public_commit(receipt, config["publicRepository"], source_commit)
-            require("commit" not in outcome or outcome["commit"] == mapped, "Outcome commit does not match the source publication receipt")
-            require(all(not private or private.casefold() not in projection["summary"].casefold()
-                        for private in (source_commit, receipt["intent"]["baselineSourceCommit"])),
-                    "Public text must not contain private source commit references")
-            outcome["commit"] = mapped
+            require(matches(COMMIT, outcome["commit"]), "An explicit full public commit is required")
+            # The receiver independently checks public repository/commit evidence
+            # and release/tag ancestry before publishing this typed outcome.
         if kind == "release":
             require(matches(VERSION, outcome["version"]) and outcome["tag"] == "v" + outcome["version"], "Release tag and version must match")
-    needs_evidence = command == "outcome" and state != "duplicate"
-    require(needs_evidence or (receipt is None and source_commit is None), "Publication evidence is only accepted for source or release outcomes")
     request["projection"] = projection
     require(len(encode(request)) <= MAX_INPUT, "Native request exceeds the size limit")
     return request
@@ -282,23 +223,205 @@ def validate_output(path, inputs):
             "Output must not overwrite a connection, input or publication receipt")
 
 
+def bound_document(kind, config, **content):
+    return {"schemaVersion": 1, "kind": kind, "binding": config["binding"],
+            "publicRepository": config["publicRepository"], **content}
+
+
+def bound_content(document, kind, config, key):
+    fields(document, {"schemaVersion", "kind", "binding", "publicRepository", key})
+    require(type(document["schemaVersion"]) is int and document["schemaVersion"] == 1
+            and document["kind"] == kind and document["binding"] == config["binding"]
+            and document["publicRepository"] == config["publicRepository"],
+            "Saved document does not match this native connection")
+    return document[key]
+
+
+def snapshot_metadata(snapshot):
+    require(isinstance(snapshot, dict) and matches(UUID, snapshot.get("CaseID"))
+            and snapshot.get("State") in ("active", "closed", "removed")
+            and integer(snapshot.get("SourceRevision"))
+            and integer(snapshot.get("InputRevision"), minimum=0)
+            and integer(snapshot.get("RevocationRevision"), minimum=0), "Invalid snapshot metadata")
+    latest = snapshot.get("LatestProjection")
+    if latest is not None:
+        fields(latest, {"ID", "WorkflowRevision", "ExpectedInputRevision", "PublicationState"})
+        require(matches(UUID, latest["ID"]) and integer(latest["WorkflowRevision"])
+                and integer(latest["ExpectedInputRevision"])
+                and latest["PublicationState"] in ("pending", "partial", "published", "stalled", "rejected"),
+                "Invalid projection observation")
+    return {key: snapshot.get(key) for key in ("CaseID", "State", "SourceRevision", "InputRevision",
+                                              "RevocationRevision", "LatestProjection", "QuestionPublication")}
+
+
+def snapshot_rows(snapshot, key):
+    rows = snapshot.get(key)
+    if rows is None:
+        rows = []
+    require(isinstance(rows, list) and all(isinstance(row, dict) and matches(UUID, row.get("ID"))
+                                          for row in rows), "Invalid snapshot observations")
+    require(len({row["ID"] for row in rows}) == len(rows), "Duplicate snapshot observations")
+    return rows
+
+
+def read_view(snapshot, config, view, previous=None, receipt_id=None):
+    result = {"binding": config["binding"], "publicRepository": config["publicRepository"],
+              **snapshot_metadata(snapshot)}
+    contributions = snapshot_rows(snapshot, "Contributions")
+    published = snapshot_rows(snapshot, "PublishedProjections")
+    require(all(integer(row.get("WorkflowRevision")) and integer(row.get("ExpectedInputRevision"))
+                and isinstance(row.get("PublishedAt"), str) for row in published),
+            "Invalid published projection metadata")
+    result.update(ContributionCount=len(contributions), PublishedProjectionCount=len(published))
+    if previous is not None:
+        old = bound_content(previous, "feedback-snapshot", config, "snapshot")
+        snapshot_metadata(old)
+        require(old["CaseID"] == snapshot["CaseID"], "Previous snapshot belongs to another case")
+        if snapshot["State"] == "active":
+            require(old["State"] == "active" and old["SourceRevision"] <= snapshot["SourceRevision"]
+                    and old["InputRevision"] <= snapshot["InputRevision"], "Snapshot revisions regressed")
+    # Never replay cached history after closure/removal, even if a malformed
+    # receiver response included it. A compact view is not a full assessment.
+    if snapshot["State"] == "active":
+        result["UnpublishedReplies"] = [{key: row.get(key) for key in
+            ("ID", "QuestionID", "QuestionRevision", "ReceivedAt", "PublicationState")}
+            for row in snapshot_rows(snapshot, "Replies") if row.get("PublicationState") != "published"]
+        current = [p for p in published if p.get("ExpectedInputRevision") == snapshot["InputRevision"]]
+        result["LatestPublishedProjection"] = current[-1] if current else None
+        if view == "changes":
+            old_contributions = {p["ID"]: p for p in snapshot_rows(old, "Contributions")}
+            old_published = {p["ID"]: p for p in snapshot_rows(old, "PublishedProjections")}
+            result["NewContributions"] = [{k: v for k, v in row.items()
+                                          if k != "Text" or "Description" not in row or "Context" not in row}
+                for row in contributions if old_contributions.get(row["ID"]) != row]
+            result["NewPublishedProjections"] = [row for row in published if old_published.get(row["ID"]) != row]
+            result["SinceSourceRevision"] = old["SourceRevision"]
+    if receipt_id is not None:
+        receipt = {"ID": receipt_id, "Observation": "not-in-current-snapshot"}
+        if snapshot["State"] != "active":
+            receipt["Observation"] = "unavailable-for-case-state"
+        elif result["LatestProjection"] and result["LatestProjection"]["ID"] == receipt_id:
+            receipt = result["LatestProjection"]
+        else:
+            match = next((row for row in published if row["ID"] == receipt_id), None)
+            if match:
+                receipt = {key: match[key] for key in ("ID", "WorkflowRevision", "ExpectedInputRevision", "PublishedAt")}
+                receipt["PublicationState"] = "published"
+        result["RequestedReceipt"] = receipt
+    return {"view": result}
+
+
+def save_once(path, document, limit):
+    """Atomically install a complete 0600 file without replacing any existing intent."""
+    target = Path(path)
+    with tempfile.NamedTemporaryFile(prefix=".feedback-ai-", dir=target.parent, delete=False) as stream:
+        temporary = Path(stream.name)
+        try:
+            os.fchmod(stream.fileno(), 0o600)
+            stream.write(encode(document) + b"\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+            try:
+                os.link(temporary, target)
+            except FileExistsError:
+                return read_private_json(target, limit)
+            directory = os.open(target.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        finally:
+            temporary.unlink(missing_ok=True)
+    return document
+
+
+def progress_decision(value):
+    fields(value, {"caseId", "expectedInputRevision", "workState", "summary"})
+    require(matches(UUID, value["caseId"]) and integer(value["expectedInputRevision"])
+            and isinstance(value["workState"], str) and value["workState"] in PROGRESS,
+            "Preparation only supports explicit progress decisions")
+    public_text(value["summary"])
+
+
+def prepared_intent(document, config):
+    value = bound_content(document, "prepared-progress", config, "intent")
+    build_request("progress", value, config)
+    return value
+
+
+def prepare_progress(value, snapshot, config, output):
+    progress_decision(value)
+    snapshot_metadata(snapshot)
+    require(snapshot["CaseID"] == value["caseId"] and snapshot["State"] == "active"
+            and snapshot["InputRevision"] == value["expectedInputRevision"],
+            "Case is closed, removed or has newer input; reconcile without rewriting the intent")
+    latest = snapshot.get("LatestProjection")
+    latest_revision = latest["WorkflowRevision"] if latest else 0
+    target = Path(output)
+    if target.exists() or target.is_symlink():
+        saved = read_private_json(target, MAX_INPUT)
+    else:
+        require(latest is None or latest["PublicationState"] in ("published", "rejected"),
+                "An existing publication is unresolved; reconcile before preparing another")
+        projection = {"id": str(uuid.uuid4()), "workflowRevision": latest_revision + 1,
+                      **{key: value[key] for key in ("expectedInputRevision", "workState", "summary")}}
+        intent = {"caseId": value["caseId"], "projection": projection}
+        build_request("progress", intent, config)
+        saved = save_once(output, bound_document("prepared-progress", config, intent=intent), MAX_INPUT)
+    intent = prepared_intent(saved, config)
+    projection = intent["projection"]
+    require(intent["caseId"] == value["caseId"]
+            and all(projection[key] == value[key] for key in ("expectedInputRevision", "workState", "summary")),
+            "Output already contains a different immutable intent")
+    require((latest_revision < projection["workflowRevision"]
+             and projection["workflowRevision"] == latest_revision + 1)
+            or (latest is not None and latest["ID"] == projection["id"]
+                and latest["WorkflowRevision"] == projection["workflowRevision"]
+                and latest["ExpectedInputRevision"] == projection["expectedInputRevision"]),
+            "Prepared intent conflicts with current workflow; preserve it and reconcile")
+    return {"prepared": {"caseId": intent["caseId"], "projection": projection,
+                         "sent": False, "observedReceipt": latest if latest and latest["ID"] == projection["id"] else None}}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("read", "ask", "reply", "progress", "outcome"))
+    parser.add_argument("command", choices=("read", "prepare", "ask", "reply", "progress", "outcome"))
     parser.add_argument("--connection", required=True, help="Private JSON with socket, binding and fixed public repository")
     parser.add_argument("--input", default="-", help="Private intentional-operation JSON file; '-' reads bounded stdin")
     parser.add_argument("--output", help="Atomically write the requested result to a private absolute path instead of stdout")
-    parser.add_argument("--publication-receipt", help="Private published receipt from publish-public-source.py")
-    parser.add_argument("--source-commit", help="Exact intended private source commit; checked locally and never transmitted")
+    parser.add_argument("--view", choices=("summary", "changes"), help="Read a compact view and retain the full snapshot in --output")
+    parser.add_argument("--since", help="Previous private full snapshot saved by a compact read; only for --view changes")
+    parser.add_argument("--receipt", help="Projection UUID to observe in the fresh compact snapshot")
     args = parser.parse_args(argv)
     try:
+        require(not (args.view or args.since or args.receipt) or args.command == "read",
+                "View options are only accepted for read")
+        require((args.view == "changes") == (args.since is not None), "Changes view requires exactly one previous snapshot")
+        require(not args.receipt or args.view and matches(UUID, args.receipt), "Receipt lookup requires a compact view and UUIDv4")
+        require(not (args.view or args.command == "prepare") or args.output is not None,
+                "Compact reads and preparation require a private output file")
         config = connection_config(read_private_json(args.connection, 4096))
         value = parse_json(sys.stdin.buffer.read(MAX_INPUT + 1), MAX_INPUT) if args.input == "-" else read_private_json(args.input, MAX_INPUT)
-        receipt = read_private_json(args.publication_receipt, 16 << 10) if args.publication_receipt else None
-        request = build_request(args.command, value, config, receipt, args.source_commit)
-        validate_output(args.output, (args.connection, args.input, args.publication_receipt))
+        validate_output(args.output, (args.connection, args.input, args.since))
+        if args.command == "prepare":
+            progress_decision(value)
+            request = build_request("read", {"caseId": value["caseId"]}, config)
+        else:
+            if args.command == "progress" and isinstance(value, dict) and value.get("kind") == "prepared-progress":
+                value = prepared_intent(value, config)
+            request = build_request(args.command, value, config)
+        previous = read_private_json(args.since, MAX_RESPONSE + 4096) if args.since else None
         result = exchange(config, request)
-        write_output(args.output, result)
+        if args.command == "prepare":
+            write_output(None, prepare_progress(value, result["snapshot"], config, args.output))
+        elif args.view:
+            view = read_view(result["snapshot"], config, args.view, previous, args.receipt)
+            document = bound_document("feedback-snapshot", config, snapshot=result["snapshot"])
+            require(save_once(args.output, document, MAX_RESPONSE + 4096) == document,
+                    "Output already contains another snapshot; choose a new path")
+            write_output(None, view)
+        else:
+            write_output(args.output, result)
     except (ToolError, OSError, UnicodeError) as error:
         message = str(error) if isinstance(error, ToolError) else "Local I/O failed; preserve the intent and check its publication state before retrying"
         print(json.dumps({"error": message}), file=sys.stderr)

@@ -37,34 +37,6 @@ TestCase {
             }
         }
 
-        RulesCardSurface {
-            id: card
-            x: 20; y: 20; width: 110; height: 154
-            property string selectedId: "ballista"
-            property int activationCount: 0
-            readonly property var current: {
-                void testRulesPrompt.session.snapshotRevision
-                return testRulesPrompt.session.cardForInspection(selectedId)
-            }
-            cardCatalogModel: catalog
-            cardBackSource: ""
-            visibleIdentity: current.visibleIdentity === true
-            name: current.name || ""
-            setCode: current.setCode || ""
-            collectorNumber: current.collectorNumber || ""
-            tapped: current.tapped === true
-            faceDown: current.faceDown === true
-            attacking: current.attacking === true
-            power: current.power || ""
-            toughness: current.toughness || ""
-            countersSummary: current.countersSummary || ""
-            damageMarked: current.damage || 0
-            attachmentId: current.attachedTo || ""
-            inspectable: true
-            onInspectRequested: details.showCard(selectedId)
-            onActivationRequested: activationCount++
-        }
-
         RulesCardInspector {
             id: details
             x: 300; y: 20; width: 410; height: 600
@@ -78,10 +50,6 @@ TestCase {
     function init() {
         testTranslations.setLanguage("en")
         testRulesPrompt.clear()
-        card.selectedId = "ballista"
-        card.actionable = false
-        card.selected = false
-        card.activationCount = 0
         catalog.requestedNames = []
         catalog.imageUrl = ""
         testWindow.width = 900
@@ -116,13 +84,8 @@ TestCase {
         testTranslations.setLanguage("en")
     }
 
-    function test_visibleMarkersOpenCurrentProjectedDetails() {
-        compare(findChild(card, "rulesCardPowerToughness").text, "4/4")
-        compare(findChild(card, "rulesCardDamage").text, "2 dmg")
-        verify(findChild(card, "rulesCardDamage").visible)
-        compare(findChild(card, "rulesCardCounters").text, "+1/+1 × 4")
-        verify(findChild(card, "rulesCardAttachment").visible)
-        mouseClick(card)
+    function test_currentProjectedStateUpdatesInInspector() {
+        verify(details.showCard("ballista"))
         tryCompare(details, "hasCard", true)
         compare(findChild(details, "rulesCardInspectorTitle").text, "Walking Ballista")
         const state = findChild(details, "rulesCardInspectorState")
@@ -138,8 +101,6 @@ TestCase {
         verify(testRulesPrompt.applySnapshot(snapshot))
         tryVerify(() => state.text.includes("Damage marked: 0"))
         verify(state.text.includes("Counters: +1/+1 × 5"))
-        verify(!findChild(card, "rulesCardDamage").visible)
-        compare(findChild(card, "rulesCardPowerToughness").text, "5/4")
     }
 
     function test_relationshipDetailsDoNotTreatAttacksAsAttachments_data() {
@@ -201,30 +162,6 @@ TestCase {
         compare(state.relationshipBadge, "")
     }
 
-    function test_primaryActionAndKeyboardLeaveInspectionForSecondaryClick() {
-        card.actionable = true
-        card.selected = true
-        mouseClick(card, card.width / 2, card.height / 2, Qt.LeftButton)
-        compare(card.activationCount, 1)
-        compare(details.hasCard, false)
-        testWindow.requestActivate()
-        card.forceActiveFocus()
-        tryCompare(card, "activeFocus", true)
-        keyClick(Qt.Key_Space)
-        keyClick(Qt.Key_Return)
-        compare(card.activationCount, 3)
-        compare(details.hasCard, false)
-        mouseClick(card, card.width / 2, card.height / 2, Qt.RightButton)
-        compare(card.activationCount, 3)
-        tryCompare(details, "hasCard", true)
-
-        details.clear()
-        card.actionable = false
-        mouseClick(card, card.width / 2, card.height / 2, Qt.LeftButton)
-        compare(card.activationCount, 3)
-        tryCompare(details, "hasCard", true)
-    }
-
     function test_nativeCounterNamesAreReadable_data() {
         return [
             {tag: "english", language: "en", lore: "Lore", charge: "Charge",
@@ -252,8 +189,6 @@ TestCase {
                         {name: "P9P9", value: 1}, {name: "Zero Counter", value: 0}]}
         ]
         verify(testRulesPrompt.applySnapshot(snapshot))
-        card.selectedId = "zabaz"
-        compare(findChild(card, "rulesCardCounters").text, "+1/+1 × 2")
         verify(details.showCard("zabaz"))
         tryCompare(details, "hasCard", true)
         const state = findChild(details, "rulesCardInspectorState")
@@ -262,8 +197,6 @@ TestCase {
         details.clear()
         tryCompare(details, "hasCard", false)
 
-        card.selectedId = "saga"
-        compare(findChild(card, "rulesCardCounters").text, data.lore + " × 2")
         verify(details.showCard("saga"))
         tryCompare(details, "hasCard", true)
         verify(state.text.includes(data.lore + " × 2"))
@@ -280,11 +213,7 @@ TestCase {
     }
 
     function test_faceDownShowsOnlyPublicStateAndDoesNotResolveIdentity() {
-        card.selectedId = "hidden"
-        compare(card.name, "")
-        compare(findChild(card, "rulesCardPowerToughness").text, "2/2")
-        verify(findChild(card, "rulesCardDamage").visible)
-        mouseClick(card)
+        verify(details.showCard("hidden"))
         tryCompare(details, "hasCard", true)
         compare(findChild(details, "rulesCardInspectorTitle").text, "Face-down card")
         verify(findChild(details, "rulesCardInspectorState").text.includes("Damage marked: 1"))

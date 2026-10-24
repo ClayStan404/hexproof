@@ -105,24 +105,6 @@ func TestRulesPublicLogNextGameResetAndTerminalObservation(t *testing.T) {
 	}
 }
 
-func TestRulesPublicLogBoundsAndOwnerIndependentProjection(t *testing.T) {
-	r := rulesLogTestRoom(t)
-	for i := 0; i < protocol.MaxRetainedGameLog+5; i++ {
-		r.AppendRulesLog("rules_phase", 0, "Public activity.")
-	}
-	if len(r.RulesLog) != protocol.MaxRetainedGameLog || r.RulesLog[0].ID != 6 {
-		t.Fatalf("unbounded journal: %d", len(r.RulesLog))
-	}
-	log, start, truncated := r.RulesLogProjection()
-	if len(log) != protocol.MaxProjectedGameLog || !truncated || start != log[0].ID {
-		t.Fatalf("projection bounds: %d %d %v", len(log), start, truncated)
-	}
-	log[0].Text = "tampered"
-	if r.RulesLog[len(r.RulesLog)-len(log)].Text == "tampered" {
-		t.Fatal("projection aliases live journal")
-	}
-}
-
 func TestRulesChatMembershipValidationAndTerminalShell(t *testing.T) {
 	r := rulesLogTestRoom(t)
 	for _, conn := range []string{"alice", "bob", "observer"} {

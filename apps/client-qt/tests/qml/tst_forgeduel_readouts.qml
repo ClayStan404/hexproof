@@ -39,7 +39,7 @@ ForgeDuelTestCase {
             state.activeSeat = stage === "starting-player" || stage === "next-game" ? -1 : data.local
             if (stage === "next-game") state.gameId = "next-game"
             verify(testRulesPrompt.applySnapshot(state))
-            waitForRendering(table)
+            verify(waitForPolish(window))
             const fields = data.seats.map(seat => item("forgeField-" + seat))
             const near = board.fieldFor(data.local), far = fields.find(field => !field.nearSide)
             compare(track.visible, stage === "first-turn")
@@ -72,7 +72,7 @@ ForgeDuelTestCase {
         const state = snapshot(data.hand, data.creatures)
         state.stack = [{id:"spell", controllerSeat:1, ownerSeat:1, identity:{name:"Lightning Bolt"}, text:"Deal 3 damage."}]
         verify(testRulesPrompt.applySnapshot(state))
-        waitForRendering(table)
+        verify(waitForPolish(window))
         const names = ["forgeCard-own-0", "forgeCard-land", "forgeCard-opponent",
             "forgeHandSurface-hand-0", "rulesPlayerTarget0", "rulesPlayerTarget1", "forgeStackEntry-spell"]
         const objects = names.map(name => item(name))
@@ -90,7 +90,7 @@ ForgeDuelTestCase {
             state.step = phase
             state.prioritySeat = state.prioritySeat === 0 ? 1 : 0
             verify(testRulesPrompt.applySnapshot(state))
-            waitForRendering(table)
+            verify(waitForPolish(window))
             for (let i = 0; i < names.length; ++i) {
                 compare(item(names[i]), objects[i], "Preserve " + names[i] + " during " + phase)
                 compare(objects[i].x, positions[i].x)
@@ -110,7 +110,7 @@ ForgeDuelTestCase {
         state.zones[0].cards.push(card("drawn", 0, "Plains", false))
         state.zones[0].count++
         verify(testRulesPrompt.applySnapshot(state))
-        waitForRendering(table)
+        verify(waitForPolish(window))
         for (let i = 0; i < names.length; ++i) compare(item(names[i]), objects[i])
         verify(objects[0].card.tapped)
         compare(objects[0].card.power, "4")
@@ -735,7 +735,9 @@ ForgeDuelTestCase {
                <= track.y + 1)
     }
     function test_phaseLabelsStayReadableAtScaledSizes_data() {
-        return [{tag:"compact-pin", width:900, height:620, scale:1.5, seats:2, pin:true, language:"en"},
+        return [{tag:"wide-english", width:1920, height:1011, scale:1.25, seats:2, pin:false, language:"en"},
+            {tag:"wide-chinese", width:1920, height:1011, scale:1.25, seats:2, pin:false, language:"zh"},
+            {tag:"compact-pin", width:900, height:620, scale:1.5, seats:2, pin:true, language:"en"},
             {tag:"compact-pin-chinese", width:900, height:620, scale:1.5, seats:2, pin:true, language:"zh"},
             {tag:"compact-pin-german", width:900, height:620, scale:1.5, seats:2, pin:true, language:"de"},
             {tag:"four-normal", width:1920, height:1011, scale:1, seats:4, pin:false, language:"en"},
@@ -761,6 +763,7 @@ ForgeDuelTestCase {
         verify(track.width > 0)
         verify(bandHeight < table.height * 0.25, "Phase information must not consume the battlefield")
         function assertLabel(label) {
+            verify(label.visible, "The phase label must remain visible")
             verify(label.font.pixelSize >= Theme.fontSize(11), "Phase text must keep a readable scaled font")
             verify(!label.truncated, "The phase name must not be elided")
             verify(label.paintedWidth <= label.width + 0.5 && label.paintedHeight <= label.height + 0.5,
@@ -871,7 +874,7 @@ ForgeDuelTestCase {
         testGameTable.applySnapshot({log:[{id:1, kind:"cast", text:"Plains tapped", seat:1}]})
         if (data.pin) table.openCardDetails("own-0")
         mouseMove(table, 1, 1)
-        verify(waitForPolish(window)); verify(waitForRendering(table))
+        renderTable()
         const arrow = item("forgeRelationship-attack-" + attacker.id + "-")
         verify(arrow.visible && arrow.validAnchors)
         const endpoint = arrow.endPoint
@@ -879,10 +882,10 @@ ForgeDuelTestCase {
         // Compare the arrow only after the independent transient announcement
         // has finished; its fade is not a change in arrow/text layering.
         tryCompare(item("forgeTurnCallout"), "visible", false, 5000)
-        verify(waitForPolish(window)); waitForRendering(table)
+        renderTable()
         const withArrow = grabImage(table)
         arrow.visible = false
-        verify(waitForRendering(table))
+        renderTable()
         const withoutArrow = grabImage(table)
         verify(!withArrow.equals(withoutArrow), "The complete-table capture must contain the real attack line")
         const phaseTrack = item("forgePhaseTrack")

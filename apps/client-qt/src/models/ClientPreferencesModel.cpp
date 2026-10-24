@@ -4,6 +4,7 @@
 #include "ClientPreferencesModel.h"
 
 #include "ApplicationPaths.h"
+#include "PreferenceValues.h"
 #include "ShortcutRegistry.h"
 #include "UiLanguages.h"
 
@@ -16,20 +17,6 @@
 namespace hexproof::client {
 
 namespace {
-
-qreal normalizedTableCardScale(qreal scale)
-{
-    if (!std::isfinite(scale) || scale <= 0.0)
-        return 0.0;
-    return std::clamp(std::round(scale * 20.0) / 20.0, 0.5, 1.25);
-}
-
-qreal normalizedTableControlPosition(qreal position)
-{
-    if (!std::isfinite(position) || position < 0.0)
-        return -1.0;
-    return std::clamp(position, 0.0, 1.0);
-}
 
 QString normalizedShortcutSequence(const QString &sequence)
 {
@@ -156,12 +143,7 @@ void ClientPreferencesModel::setCardLanguage(const QString &language)
 
 void ClientPreferencesModel::setCardArtProvider(const QString &provider)
 {
-    const QString lowered = provider.toLower();
-    const QString normalized = lowered == QStringLiteral("mtgch") ||
-                                       lowered == QStringLiteral("scryfall") ||
-                                       lowered == QStringLiteral("parallel")
-                                   ? lowered
-                                   : QStringLiteral("auto");
+    const QString normalized = preferenceValues::cardArtProvider(provider);
     if (normalized == m_preferences.cardArtProvider)
         return;
     const QString previous = m_preferences.cardArtProvider;
@@ -201,9 +183,7 @@ void ClientPreferencesModel::setAnimatePackOpenings(bool animate)
 
 void ClientPreferencesModel::setUiTheme(const QString &theme)
 {
-    const QString normalized = theme.compare(QStringLiteral("glass"), Qt::CaseInsensitive) == 0
-                                   ? QStringLiteral("glass")
-                                   : QStringLiteral("classic");
+    const QString normalized = preferenceValues::uiTheme(theme);
     if (normalized == m_preferences.uiTheme)
         return;
     const QString previous = m_preferences.uiTheme;
@@ -351,9 +331,7 @@ void ClientPreferencesModel::setTableBackground(const QString &background)
 
 void ClientPreferencesModel::setInterfaceScale(qreal scale)
 {
-    if (!std::isfinite(scale))
-        scale = 1.0;
-    const qreal normalized = std::clamp(std::round(scale * 20.0) / 20.0, 0.75, 1.5);
+    const qreal normalized = preferenceValues::interfaceScale(scale);
     if (normalized == m_preferences.interfaceScale)
         return;
     const qreal previous = m_preferences.interfaceScale;
@@ -433,7 +411,7 @@ void ClientPreferencesModel::setTableCounterCount(int count)
 
 void ClientPreferencesModel::setTableOverviewCardScale(qreal scale)
 {
-    const qreal normalized = normalizedTableCardScale(scale);
+    const qreal normalized = preferenceValues::tableCardScale(scale);
     if (normalized == m_preferences.tableOverviewCardScale)
         return;
     const qreal previous = m_preferences.tableOverviewCardScale;
@@ -447,7 +425,7 @@ void ClientPreferencesModel::setTableOverviewCardScale(qreal scale)
 
 void ClientPreferencesModel::setTableFocusCardScale(qreal scale)
 {
-    const qreal normalized = normalizedTableCardScale(scale);
+    const qreal normalized = preferenceValues::tableCardScale(scale);
     if (normalized == m_preferences.tableFocusCardScale)
         return;
     const qreal previous = m_preferences.tableFocusCardScale;
@@ -471,8 +449,8 @@ void ClientPreferencesModel::setTableBattlefieldControlY(qreal position)
 
 void ClientPreferencesModel::setTableBattlefieldControlPosition(qreal x, qreal y)
 {
-    const qreal normalizedX = normalizedTableControlPosition(x);
-    const qreal normalizedY = normalizedTableControlPosition(y);
+    const qreal normalizedX = preferenceValues::tableControlPosition(x);
+    const qreal normalizedY = preferenceValues::tableControlPosition(y);
     if (normalizedX == m_preferences.tableBattlefieldControlX &&
         normalizedY == m_preferences.tableBattlefieldControlY) {
         return;

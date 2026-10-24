@@ -20,7 +20,8 @@ change is unsuitable; or accept a concrete task with testable criteria. A
 report is useful even when its original diagnosis turns out to be different
 from the underlying problem. Acceptance does not promise a release date.
 
-Implementation and review happen in the project's development workspace.
+Implementation, pull requests, independent review and merges use the public
+`ClayStan404/hexproof` repository.
 Different AI participants can contribute through the same task and evidence
 contracts. Automated checks and independent review determine whether a change
 can progress. This process does not promise a human review of every report.
@@ -40,9 +41,9 @@ The public issue and client status distinguish these milestones:
 | Public source available, awaiting release | The corresponding source snapshot is public, but the released application may still have the old behavior. |
 | Released | A published version and its verified release assets contain the change; follow the release link for downloads. |
 
-Development records, internal review links and credentials are not part of
-the public status. Public source snapshots contain the project's selected
-source and documentation, with their own public history. A source update is
+A confirmed public merge makes the source available immediately. Client status
+uses concise explanations and verified public references; raw execution logs,
+operator details and credentials are not included. Source availability remains
 separate from an application release and from updating a running game server.
 
 ## Following up

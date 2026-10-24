@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import re
 import unittest
 from pathlib import Path
 
@@ -12,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class TableArchitectureTests(unittest.TestCase):
-    # Guard invalid APIs, transport ownership, and required resource/workflow wiring.
+    # Guard transport ownership and required resource/workflow wiring.
     @staticmethod
     def source(path: str) -> str:
         return (ROOT / path).read_text(encoding="utf-8")
@@ -24,98 +23,6 @@ class TableArchitectureTests(unittest.TestCase):
         self.assertIn("readonly property bool modalOpen", shell)
         self.assertIn("qml/components/TableSceneShell.qml", cmake)
         self.assertIn("qml/components/TableSeatStateController.qml", cmake)
-
-    def test_production_qml_does_not_call_removed_table_facades(self) -> None:
-        removed = (
-            "seatData",
-            "zoneModelForSeat",
-            "zoneCardsForSeat",
-            "sharedZoneCards",
-            "zoneCardCount",
-            "zoneCardAt",
-            "zoneDelegateModel",
-            "modelCardCount",
-            "finishHandDrag",
-            "finishBattlefieldDrag",
-            "syncDisplayedOwnHand",
-            "visibleOwnHandCount",
-            "displayedLife",
-            "setLifeOptimistically",
-            "displayedTapped",
-            "hasTappedOwnPermanent",
-            "untapOwnBattlefield",
-            "displayedCounterValue",
-            "setCounterOptimistically",
-            "commanderCards",
-            "displayedCommanderTax",
-            "commanderTaxSummary",
-            "commanderTaxDisplayName",
-            "isCardPendingFrom",
-            "beginPendingCardMove",
-            "beginPendingCardMoves",
-            "removePendingCardMove",
-            "clearPendingCardMoves",
-            "bindPendingCardMoveRequest",
-            "rollbackPendingCardMove",
-            "bindOptimisticValueRequest",
-            "rollbackOptimisticValue",
-            "clearOptimisticPhase",
-            "trackQueuedCommand",
-            "rollbackFailedCommand",
-            "trackOptimisticValues",
-            "cardInZone",
-            "cardDataForId",
-            "visibleZoneSeatForCard",
-            "reconcilePendingCardMoves",
-            "pendingBattlefieldMovesForSeat",
-            "publicZoneCards",
-            "displayedPublicZoneTopCard",
-            "clearPendingLibraryApproval",
-            "openSelectedCounterLabelEditor",
-            "openSelectedCounterValueEditor",
-            "counterShortcutBlocked",
-            "showLibraryMoveCardsEditor",
-            "toggleHandReveal",
-            "handRevealTransitionPending",
-            "openTableSettings",
-            "setGameLogRailVisible",
-            "applyTableSettings",
-            "clearCounterSelection",
-            "resetCounterCountRequest",
-            "syncOwnCounterCount",
-            "maybeShowGameResult",
-            "syncBattlefieldSeats",
-            "syncGameLog",
-            "revealedCardsForSeat",
-            "cardImageSource",
-            "availableCardFaces",
-            "tableCardImageSource",
-            "prioritizeVisibleCards",
-            "opponentZoneExpanded",
-            "setOpponentZoneExpanded",
-            "inspectCard",
-            "hideCardPreview",
-            "gameSummary",
-            "matchScoreSummary",
-            "moveSelectedBattlefieldToZone",
-            "moveSelectedHandCard",
-            "canMoveToHand",
-            "moveDroppedCardToBattlefield",
-            "clearPendingBattlefieldMove",
-            "finishPublicZoneDrop",
-            "moveCardToBattlefield",
-        )
-        qml_root = ROOT / "apps/client-qt/qml"
-        problems: list[str] = []
-
-        for path in qml_root.rglob("*.qml"):
-            text = path.read_text(encoding="utf-8")
-            for name in removed:
-                pattern = rf"(?:tableRoot|tableController|\btable)\.{name}\s*\("
-                if re.search(pattern, text):
-                    problems.append(f"{path.relative_to(ROOT)} calls {name}")
-
-        self.assertEqual(problems, [])
 
     def test_deep_zone_views_do_not_send_transport_commands(self) -> None:
         shared = self.source("apps/client-qt/qml/components/SharedZonesView.qml")

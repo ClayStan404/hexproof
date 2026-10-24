@@ -402,8 +402,7 @@ older player-host relay servers. Failed direct connections continue on hub relay
 The bundled helper's `--peer` mode needs no runtime directory or Java. Only an
 outbound authenticated hub connection is required for signaling. WebRTC can use
 LAN or Internet UDP candidates; this implementation uses
-the managed discovery endpoints `stun:47.122.120.151:3478` (Server 1) and
-`stun:47.97.30.103:3478` (Server 2), with no TURN allocation. Operators can
+the configured managed discovery endpoints, with no TURN allocation. Operators can
 override both through `-peer-stun-servers` or `HEXPROOF_PEER_STUN_SERVERS` using
 a comma-separated list of at most two `stun:host[:port]` URLs. An explicit empty
 value disables STUN discovery while retaining LAN/direct-address ICE and hub

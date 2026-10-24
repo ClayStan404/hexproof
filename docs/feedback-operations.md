@@ -4,7 +4,7 @@ This runbook covers the public V2 receiver and retained private V1 deliveries.
 The owner has adopted public-only feedback with autonomous AI processing and
 releases. The [V2 contract](public-feedback-v2.md) defines public consent,
 publication, threads, closure and content removal. The release installer below
-supports private V1 and public V2 staging; its local qualification does not
+supports private V1 and public V2 deployments; local qualification does not
 activate production or complete cutover. Retain V1 receipt access for previously
 accepted records without accepting new private submissions.
 
@@ -18,7 +18,7 @@ only while unfinished legacy deliveries require it.
 ## Selected deployment host
 
 Resolve the selected host from `feedback.receiverTarget` in the operator's
-trusted native operations configuration. Use its SSH alias
+[native operations configuration](multica-operations.md#operator-configuration). Use its SSH alias
 as the explicit `HEXPROOF_TARGETS` and private deployment input's `target`.
 The field is operator guidance, not an installer input or deployment trigger.
 Confirm installed state from the operator's current deployment records and
@@ -69,22 +69,19 @@ The legacy client used the separate build input `HEXPROOF_FEEDBACK_CONFIG_FILE`
 with `schemaVersion: 1`, `enabled`, `apiBase` including `/feedback/v1`,
 `supportLabel`, `privacyUrl`, and `receiptOnlyApiBases`. Current clients require
 [V2 public configuration](public-feedback-v2.md#build-and-receiver-configuration)
-for new submissions. Official 3.1.0 source defaults enable the qualified Server 2
+for new submissions. Official source defaults enable the reviewed public
 destination; the generic example remains disabled. Source configuration does
-not start the receiver. The owner's initial 2026-10-22 code-only scope was
-superseded by the formal release authorization on 2026-10-24.
+not start the receiver.
 Do not edit the strict existing server directory or distribute SMTP secrets.
 Production clients reject redirects and insecure endpoints. After endpoint
 migration, retain an old endpoint only for receipt queries if it is still
 trusted; users must explicitly authorize new submissions to the new endpoint.
 
-### Formal 3.1.0 public configuration
+### Official public configuration and notice upgrades
 
 The reviewed public build configuration is
-[`feedback.official.json`](../apps/client-qt/config/feedback.official.json), with
-API `https://47.97.30.103/feedback/v2`, notice
-`https://47.97.30.103/feedback/privacy` and public repository
-`ClayStan404/hexproof`. The matching [notice page](https://47.97.30.103/feedback/privacy)
+[`feedback.official.json`](../apps/client-qt/config/feedback.official.json), which
+defines the API, notice URL, repository and disclosure revisions. The notice page
 is rendered from `deploy/feedback/privacy.html` and contains the same disclosure
 text; install that template at
 `/var/www/hexproof-feedback/privacy.html`. It is a static public resource and
@@ -92,11 +89,11 @@ contains no receiver credentials. Before a release build, check the public
 repository's `HEXPROOF_FEEDBACK_CONFIG_JSON` Actions variable: a nonempty value
 overrides the source defaults and must either match them or be removed.
 
-The pending 3.1.0 notice UI revision uses `hexproof-public-20261024-v2`.
-It moves the full notice behind an in-app reading action and removes IP addresses,
+The official notice uses `hexproof-public-20261024-v2`. The client exposes the
+full notice through an in-app reading action and omits hosting addresses,
 model/effort names and internal coordination details from user-facing prose.
-The currently deployed `hexproof-public-20261024-v1` notice remains unchanged
-until the coordinated update. Keep provider policy
+Confirm installed revisions from current deployment records and service state.
+Keep provider policy
 `hexproof-test-openai-multica-20261023-v1` unchanged in the client, receiver
 `public` object and receiver `multica` object. Despite its historical name,
 this identifier still means the same qualified Multica/OpenAI processing
@@ -105,8 +102,9 @@ and Astra independently reviews with `gpt-6-astra`, all at `ultra`. It does not 
 DeepSeek, agy or Cursor/Grok. The revised formal notice simplifies user-facing wording
 without broadening the processors that can receive historical contributions.
 
-Change only `public.noticeRevision` and `public.noticeText` for this notice
-transition. Preserve repository and actor identities, token references, both
+For a disclosure-only revision, change `public.noticeRevision` and
+`public.noticeText` together with the matching client disclosure and notice page.
+Preserve repository and actor identities, token references, both
 stores, sockets, native workspace/Autopilot IDs and the webhook credential.
 The native binding includes the webhook destination, so a routine launch must
 not rotate it. A different provider-policy identifier would prevent old cases
@@ -120,9 +118,8 @@ permission; changing the current notice does not rewrite or revoke that
 consent. Their receipt access, AI status projections, closure and removal remain
 available. New replies require the new client disclosure.
 
-The trial route in `/etc/nginx/snippets/hexproof-feedback-test.inc` restricts
-`/feedback/v2/` to selected source addresses. Formal activation removes that
-location's IP `allow`/`deny` rules while retaining the 5 MiB cap, literal
+For an installation restricted to test source addresses, opening public intake
+removes that route's IP `allow`/`deny` rules while retaining the 5 MiB cap, literal
 loopback upstream, trusted forwarded-address handling, bounded timeouts,
 disabled request-body/access logging and the separate public attachment/notice
 routes. Do not expose `/healthz`, `/readyz` or either Unix socket. Validate the
@@ -130,9 +127,9 @@ proxy configuration before reload and verify HTTPS from outside the former
 allowlist. Keep intake restricted until the notice, receiver, monitoring and
 native workflow match the released client.
 
-The trial's 32-record/64-identity/64 MiB capacity is not the production budget.
-Use the receiver's existing defaults for the initial public launch: 1,000
-records, 10,000 identities, 2 GiB payload storage, 512 MiB minimum free space,
+Review any capacity overrides left from a test installation. The receiver
+defaults are 1,000 records, 10,000 identities, 2 GiB payload storage,
+512 MiB minimum free space,
 5 submissions and 20 MiB per source per hour, and 100 submissions and 256 MiB
 globally per hour. Verify available disk and independent monitoring before
 activation; `monitoringConfigured: true` is an operator assertion, not a monitor.
@@ -283,16 +280,16 @@ Provide all three exact build identities, with the same private receiver inputs
 described above:
 
 ```sh
-HEXPROOF_COMPONENT=feedback HEXPROOF_TARGETS=aws HEXPROOF_VERSION=3.1.0 \
+HEXPROOF_COMPONENT=feedback HEXPROOF_TARGETS="$HEXPROOF_SELECTED_TARGETS" HEXPROOF_VERSION=3.1.0 \
   HEXPROOF_FEEDBACK_INPUTS=/private/feedback-inputs.json \
-  HEXPROOF_FEEDBACK_TEST_RUN_ID=39937074828 \
-  HEXPROOF_FEEDBACK_TEST_ARTIFACT_ID=12496905925 \
-  HEXPROOF_FEEDBACK_TEST_HEAD_SHA=b1baa269395a9c78d673625f1aacb06b5cf6ec87 \
+  HEXPROOF_FEEDBACK_TEST_RUN_ID="$HEXPROOF_SELECTED_RUN_ID" \
+  HEXPROOF_FEEDBACK_TEST_ARTIFACT_ID="$HEXPROOF_SELECTED_ARTIFACT_ID" \
+  HEXPROOF_FEEDBACK_TEST_HEAD_SHA="$HEXPROOF_SELECTED_PUBLIC_SHA" \
   HEXPROOF_VERIFY_ONLY=1 ./deploy/deploy-release-server.sh
 ```
 
-These example IDs identify the qualified 3.1.0 artifact-only build; expired or
-changed artifacts are rejected. After verification, repeat without
+Resolve these exact identities from the authorized public build; do not reuse
+IDs from a prior installation. Expired or changed artifacts are rejected. After verification, repeat without
 `HEXPROOF_VERIFY_ONLY=1` to install under the owner's authorization. An optional
 `HEXPROOF_FEEDBACK_TEST_ARCHIVE=/absolute/path/artifact.zip` reuses the original
 downloaded ZIP, not an extracted directory. GitHub metadata is still read and

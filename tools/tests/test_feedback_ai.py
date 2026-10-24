@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
-"""The native task tool keeps identities stable and private publication mappings local."""
+"""The native task tool preserves intentional operations and public delivery identities."""
 
 from contextlib import contextmanager
 from copy import deepcopy
@@ -41,20 +41,11 @@ def intent(state="assessing"):
             "expectedInputRevision": 3, "workState": state, "summary": "The AI team is investigating this report."}}
 
 
-def publication_receipt():
-    return {"state": "published", "publicCommit": PUBLIC, "observedPublicHead": "d" * 40,
-            "historicalSourceMapping": "verified", "intent": {
-                "schemaVersion": 1, "sourceCommit": SOURCE, "sourceRef": "refs/heads/master",
-                "publicRepository": "git@github.com:example/public-project.git", "publicRef": "refs/heads/master",
-                "publicParent": "e" * 40, "baselineSourceCommit": "f" * 40,
-                "adoptPublicParent": False, "exportPolicyDigest": "1" * 64},
-            "export": {"schemaVersion": 1, "sourceCommit": SOURCE,
-                       "exportPolicyDigest": "1" * 64, "exportTreeDigest": "2" * 64}}
-
-
 def outcome(kind="release"):
     value = intent({"source": "source-published-awaiting-release", "release": "released", "duplicate": "duplicate"}[kind])
     value["projection"]["outcome"] = {"kind": kind, "repository": REPOSITORY}
+    if kind != "duplicate":
+        value["projection"]["outcome"]["commit"] = PUBLIC
     if kind == "release":
         value["projection"]["outcome"].update(tag="v3.1.0", version="3.1.0")
     elif kind == "duplicate":
@@ -77,7 +68,9 @@ def native_server(directory, reply=None, status=200, raw_reply=None):
             raw = self.rfile.read(int(self.headers["Content-Length"]))
             requests.append((self.path, raw))
             request = json.loads(raw)
-            result = reply if reply is not None else {"projection": {"id": request["projection"]["id"], "publicationState": "pending"}}
+            result = reply(request) if callable(reply) else reply
+            if result is None:
+                result = {"projection": {"id": request["projection"]["id"], "publicationState": "pending"}}
             body = raw_reply if raw_reply is not None else json.dumps(result).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
@@ -167,63 +160,42 @@ class FeedbackAITests(unittest.TestCase):
             with self.subTest(command=command, value=value), self.assertRaises(AI.ToolError):
                 AI.build_request(command, value, config())
 
-    def test_source_and_release_use_only_bound_public_mapping(self):
-        receipt = publication_receipt()
+    def test_source_and_release_keep_explicit_public_identity_and_immutable_intent(self):
         for kind in ("source", "release"):
             value = outcome(kind)
             before = deepcopy(value)
-            request = AI.build_request("outcome", value, config(), receipt, SOURCE)
+            request = AI.build_request("outcome", value, config())
             self.assertEqual(request["projection"]["outcome"]["commit"], PUBLIC)
             self.assertEqual(value, before)
-            raw = AI.encode(request).decode()
-            for private in (SOURCE, receipt["intent"]["baselineSourceCommit"], "sourceCommit", "exportTreeDigest", "sourceRef"):
-                self.assertNotIn(private, raw)
-            self.assertEqual(AI.build_request("outcome", value, config(), receipt, SOURCE), request)
-        self.assertEqual(receipt, publication_receipt())
+            self.assertEqual(AI.build_request("outcome", value, config()), request)
 
-    def test_receipt_state_repository_source_export_and_public_mapping_are_bound(self):
-        mutations = [lambda r: r.update(state="prepared"), lambda r: r.update(state="uncertain"),
-                     lambda r: r.update(publicCommit=SOURCE), lambda r: r.update(observedPublicHead="bad"),
-                     lambda r: r["intent"].update(publicRepository="https://github.com/private/other"),
-                     lambda r: r["intent"].update(publicRepository="https://secret@github.com/example/public-project"),
-                     lambda r: r["intent"].update(publicRepository="/tmp/unpublished-local.git"),
-                     lambda r: r["intent"].update(sourceCommit="f" * 40),
-                     lambda r: r["export"].update(sourceCommit="f" * 40),
-                     lambda r: r["export"].update(exportPolicyDigest="3" * 64),
-                     lambda r: r["intent"].update(schemaVersion=True)]
-        for mutate in mutations:
-            receipt = publication_receipt()
-            mutate(receipt)
-            with self.subTest(receipt=receipt), self.assertRaises(AI.ToolError):
-                AI.public_commit(receipt, REPOSITORY, SOURCE)
-        receipt = publication_receipt()
-        receipt["intent"]["publicRepository"] = "https://github.com/example/public-project.git"
-        self.assertEqual(AI.public_commit(receipt, REPOSITORY, SOURCE), PUBLIC)
-
-    def test_release_must_use_intended_mapping_and_matching_tag_version(self):
-        for change in ({"commit": SOURCE}, {"version": "3.2.0"}, {"tag": "private-branch"},
-                       {"repository": "private/other"}, {"issueNumber": 4}):
+    def test_outcomes_reject_missing_commit_wrong_repository_and_private_mapping(self):
+        for kind in ("source", "release"):
+            for change in ({"commit": "bad"}, {"commit": SOURCE[:12]}, {"commit": None},
+                           {"repository": "private/other"}, {"sourceCommit": SOURCE},
+                           {"publicationReceipt": {}}, {"issueNumber": 4}):
+                value = outcome(kind)
+                value["projection"]["outcome"].update(change)
+                with self.subTest(kind=kind, change=change), self.assertRaises(AI.ToolError):
+                    AI.build_request("outcome", value, config())
+            value = outcome(kind)
+            del value["projection"]["outcome"]["commit"]
+            with self.assertRaises(AI.ToolError):
+                AI.build_request("outcome", value, config())
+        for change in ({"version": "3.2.0"}, {"tag": "branch"}):
             value = outcome()
             value["projection"]["outcome"].update(change)
-            with self.subTest(change=change), self.assertRaises(AI.ToolError):
-                AI.build_request("outcome", value, config(), publication_receipt(), SOURCE)
-        with self.assertRaises(AI.ToolError):
-            AI.build_request("outcome", outcome(), config())
-        with self.assertRaises(AI.ToolError):
-            AI.build_request("outcome", outcome(), config(), publication_receipt(), "f" * 40)
-        value = outcome()
-        value["projection"]["summary"] = "The private change was " + SOURCE.upper()
-        with self.assertRaises(AI.ToolError):
-            AI.build_request("outcome", value, config(), publication_receipt(), SOURCE)
+            with self.assertRaises(AI.ToolError):
+                AI.build_request("outcome", value, config())
 
-    def test_duplicate_uses_fixed_public_repository_without_private_mapping(self):
+    def test_duplicate_uses_fixed_repository_and_does_not_accept_a_commit(self):
         value = outcome("duplicate")
         self.assertEqual(AI.build_request("outcome", value, config())["projection"], value["projection"])
-        with self.assertRaises(AI.ToolError):
-            AI.build_request("outcome", value, config(), publication_receipt(), SOURCE)
-        value["projection"]["outcome"]["issueNumber"] = True
-        with self.assertRaises(AI.ToolError):
-            AI.build_request("outcome", value, config())
+        for change in ({"issueNumber": True}, {"commit": PUBLIC}):
+            bad = deepcopy(value)
+            bad["projection"]["outcome"].update(change)
+            with self.assertRaises(AI.ToolError):
+                AI.build_request("outcome", bad, config())
 
     def test_outcome_numeric_bounds_match_receiver_contract(self):
         value = outcome("duplicate")
@@ -234,19 +206,22 @@ class FeedbackAITests(unittest.TestCase):
             AI.build_request("outcome", value, config())
         value = outcome()
         value["projection"]["outcome"].update(version="999999999.0.999999999", tag="v999999999.0.999999999")
-        AI.build_request("outcome", value, config(), publication_receipt(), SOURCE)
+        AI.build_request("outcome", value, config())
         for version in ("1000000000.0.0", "1.1000000000.0", "1.0.1000000000"):
             value["projection"]["outcome"].update(version=version, tag="v" + version)
             with self.subTest(version=version), self.assertRaises(AI.ToolError):
-                AI.build_request("outcome", value, config(), publication_receipt(), SOURCE)
+                AI.build_request("outcome", value, config())
 
-    def test_source_receipt_file_never_enters_native_request_or_output(self):
+    def test_public_outcome_cli_preserves_receiver_verification_and_rejects_old_flags(self):
         with tempfile.TemporaryDirectory() as directory, native_server(directory) as (connection, requests):
-            receipt = private_json(Path(directory) / "publication.json", publication_receipt())
-            result = self.invoke(connection, outcome(), "outcome", ("--publication-receipt", str(receipt), "--source-commit", SOURCE))
+            result = self.invoke(connection, outcome(), "outcome")
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(requests[0][1])["projection"]["outcome"]["commit"], PUBLIC)
-            self.assertNotIn(SOURCE.encode(), result.stdout + result.stderr + requests[0][1])
+            self.assertEqual(json.loads(result.stdout)["projection"]["publicationState"], "pending")
+            for option in ("--publication-receipt", "--source-commit"):
+                result = self.invoke(connection, outcome(), "outcome", (option, "retired-input"))
+                self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(len(requests), 1)
 
     def test_invalid_json_and_oversized_input_do_not_connect_or_echo_values(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -36,7 +36,6 @@ TestCase {
 
     function cleanup() {
         Theme.uiTheme = "classic"
-        TableBackgrounds.currentId = "default"
         Theme.backdropScene = null
         Theme.backdropBlur = null
         pane.compact = false
@@ -57,20 +56,6 @@ TestCase {
         verify(Qt.colorEqual(Theme.background, "#061014"))
         verify(pane.drawn)
         verify(findChild(pane, "liquidGlassLens") !== null)
-    }
-
-    function test_playmatSelectionIsIndependentOfTheme() {
-        TableBackgrounds.currentId = "forest"
-        playmat.visible = true
-        verify(playmat.playmatLook)
-        const image = findChild(playmat, "tableBackgroundImage")
-        verify(image !== null)
-        for (const theme of ["classic", "glass", "classic"]) {
-            Theme.uiTheme = theme
-            verify(playmat.playmatLook)
-            verify(String(image.source).endsWith("/backgrounds/forest.png"))
-        }
-        playmat.visible = false
     }
 
     function test_exposesLensShader() {

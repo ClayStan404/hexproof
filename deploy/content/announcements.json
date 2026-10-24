@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "revision": 4,
+  "display": {
+    "mode": "recent",
+    "recentDays": 90,
+    "selectedIds": []
+  },
+  "announcements": [
+    {
+      "id": "announcement-test-20260924-032223",
+      "notificationRevision": 1,
+      "publishedAt": "2026-09-24T03:27:13Z",
+      "expiresAt": "2026-09-25T03:27:13Z",
+      "title": {
+        "en": "Announcement feature test",
+        "zh": "公告功能测试"
+      },
+      "body": {
+        "en": "This is a test announcement to verify display and unread indicators. You can ignore it; game services are unaffected.",
+        "zh": "这是一条测试公告，用于验证公告展示和未读提示。可以忽略，不影响游戏服务。"
+      },
+      "pinned": false,
+      "withdrawn": true
+    },
+    {
+      "id": "weiyu-cup-10th-anniversary-20261005",
+      "notificationRevision": 1,
+      "publishedAt": "2026-09-24T04:14:53Z",
+      "expiresAt": "2026-10-05T16:00:00Z",
+      "title": {
+        "en": "Community recommendation | Weiyu Cup 10th Anniversary Limited Tournament",
+        "zh": "友情推荐｜🏆 微雨杯十周年·限制大赛 🏆"
+      },
+      "body": {
+        "en": "Date: October 5, 2026\nVenue: Feifei Cards (肥肥卡牌), Wenzhou, Zhejiang\n\nFormat:\nSwiss rounds: FRA Sealed\nTop 8: FRA Draft\n9th–16th place: casual draft (咸鱼轮抽)\n\nChampion's prize: 老圈, with more generous prizes available.\n\nJoin this celebration of Limited in Wenzhou and compete alongside Pro Tour players and card-shop owners from across Zhejiang.\n\nMTGso event entry (WeChat mini program; open within WeChat):\n#小程序://MTGso/bVINar1QefJpgVg",
+        "zh": "时间：2026 年 10 月 5 日\n地点：浙江温州·肥肥卡牌\n\n赛制：\n瑞士轮：FRA 现开\n八强：FRA 轮抽\n第 9–16 名：咸鱼轮抽\n\n奖励：冠军老圈，另有更多丰厚奖励。\n\n诚邀您来温共赴这场限制盛宴，与 PT 选手、浙江各大牌店老板同台竞技。\n\nMTGso 赛事入口（微信小程序，请在微信中打开）：\n#小程序://MTGso/bVINar1QefJpgVg"
+      },
+      "pinned": true,
+      "withdrawn": false
+    }
+  ]
+}

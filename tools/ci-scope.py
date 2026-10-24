@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+from fnmatch import fnmatchcase
 from pathlib import Path
 import subprocess
 import sys
@@ -25,15 +26,12 @@ TOOL_ONLY_PATHS = frozenset({
     "tools/check-qml-text-safety.py",
     "tools/check-qml-text-safety.sh",
     "tools/check-shell-scripts.sh",
-    "tools/export-public-tree.sh",
     "tools/feedback-ai.py",
+    "tools/git_evidence.py",
     "tools/module-size-policy.json",
     "tools/multica-removal.py",
     "tools/package-home-node.py",
     "tools/public-content.py",
-    "tools/public_export_policy.json",
-    "tools/public_source_export.py",
-    "tools/publish-public-source.py",
     "tools/release-verification.py",
     "tools/run-multiclient.sh",
     "tools/smoke-home-node.py",
@@ -101,14 +99,29 @@ def build_scope(paths: list[str]) -> tuple[bool, bool, bool]:
 
 
 def full_checks(event: str, repository: str, head_repository: str) -> bool:
-    """Internal development is verified locally; public/external PRs remain independent."""
-    if event == "push":
+    """Official same-repository work is checked locally; forks keep independent CI."""
+    official = repository.casefold() == "ClayStan404/hexproof".casefold()
+    if event == "push" and official:
         return False
     if event == "pull_request":
-        return (repository != "ClayStan404/hexproof-private"
-                or head_repository != repository)
+        return not (official and head_repository.casefold() == repository.casefold())
     # Local scope queries, manual CI and unknown events retain full verification.
     return True
+
+
+def forge_host_service_scope(paths: list[str]) -> bool:
+    """Retain the helper's narrow cross-platform PR regression coverage."""
+    patterns = (
+        "apps/client-qt/src/services/ForgeHostService.*",
+        "apps/client-qt/src/services/ForgeHostDiagnostics.*",
+        "apps/client-qt/src/ApplicationPaths.h",
+        "apps/client-qt/tests/forgehostservice/*",
+        "apps/client-qt/tests/forgehostservice_test.cpp",
+        "apps/client-qt/CMakeLists.txt",
+        ".github/workflows/ci.yml",
+        ".github/actions/setup-qt/*",
+    )
+    return any(fnmatchcase(path, pattern) for path in paths for pattern in patterns)
 
 
 def changed_paths(root: Path, base: str, head: str) -> list[str]:
@@ -140,19 +153,22 @@ def main() -> int:
     parser.add_argument("--repository", default="")
     parser.add_argument("--head-repository", default="")
     args = parser.parse_args()
-    client = server = forge = True
+    client = server = forge = forge_host_service = True
     full = args.force_all or full_checks(args.event, args.repository, args.head_repository)
     if not full:
-        client = server = forge = False
+        client = server = forge = forge_host_service = False
     elif not args.force_all:
         try:
-            client, server, forge = build_scope(changed_paths(args.root, args.base, args.head))
+            paths = changed_paths(args.root, args.base, args.head)
+            client, server, forge = build_scope(paths)
+            forge_host_service = forge_host_service_scope(paths)
         except (OSError, UnicodeError, ValueError, subprocess.CalledProcessError):
             print("Cannot establish CI change scope; running all verification domains.", file=sys.stderr)
     print(f"client={str(client).lower()}")
     print(f"server={str(server).lower()}")
     print(f"forge={str(forge).lower()}")
     print(f"full={str(full).lower()}")
+    print(f"forge_host_service={str(forge_host_service).lower()}")
     return 0
 
 

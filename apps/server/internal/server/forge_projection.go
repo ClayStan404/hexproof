@@ -168,13 +168,6 @@ func forgeSnapshotBatch(ctx context.Context, roomID string, h *Handler, game for
 	return views, nil
 }
 
-func (h *Handler) forgeProjectionView(ctx context.Context, roomID string, game forgeRoomGame, viewer int) (forge.GameView, error) {
-	if remote, ok := game.client.(*forgehost.Runtime); ok && h.playerHostMigrating(roomID) {
-		return remote.LastSnapshotView(viewer)
-	}
-	return game.client.SnapshotView(ctx, game.sessionID, viewer)
-}
-
 // The room's existing opt-in permits current hands only. The base remains the
 // explicit spectator view, and the unmodified base alone feeds public logs.
 func rulesSpectatorSnapshot(public protocol.RulesGameSnapshot,

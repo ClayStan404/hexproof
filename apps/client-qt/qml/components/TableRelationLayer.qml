@@ -34,12 +34,6 @@ Item {
                  && relation.targetSeat >= 0)
     }
 
-    function paintRelation(context, sourceId, targetId, color, arrowHead,
-                           dashed) {
-        paintRelationToPoint(context, cardPoints[sourceId],
-                             cardPoints[targetId], color, arrowHead, dashed)
-    }
-
     function paintRelationToPoint(context, from, to, color, arrowHead,
                                   dashed) {
         if (!from || !to)

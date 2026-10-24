@@ -94,7 +94,7 @@ attach through `account.command` without restarting a guest connection.
 current-node resource references (or global references when the
 [official cluster](official-cluster.md) is enabled) and node-local paginated replay grants. Generated secrets
 are returned only to that requesting connection. The schemas and fixtures in
-`protocol/v1/` and `testdata/protocol/v1/` define the payloads.
+`protocol/v2/` and `testdata/protocol/v2/` define the payloads.
 
 `tournament.enter.useAccount` explicitly restores an existing event role.
 Ordinary player entry into a Cube room also recognizes the current account;

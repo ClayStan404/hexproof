@@ -192,8 +192,14 @@ TestCase {
         return value
     }
     function settle() {
+        // Geometry and text assertions need polished layout, not a new frame.
+        // A snapshot can leave the scene unchanged after polish has completed.
         verify(waitForPolish(window))
-        waitForRendering(table)
+    }
+    function renderForCapture() {
+        settle()
+        window.update()
+        verify(waitForRendering(table))
     }
     function apply(state) {
         verify(testRulesPrompt.applySnapshot(state))
@@ -291,14 +297,6 @@ TestCase {
         compare(track.z, 45, "The phase keeps the public overlay stacking order")
         verify(rect.x >= -0.1 && rect.right <= table.width + 0.1)
     }
-    function assertPhaseLabelFits(step) {
-        const track = item("forgePhaseTrack")
-        const label = item(track.compactMode ? "forgeCurrentPhaseLabel" : "forgePhaseLabel-" + step)
-        verify(label.visible && !label.truncated)
-        compare(label.font.pixelSize, Theme.fontSize(11))
-        verify(label.paintedWidth <= label.width + 0.5 && label.paintedHeight <= label.height + 0.5,
-               "The complete current phase label fits: " + step)
-    }
     function assertPublicPhaseCells(step) {
         const track = item("forgePhaseTrack")
         if (track.compactMode) return
@@ -323,7 +321,7 @@ TestCase {
         if (track.compactMode) return
         mouseMove(table, 1, 1)
         tryCompare(item("forgeTurnCallout"), "visible", false, 5000)
-        verify(waitForPolish(window)); waitForRendering(table)
+        renderForCapture()
         const shown = grabImage(table), points = []
         const steps = ["untap", "upkeep", "draw", "main1", "begin_combat", "declare_attackers",
             "declare_blockers", "combat_damage", "end_combat", "main2", "end", "cleanup"]
@@ -336,7 +334,7 @@ TestCase {
         const savedOpacity = track.opacity
         try {
             track.opacity = 0
-            verify(waitForRendering(table))
+            renderForCapture()
             const hidden = grabImage(table), scale = shown.width / table.width
             for (const point of points) {
                 // Use the nearest raster sample to the mapped gap center, not its left edge.
@@ -347,7 +345,7 @@ TestCase {
             }
         } finally {
             track.opacity = savedOpacity
-            waitForRendering(table)
+            renderForCapture()
         }
     }
     function assertFullLogReachable(text, cards) {
@@ -415,7 +413,8 @@ TestCase {
             state.step = step; apply(state)
             assertPublicDuelGeometry()
             assertCardsUnchanged(before, "Phase " + step)
-            assertPhaseLabelFits(step)
+            // The full phase/language/scale label matrix lives in readouts.
+            // This suite keeps the actual board and overlay state checks.
             assertPublicPhaseAnchor()
             assertPublicPhaseCells(step)
             assertStatusOverlaysClear(state)

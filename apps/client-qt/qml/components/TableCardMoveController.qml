@@ -277,15 +277,6 @@ QtObject {
         return true
     }
 
-    function beginBattlefieldPreview(source, targetSeat,
-                                     normalizedX, normalizedY) {
-        const card = source && source.modelData ? source.modelData : ({})
-        beginBattlefieldPreviewForCard(
-                    source.cardId, source.zoneName,
-                    source.zoneSeat !== undefined ? source.zoneSeat : -1,
-                    card, targetSeat, normalizedX, normalizedY)
-    }
-
     function beginBattlefieldPreviewForCard(cardId, fromZone, fromSeat, card,
                                             targetSeat,
                                             normalizedX, normalizedY) {

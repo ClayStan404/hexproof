@@ -45,8 +45,8 @@ class CiScopeTests(unittest.TestCase):
                 self.assertFalse(scope.build_scope([path])[2])
 
     def test_tool_deployment_and_release_workflow_edits_do_not_build_applications(self):
-        for path in ("tools/release-verification.py", "tools/tests/test_public_source_export.py",
-                     "tools/check-i18n.py", "tools/export-public-tree.sh",
+        for path in ("tools/release-verification.py", "tools/tests/test_release_verification.py",
+                     "tools/check-i18n.py", "tools/git_evidence.py",
                      "tools/write-feedback-config.py", "deploy/feedback/install.py",
                      ".github/workflows/release.yml", ".github/screenshots/home.png"):
             with self.subTest(path=path):
@@ -61,25 +61,39 @@ class CiScopeTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(scope.build_scope([path]), (True, True, True))
 
-    def test_push_and_private_internal_pr_reuse_local_application_checks(self):
-        for repository in ("ClayStan404/hexproof", "ClayStan404/hexproof-private"):
-            self.assertFalse(scope.full_checks("push", repository, ""))
-        self.assertFalse(scope.full_checks("pull_request", "ClayStan404/hexproof-private",
-                                           "ClayStan404/hexproof-private"))
+    def test_official_push_and_same_repository_pr_reuse_local_application_checks(self):
+        self.assertFalse(scope.full_checks("push", "ClayStan404/hexproof", ""))
+        self.assertFalse(scope.full_checks("pull_request", "ClayStan404/hexproof",
+                                          "ClayStan404/hexproof"))
+        self.assertFalse(scope.full_checks("pull_request", "claystan404/hexproof",
+                                          "ClayStan404/hexproof"))
 
-    def test_public_external_and_manual_checks_are_not_bypassed(self):
+    def test_external_unknown_and_manual_checks_are_not_bypassed(self):
         for event, repository, head in (
-                ("pull_request", "ClayStan404/hexproof", "ClayStan404/hexproof"),
-                ("pull_request", "ClayStan404/hexproof-private", "contributor/fork"),
-                ("workflow_dispatch", "ClayStan404/hexproof-private", ""),
+                ("pull_request", "ClayStan404/hexproof", "contributor/fork"),
+                ("pull_request", "ClayStan404/hexproof", ""),
+                ("pull_request", "other/repo", "other/repo"),
+                ("push", "other/repo", ""), ("push", "", ""),
+                ("workflow_dispatch", "ClayStan404/hexproof", ""),
                 ("pull_request", "", ""), ("future_event", "", "")):
             with self.subTest(event=event, repository=repository, head=head):
                 self.assertTrue(scope.full_checks(event, repository, head))
 
-    def test_lightweight_push_does_not_need_comparison_history(self):
-        result = subprocess.run([sys.executable, str(SCRIPT), "--event", "push"],
+    def test_lightweight_events_do_not_need_comparison_history(self):
+        for event, repository, head in (
+                ("push", "ClayStan404/hexproof", ""),
+                ("pull_request", "ClayStan404/hexproof", "ClayStan404/hexproof")):
+            with self.subTest(event=event, repository=repository):
+                result = subprocess.run([sys.executable, str(SCRIPT), "--event", event,
+                                         "--repository", repository, "--head-repository", head],
+                                        text=True, capture_output=True, check=True)
+                self.assertEqual(result.stdout, "client=false\nserver=false\nforge=false\nfull=false\nforge_host_service=false\n")
+
+    def test_manual_override_cannot_be_bypassed_by_same_repository_event(self):
+        result = subprocess.run([sys.executable, str(SCRIPT), "--force-all", "--event", "pull_request",
+                                 "--repository", "ClayStan404/hexproof", "--head-repository", "ClayStan404/hexproof"],
                                 text=True, capture_output=True, check=True)
-        self.assertEqual(result.stdout, "client=false\nserver=false\nforge=false\nfull=false\n")
+        self.assertEqual(result.stdout, "client=true\nserver=true\nforge=true\nfull=true\nforge_host_service=true\n")
 
     def test_shared_or_unknown_changes_fail_toward_more_checks(self):
         for path in ("protocol/v2/wire-schema.json", "tools/verify.sh", "packaging/linux/build-tarball.sh",
@@ -92,12 +106,39 @@ class CiScopeTests(unittest.TestCase):
             with self.subTest(base=base):
                 result = subprocess.run([sys.executable, str(SCRIPT), "--base", base],
                                         text=True, capture_output=True, check=True)
-                self.assertEqual(result.stdout, "client=true\nserver=true\nforge=true\nfull=true\n")
+                self.assertEqual(result.stdout, "client=true\nserver=true\nforge=true\nfull=true\nforge_host_service=true\n")
 
     def test_manual_override_does_not_need_git_history(self):
         result = subprocess.run([sys.executable, str(SCRIPT), "--force-all"],
                                 text=True, capture_output=True, check=True)
-        self.assertEqual(result.stdout, "client=true\nserver=true\nforge=true\nfull=true\n")
+        self.assertEqual(result.stdout, "client=true\nserver=true\nforge=true\nfull=true\nforge_host_service=true\n")
+
+    def test_helper_cross_platform_paths_also_keep_linux_client_coverage(self):
+        for path in ("apps/client-qt/src/services/ForgeHostService.cpp",
+                     "apps/client-qt/src/services/ForgeHostDiagnostics.h",
+                     "apps/client-qt/src/ApplicationPaths.h",
+                     "apps/client-qt/tests/forgehostservice/CMakeLists.txt",
+                     "apps/client-qt/tests/forgehostservice_test.cpp",
+                     "apps/client-qt/CMakeLists.txt", ".github/workflows/ci.yml",
+                     ".github/actions/setup-qt/action.yml"):
+            with self.subTest(path=path):
+                self.assertTrue(scope.forge_host_service_scope([path]))
+                self.assertTrue(scope.build_scope([path])[0])
+        for path in ("README.md", "apps/client-qt/qml/Main.qml", "apps/server/go.mod"):
+            with self.subTest(path=path):
+                self.assertFalse(scope.forge_host_service_scope([path]))
+
+    def test_helper_ci_uses_shared_scope_and_does_not_duplicate_full_suites(self):
+        root = SCRIPT.parents[1]
+        ci = (root / ".github/workflows/ci.yml").read_text()
+        helper = ci.split("  forge-host-service:\n", 1)[1].split("  client-sanitizers:\n", 1)[0]
+        self.assertIn("needs: changes", helper)
+        self.assertIn("if: github.event_name == 'pull_request' && needs.changes.outputs.forge_host_service == 'true'", helper)
+        self.assertIn("os: [windows-2022, macos-15]", helper)
+        self.assertIn("cmake -S apps/client-qt/tests/forgehostservice", helper)
+        self.assertFalse((root / ".github/workflows/forge-host-service.yml").exists())
+        cmake = (root / "apps/client-qt/CMakeLists.txt").read_text()
+        self.assertIn("add_test(NAME forgehostservice COMMAND hexproof_forgehostservice_test)", cmake)
 
     def test_rename_out_of_source_domain_keeps_old_source_path(self):
         with tempfile.TemporaryDirectory() as directory:

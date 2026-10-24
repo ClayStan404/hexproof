@@ -101,13 +101,17 @@ TestCase {
         page = pageComponent.createObject(testWindow.contentItem)
         verify(page !== null)
         page.anchors.fill = testWindow.contentItem
-        waitForRendering(page)
         tryVerify(() => page.layoutReady)
+        verify(waitForPolish(testWindow))
+        testWindow.update()
+        verify(waitForRendering(page))
     }
 
     function waitForFormMotion() {
+        // Preserve the real reveal animations, then inspect settled geometry.
+        // Their last frame may already have rendered before this wait finishes.
         wait(Theme.motionNormal + Theme.motionFast)
-        waitForRendering(page)
+        verify(waitForPolish(testWindow))
     }
 
     function selectFormat(format) {
@@ -374,9 +378,8 @@ TestCase {
                 {tag: "zh-cube", language: "zh", format: "modern", deckFormat: "cube", rules: "manual"}]
     }
     function test_commanderPackOptions_data() {
-        const rows = []
-        for (const packs of [3, 4, 5, 6, 8])
-            for (const batch of [1, 2]) rows.push({tag: packs + " packs, batch " + batch, packs, batch})
+        const rows = [3, 4, 5, 6, 8].map(packs => ({tag:packs + " packs", packs, batch:1}))
+        rows.push({tag:"double packs", packs:6, batch:2})
         return rows
     }
     function test_commanderPackOptions(data) {
@@ -428,6 +431,18 @@ TestCase {
             page.commanderPackCount = 8
             compare(button.enabled, 4 * 8 * data.cards <= 960)
         }
+    }
+    function test_invalidCommanderPackSizeDoesNotBlockRegularCube() {
+        mockDecks.cubes = [{deckId: "cube-1", deckName: "Custom pack Cube", mainCount: 960,
+                           sideboardCount: 0, exactPrintings: true}]
+        page.selectedCubeDeckId = "cube-1"
+        page.roomName = "Custom packs"
+        page.deckFormat = "cube"
+        findChild(page, "cubeVariantControl").activated(1)
+        findChild(page, "cubePlayerCapField").text = "8"
+        const field = findChild(page, "commanderCardsPerPackField")
+        const button = findChild(page, "createRoomSubmitButton")
+        verify(button.enabled)
         for (const value of ["", "9", "41", "1.5", "cards"]) {
             field.text = value
             verify(!button.enabled)
@@ -436,7 +451,7 @@ TestCase {
         // An invalid hidden Commander setting does not affect regular Cube.
         findChild(page, "cubeVariantControl").activated(0)
         verify(button.enabled)
-        compare(page.cubeCardsRequired(), data.seats * 45)
+        compare(page.cubeCardsRequired(), 8 * 45)
     }
     function test_commanderPackOptionsRejectInsufficientStock() {
         mockDecks.cubes = [{deckId: "cube-1", deckName: "Small Commander Cube", mainCount: 400,
@@ -596,7 +611,7 @@ TestCase {
         verify(body.contentHeight + 0.5 >= buttonBottom)
 
         body.contentY = Math.max(0, body.contentHeight - body.height)
-        waitForRendering(page)
+        verify(waitForPolish(testWindow))
         const buttonTop = button.mapToItem(body, 0, 0).y
         verify(buttonTop + button.height <= body.height + 1)
         verify(buttonTop >= -1)

@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+[Unit]
+Description=Hexproof local public-feedback readiness monitor
+After=network.target
+
+[Service]
+Type=oneshot
+DynamicUser=yes
+StateDirectory=hexproof-feedback-monitor
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 /usr/local/lib/hexproof-monitor/probe.py --component feedback --port 57324 --state /var/lib/hexproof-feedback-monitor
+TimeoutStartSec=15
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_INET
+IPAddressDeny=any
+IPAddressAllow=localhost
+MemoryMax=64M
+TasksMax=8

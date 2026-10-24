@@ -23,7 +23,8 @@ existing opposed 1v1 presentation, three use two opponents above the viewer,
 and four use four equal battlefield panels with the viewer at bottom-left.
 The actual participant roster, not the room capacity or surviving-player
 count, determines the layout. Eliminated seats remain visible while native
-Forge continues the game. See [the EDH redesign](forge-ui-redesign.md#commanderedh-expansion--2026-09-27).
+Forge continues the game. Presentation details are specified
+[below](#current-implementation-status).
 
 This owner-authorized scope supersedes the September 15 1v1-only restriction.
 It does not change manual rooms, engine authority, deployment or release scope.
@@ -108,8 +109,9 @@ not apply to model opponents.
 Official Forge is the production rules backend. Hexproof's native adapter
 reuses Forge's human controller and input queue for human seats, and the native
 AI controller for an optional AI opponent, without opening Forge's desktop UI.
-The old Manabrew adapter, local selector, and packaging
-path have been retired; see `forge-native-migration.md` for evidence.
+The old Manabrew adapter, local selector and packaging path have been retired.
+Current runtime inputs and build instructions are in the
+[runtime guide](../third_party/forge-runtime/README.md).
 
 The official source pin includes reviewed downstream changes recorded in
 `native-host/native-hooks.patch`. Besides GUI metadata and isolated profiles,
@@ -134,22 +136,17 @@ required together. The handshake exposes
 the immutable `rulesMode` (`manual` or `forge`). The server rejects Forge room
 creation before publishing the room if its startup probe did not succeed.
 
-The 2026-09-09 [backend evaluation](rules-backend-evaluation.md) retains Java
-Forge after source inspection, local builds, and real-game tests of XMage,
-Manabrew Rust, Phase, and mtg-forge-ts. The pinned host includes explicit,
-reproducible Hexproof patches; upgrading the upstream version alone is not the
-complete runtime contract.
-
-The historical candidate evaluations do not enable additional production
-backends. Hexproof's engine boundary separates the runtime from the Qt client
-and public room protocol.
+The pinned host includes explicit, reproducible Hexproof patches; upgrading
+the upstream version alone is not the complete runtime contract. Forge is the
+supported production backend. The engine boundary separates its runtime from
+the Qt client and public room protocol.
 
 ## Dependency direction
 
 ```text
 Qt rules views
   -> typed WsClient rules commands
-      -> hexproof.v1 rules envelopes
+      -> hexproof.v2 rules envelopes
           -> Go rules-room coordinator
               -> forge.Runtime interface
                   -> local supervised Forge JSONL process
@@ -636,12 +633,11 @@ spectator privacy tests pass for every newly exposed state shape.
 
 ### Current implementation status
 
-The owner-requested replacement UI presents two-, three- and four-seat Forge sessions;
-see [the Forge table redesign](forge-ui-redesign.md). `ForgeDuelTable` uses the
+The Forge UI presents two-, three- and four-seat sessions. `ForgeDuelTable` uses the
 existing typed session, native prompts, and WebSocket response path. Its shared
 chrome retains the existing 1v1 layout for two participants. Three/four participants
-use `ForgeMultiplayerBattlefield` and `ForgePlayerField`; none of these views
-uses the manual table or the historical `RulesLegacyLayout`. Multiplayer fields
+use `ForgeMultiplayerBattlefield` and `ForgePlayerField`, independently of the
+manual table. Multiplayer fields
 combine player information and public zone piles along the outside edge: above
 the upper fields and below the lower fields. Upright battlefield cards face the
 central phase overlay. Land/other columns follow their public pile counts,
@@ -1233,11 +1229,11 @@ never swallows the next click; dialogs elsewhere in the application do not
 animate. Stack spells fade in when added and fade out when removed; entries
 displaced by a change keep their final position as the click target and only
 paint the slide. Damage and counter badges pulse when their amount
-changes. Workstation frame pacing with the default renderer is recorded in
-[design section 4.5](forge-smoothness-design.md#45-render-loop-qualification):
-Wayland and XWayland kept the 160 Hz refresh, and the Windows sample was
-waived. Motion is on by default. The owner turned it on on 2026-10-07 even
-though a crowded update is still about 9 ms against an 8 ms budget.
+changes. Motion is on by default. The opt-in
+[update-cost benchmark](../apps/client-qt/tests/bench/tst_forgesmoothness.qml)
+documents its command and advisory timing targets; those targets do not
+establish rendered frame-rate qualification. Historical default-renderer
+observations cover Linux Wayland/XWayland, not Windows rendering.
 `HEXPROOF_MOTION=0` turns it off. Automated tests start with it off and turn
 it on only to test motion. A `rules.snapshot` with `promptFollows` is held for
 at most 100 ms and applied with the prompt that follows it in the same room
@@ -1789,10 +1785,8 @@ the host never chooses a default name or number. These cases follow rules
 800.4a, 800.4g–h and 800.4j of the
 [official Comprehensive Rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260819.txt).
 
-Forge BO3 transitions now use the engine-aware restart boundary above. R2 and
-R3 are complete. R4's final validation covers the full multi-game lifecycle,
-public journal/replay, explicit spectator hand permission, hidden stack
-printing, and separately packaged corresponding sources. Default deployment
-still excludes Forge; validation does not imply a public runtime release.
-See `forge-completion-verification.md` for the local acceptance record, paired
-source rebuild, native-client evidence and outstanding release gates.
+Forge BO3 transitions use the engine-aware restart boundary above. Runtime
+qualification uses the [native regression guide](../third_party/forge-runtime/native-host/TESTING.md)
+and separately packaged corresponding sources. Native engine regressions,
+client interaction evidence and release/platform checks establish different
+coverage; one does not substitute for the others.

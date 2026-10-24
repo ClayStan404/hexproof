@@ -41,9 +41,14 @@ printing index together. Upstream changes include token-resolution performance,
 alternative-cost stability and AI copy-target selection. The upgrade requires
 a matching complete base distribution for creator hosting; an overlay cannot
 replace the previous base's rules and card resources. Publish and verify that
-base before activating its download manifest. See the
-[upgrade record](../../docs/forge-upstream-2026-09-27.md) for verification and
-publication status.
+base before activating its download manifest. The immutable
+[adapter-25 base release](https://github.com/ClayStan404/hexproof/releases/tag/forge-runtime-0485ad49fb10c8ef5b3eda2a002c963d59be71dc-adapter25)
+contains the paired runtime and complete source assets. Their exact URLs,
+sizes and checksums are pinned in the
+[runtime manifest](../../apps/server/internal/runtimepkg/manifest.json) and
+[source manifest](overlay-base.json). The explicitly named Forge source asset,
+including dependency sources, is required; GitHub's automatic repository source
+archive is not a substitute.
 Revision 24 releases controlled-player input when that player concedes, allowing
 an Emrakul-controlled turn to unwind without stranding the native decision loop.
 Revision 23 corrects companion decline, cast-only exile choices and taking cards
@@ -186,6 +191,6 @@ upstream notices and make matching source available with distributed runtimes.
 Generated checkouts, JARs and archives belong under ignored `build/`.
 
 See [native-host/TESTING.md](native-host/TESTING.md) for reproducible scenarios
-and [the migration record](../../docs/forge-native-migration.md) for actual
-verification and remaining game-input/platform limits. A server without a
+and their coverage limits. Engine regressions do not certify every card/input
+combination or replace client/platform qualification. A server without a
 configured runtime still hosts manual rooms and advertises Forge unavailable.

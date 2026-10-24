@@ -143,8 +143,6 @@ Item {
     // Right-aligned piles must fit their rear faces as well as the front.
     // This remains reserved while a pile is fanned or its front changes.
     readonly property real layoutPileTrail: alignRight ? layoutPileShift : 0
-    readonly property real rowAvailable: Math.max(1,
-        viewport.width - startInset - layoutPileLead - layoutPileTrail - 6 * unit)
     readonly property int columns: grid.columns
     readonly property var hostCards: visibleCards.filter(card => card && !card.attachedTo)
     // Creature lanes reserve both their combat nudge and destination badge
@@ -167,9 +165,6 @@ Item {
     readonly property real layoutCellExtra: Math.max(structuralBadge ? 22 : 10,
         combatForward !== 0 ? 16 : 0) * unit + attachmentPeek + combatInset + upperHintInset
     readonly property real cellExtra: layoutCellExtra
-    function layoutFaceWidth(laneWidth, laneHeight) {
-        return fittedCardWidth(laneWidth, laneHeight)
-    }
     function slotX(index) {
         return 3 * unit + pileLead + rowLead + (index % columns) * (cardWidth + gap)
     }

@@ -3,6 +3,7 @@
 
 #include "DeckLibraryStorage.h"
 
+#include "PreferenceValues.h"
 #include "UiLanguages.h"
 #include "deck/DeckFormat.h"
 
@@ -49,34 +50,6 @@ QString normalizedTableBackground(const QString &background)
 }
 
 namespace {
-
-qreal normalizedInterfaceScale(qreal scale)
-{
-    if (!std::isfinite(scale))
-        return 1.0;
-    return std::clamp(std::round(scale * 20.0) / 20.0, 0.75, 1.5);
-}
-
-QString normalizedUiTheme(const QString &theme)
-{
-    return theme.compare(QStringLiteral("glass"), Qt::CaseInsensitive) == 0
-               ? QStringLiteral("glass")
-               : QStringLiteral("classic");
-}
-
-qreal normalizedTableCardScale(qreal scale)
-{
-    if (!std::isfinite(scale) || scale <= 0.0)
-        return 0.0;
-    return std::clamp(std::round(scale * 20.0) / 20.0, 0.5, 1.25);
-}
-
-qreal normalizedTableControlPosition(qreal position)
-{
-    if (!std::isfinite(position) || position < 0.0)
-        return -1.0;
-    return std::clamp(position, 0.0, 1.0);
-}
 
 bool validCards(const QJsonValue &value)
 {
@@ -401,14 +374,8 @@ DeckLibraryPreferences DeckLibraryStorage::loadPreferences()
     preferences.uiLanguage = uiLanguages::normalize(uiLanguage);
     if (cardLanguage == QStringLiteral("zh") || cardLanguage == QStringLiteral("en"))
         preferences.cardLanguage = cardLanguage;
-    const QString cardArtProvider =
-        settings.value(QStringLiteral("cardArtProvider")).toString().toLower();
-    if (cardArtProvider == QStringLiteral("auto") ||
-        cardArtProvider == QStringLiteral("scryfall") ||
-        cardArtProvider == QStringLiteral("mtgch") ||
-        cardArtProvider == QStringLiteral("parallel")) {
-        preferences.cardArtProvider = cardArtProvider;
-    }
+    preferences.cardArtProvider = preferenceValues::cardArtProvider(
+        settings.value(QStringLiteral("cardArtProvider")).toString());
     const QJsonValue reuseLocalCardArt = settings.value(QStringLiteral("reuseLocalCardArt"));
     if (reuseLocalCardArt.isBool())
         preferences.reuseLocalCardArt = reuseLocalCardArt.toBool();
@@ -440,10 +407,11 @@ DeckLibraryPreferences DeckLibraryStorage::loadPreferences()
         qMax(0, settings.value(QStringLiteral("cardArtRepairNoticeVersion")).toInt());
     const QJsonValue interfaceScale = settings.value(QStringLiteral("interfaceScale"));
     if (interfaceScale.isDouble())
-        preferences.interfaceScale = normalizedInterfaceScale(interfaceScale.toDouble());
+        preferences.interfaceScale = preferenceValues::interfaceScale(interfaceScale.toDouble());
     // Legacy themeId / reducedMotion keys are ignored on purpose. Only the
     // later uiTheme preference may select Apple glass chrome.
-    preferences.uiTheme = normalizedUiTheme(settings.value(QStringLiteral("uiTheme")).toString());
+    preferences.uiTheme =
+        preferenceValues::uiTheme(settings.value(QStringLiteral("uiTheme")).toString());
     preferences.tableBackground =
         normalizedTableBackground(settings.value(QStringLiteral("tableBackground")).toString());
     const QJsonValue tableShowPlayers = settings.value(QStringLiteral("tableShowPlayers"));
@@ -465,22 +433,23 @@ DeckLibraryPreferences DeckLibraryStorage::loadPreferences()
         settings.value(QStringLiteral("tableOverviewCardScale"));
     if (tableOverviewCardScale.isDouble()) {
         preferences.tableOverviewCardScale =
-            normalizedTableCardScale(tableOverviewCardScale.toDouble());
+            preferenceValues::tableCardScale(tableOverviewCardScale.toDouble());
     }
     const QJsonValue tableFocusCardScale = settings.value(QStringLiteral("tableFocusCardScale"));
     if (tableFocusCardScale.isDouble())
-        preferences.tableFocusCardScale = normalizedTableCardScale(tableFocusCardScale.toDouble());
+        preferences.tableFocusCardScale =
+            preferenceValues::tableCardScale(tableFocusCardScale.toDouble());
     const QJsonValue tableBattlefieldControlX =
         settings.value(QStringLiteral("tableBattlefieldControlX"));
     if (tableBattlefieldControlX.isDouble()) {
         preferences.tableBattlefieldControlX =
-            normalizedTableControlPosition(tableBattlefieldControlX.toDouble());
+            preferenceValues::tableControlPosition(tableBattlefieldControlX.toDouble());
     }
     const QJsonValue tableBattlefieldControlY =
         settings.value(QStringLiteral("tableBattlefieldControlY"));
     if (tableBattlefieldControlY.isDouble()) {
         preferences.tableBattlefieldControlY =
-            normalizedTableControlPosition(tableBattlefieldControlY.toDouble());
+            preferenceValues::tableControlPosition(tableBattlefieldControlY.toDouble());
     }
     const QJsonValue shortcuts = settings.value(QStringLiteral("shortcuts"));
     if (shortcuts.isObject()) {

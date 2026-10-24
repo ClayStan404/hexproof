@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 2,
+  "listen": "127.0.0.1:57324",
+  "publicUrl": "https://feedback.example.invalid/feedback/v2",
+  "dataDir": "/var/lib/hexproof-feedback",
+  "adminSocket": "/var/lib/hexproof-feedback/admin.sock",
+  "operatorName": "REPLACE_WITH_RESPONSIBLE_OPERATOR",
+  "monitoringConfigured": false,
+  "trustedProxyCidrs": [],
+  "public": {
+    "dataDir": "/var/lib/hexproof-feedback-public",
+    "repository": "REPLACE_WITH_OWNER/REPLACE_WITH_PUBLIC_REPOSITORY",
+    "repositoryId": 0,
+    "publisherActorId": 0,
+    "tokenFile": "/etc/hexproof-feedback/github-token",
+    "noticeRevision": "REPLACE_WITH_APPROVED_NOTICE_REVISION",
+    "noticeText": "PLACEHOLDER ONLY. Supply the reviewed public/provider disclosure before activation.",
+    "providerPolicyRevision": "REPLACE_WITH_APPROVED_PROVIDER_POLICY"
+  },
+  "multica": {
+    "webhookFile": "/etc/hexproof-feedback/multica-webhook",
+    "workspaceId": "00000000-0000-0000-0000-000000000000",
+    "autopilotId": "00000000-0000-0000-0000-000000000000",
+    "providerPolicyRevision": "REPLACE_WITH_APPROVED_PROVIDER_POLICY",
+    "socket": "/var/lib/hexproof-feedback/native.sock"
+  }
+}

@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+# Workstation user-unit template for the restricted feedback connection.
+# Socket readiness confirms the local forward; native tasks must still read a
+# fresh receiver snapshot before processing a case or publishing an outcome.
+[Unit]
+Description=Hexproof restricted native socket tunnel
+After=network-online.target
+
+[Service]
+Type=exec
+EnvironmentFile=%S/hexproof-operator/feedback-tunnel.env
+RuntimeDirectory=hexproof-feedback-test
+RuntimeDirectoryMode=0700
+UMask=0077
+# A socket left by a previous attempt must not satisfy this attempt's readiness.
+ExecStartPre=/usr/bin/rm -f -- %t/hexproof-feedback-test/native.sock
+ExecStart=/usr/bin/ssh -o BatchMode=yes -o ConnectTimeout=10 -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StreamLocalBindMask=0177 -o StreamLocalBindUnlink=yes -o ControlMaster=no -o ControlPath=none -N -L %t/hexproof-feedback-test/native.sock:${HEXPROOF_FEEDBACK_REMOTE_SOCKET} ${HEXPROOF_FEEDBACK_SSH_HOST}
+# ExecStartPost remains part of startup. Bound SSH authentication stalls as well
+# as connection setup instead of reporting active before a listener exists.
+ExecStartPost=/bin/sh -c 'while ! test -S "%t/hexproof-feedback-test/native.sock"; do sleep 0.2; done'
+TimeoutStartSec=25
+TimeoutStopSec=5
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

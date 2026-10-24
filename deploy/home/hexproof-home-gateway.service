@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+
+[Unit]
+Description=Hexproof home node signaling and relay gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hexproof-home
+Group=hexproof-home
+WorkingDirectory=/var/lib/hexproof-home
+ExecStart=/opt/hexproof-home/current/hexproof-home gateway -config /etc/hexproof-home/gateway.json
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryHigh=192M
+MemoryMax=256M
+TasksMax=128
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

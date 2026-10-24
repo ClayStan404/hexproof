@@ -3,8 +3,10 @@
 [Back to the project overview](../../README.md)
 
 This guide covers installation, everyday use, source builds, and project
-workflows. Client and server application versions must match exactly. Hexproof
-is actively developed, so consult the release notes for the version you use.
+workflows. Client and server game protocols must match; application version
+numbers may differ. Hexproof 3.1.0 uses `hexproof.v2`, while 3.0.0 clients use
+v1 and must update to join a v2 hub. See [protocol compatibility](../protocol-compatibility.md)
+and the release notes for the version you use.
 
 ## Contents
 
@@ -197,101 +199,21 @@ for pinned-input and offline-import workflows.
 
 ## What is implemented
 
-### Rooms and online play
+| Area | Supported workflows |
+| --- | --- |
+| Online rooms | Official shared lobby or custom hubs, room codes, guests or optional accounts, players/spectators, passwords and same-seat reconnect. |
+| Manual tables | Card/zone movement, hidden hands, life/counters, commander tools, phases/combat/target coordination and BO1/BO3 where supported. Players resolve card text. |
+| Forge rules | Supported constructed and Limited matches, Duel Commander and server-hosted Commander/EDH; native AI practice and optional trusted player hosting. |
+| Limited and events | Set Draft, Set Sealed, regular Cube and Commander Cube; pool-constrained deck construction, Swiss events where supported, and offline pack simulation. |
+| Decks and card data | Local import/export and editing, advisory format checks, schema-v10 catalog, exact printing choices, local-first images and art-pack transfer. |
+| Updates and feedback | Verified platform downloads, separate card-data updates, and public feedback with AI questions, progress and release outcomes inside the client. |
 
-- Join by room code or browse the official shared lobby; custom hubs retain
-  their local room list.
-- Generic 1v1, Duel Commander, and three- or four-player Commander/EDH tables.
-- BO1 and BO3 match flow where applicable, including between-game sideboarding.
-- Solo Playtest through the same authoritative table path used by multiplayer.
-- Player and spectator roles, password-protected rooms, host controls, public
-  chat/logs, and same-seat reconnect after a network interruption.
-- Online server discovery with cached and bundled fallbacks, per-server Forge
-  support labels, and a user-defined custom WebSocket server.
-
-### Forge rules and practice
-
-- Automated rules for supported 1v1 constructed, Duel Commander, Set Sealed,
-  Set Draft, and regular Cube matches, including legal actions, priority,
-  triggers, stack resolution, and state-based actions.
-- Server-hosted Forge or optional trusted creator hosting for supported rooms.
-  Tournament and Limited pairing rooms use server hosting. See
-  [player-hosted Forge](../player-hosted-forge.md) for setup and trust limits.
-- Native Forge AI at Beginner, Normal, and Hard difficulty for ordinary
-  constructed 1v1 BO1, with independently selected human and AI decks.
-- Experimental local and online model opponents in the same practice scope.
-  Model failures can pause a game; reliable full-game play with real models
-  has not been verified.
-- Private visual replays for original participants after a whole Forge match
-  completes, including both hands, turn/event navigation, and offline playback.
-
-### Limited play: draft, sealed, and Cube
-
-- Set draft for two to eight checked-in players, three packs each, passing
-  left, then right, then left again, with server-authoritative pools and card
-  movement.
-- Set sealed gives every player exactly six boosters before deck building and
-  can start with two checked-in players.
-- Cube draft for two to eight players from a Cube deck registered in the
-  local deck library; the Cube contents are locked when the draft starts.
-- Authentic booster collation from installed set definitions where available,
-  with approximate rarity collation otherwise; every participant sees which
-  mode a set uses.
-- Build 40-card Limited decks from opened pools in the deck editor. Set
-  Draft and Set Sealed lead into Swiss rounds; regular Cube supports free play
-  or Swiss tournaments.
-- Commander Cube drafts for two to eight players, with 20-card packs and two
-  picks per pack, lead into 60-card Commander decks and multiplayer free-play
-  tables of up to four.
-- A standalone pack simulator for opening packs without creating a tournament.
-
-### Manual tabletop
-
-- Drag cards among library, hand, battlefield, graveyard, exile, stack,
-  reveal, command zone, and sideboard.
-- Automatic battlefield lanes for lands, creatures, planeswalkers,
-  enchantments, artifacts, and other permanents, with adjustable card scale
-  and a focused battlefield view for large multiplayer boards.
-- Tap/untap, face-down cards, double-faced card selection, counters, life,
-  commander tax, commander damage, tokens, dice, coin flips, and mulligans.
-- Multi-card selection, library search and top-X resolution, public-zone
-  browsers, shuffle/order controls, random or whole-hand discard, and
-  owner-approved access to another player's library or public-zone cards.
-- Turn/phase synchronization, response signals, attack/block declarations,
-  target arrows, attachments, land-play tracking, and optional atomic helpers.
-- Context menus and discoverable keyboard shortcuts for high-frequency actions.
-
-### Decks, card data, and art
-
-- Paste or file import for common plain-text and Moxfield-style deck lists;
-  copy or file export with printing identifiers preserved.
-- Local deck library and editor with category layout, main/sideboard drag,
-  commander selection, printing selection, and deck-local preferred tokens.
-- Custom, Standard, Pioneer, Modern, Legacy, Vintage, Pauper, Duel Commander,
-  and Commander deck formats.
-- Local, asynchronous advisory validation using Scryfall legality, copy limits,
-  commander color identity, main-deck size, and sideboard size. Manual tables
-  do not enforce card rules or claim tournament certification; Forge rooms
-  enforce their supported game rules.
-- One versioned SQLite card database for English metadata, Simplified Chinese
-  names, localized-printing lookup, tokens, and offline search.
-- In-client update checks for the application and card database. Application
-  packages are downloaded for the current platform and verified against the
-  Release checksums before the download folder is offered.
-- On-demand, local-first card art. Chinese mode prefers real Simplified Chinese
-  printings and falls back through MTGCH and English sources; English mode
-  prefers Scryfall English art.
-
-### Connected-hub tournaments
-
-- Individual 1v1 Swiss tournaments, with optional official-account recovery.
-  Each whole event remains on one hub.
-- Registration, check-in, pairings, private match rooms, reported and confirmed
-  results, drops, round timers, standings, and official-style tiebreakers.
-- Standard, Pioneer, Modern, Legacy, Vintage, Pauper, and Duel Commander event
-  formats with BO1 or BO3 matches.
-- Participant deck lists remain private during the event and become visible
-  after tournament completion.
+Server-hosted and creator-hosted Forge have different trust boundaries; see
+[player hosting](../player-hosted-forge.md) and [rules mode](../rules-engine.md).
+Experimental model opponents may pause on provider/model failures; ordinary
+native Forge AI and model opponents are separate features. Completed Forge
+visual replays expose both hands only to the original participants after the
+whole match. Tournament decklists stay private until the event completes.
 
 ## Product boundary
 
@@ -359,16 +281,18 @@ interaction changes, using isolated test profiles and local services.
 
 ## Release automation
 
-The repository contains four GitHub Actions workflows:
+The main automated entry points are:
 
-- [`ci.yml`](../../.github/workflows/ci.yml) keeps push and pull-request checks lean:
-  shared static quality gates always run; application builds are skipped for
-  documentation-only changes. Client-only work runs Qt/CTest with an integration
-  server; server/shared changes or an uncertain comparison run both domains.
-  A manual run additionally enables Go race/fuzz checks, Linux ASan/UBSan,
-  and Windows/macOS build-and-test jobs.
-- [`release.yml`](../../.github/workflows/release.yml) produces portable Windows x64,
-  macOS Apple Silicon, Linux x86_64, and Linux amd64/arm64 server archives.
+- [`ci.yml`](../../.github/workflows/ci.yml) runs cheap static checks on pushes
+  without repeating the full application suite. Pull requests run the full tool
+  tests and affected application domains; relevant Forge-helper changes also receive
+  Windows/macOS helper checks. A manual run includes complete application
+  checks, race/fuzz coverage, sanitizers and full Windows/macOS CTest suites.
+- [`release.yml`](../../.github/workflows/release.yml) packages source qualified
+  by complete local verification, bound to the exact public commit. It checks
+  that qualification, builds the supported client/server packages and verifies
+  package startup, versions, architecture, checksums and signing. It does not
+  repeat the workstation's QML/CTest or Go test suites.
 - [`card-database.yml`](../../.github/workflows/card-database.yml) rebuilds and
   publishes the official card database weekly or on demand.
 - [`forge-runtime.yml`](../../.github/workflows/forge-runtime.yml) separately builds
@@ -402,8 +326,8 @@ notarized releases do not require this bypass.
 |------|---------|
 | `apps/client-qt/` | Qt 6/QML/C++20 desktop client |
 | `apps/server/` | Go WebSocket room and tournament hub |
-| `protocol/v1/` | Canonical `hexproof.v1` wire schema |
-| `testdata/protocol/v1/` | Shared client/server protocol fixtures |
+| `protocol/v2/` | Canonical `hexproof.v2` wire schema |
+| `testdata/protocol/v2/` | Shared client/server protocol fixtures |
 | `CHANGELOG.md` | Application release notes; unpublished work under Unreleased |
 | `packaging/` | Client, server, and card-database release tooling |
 | `third_party/forge-runtime/` | Pinned official Forge source, native host and optional runtime/source packaging |
@@ -411,18 +335,26 @@ notarized releases do not require this bypass.
 
 ## Contributing
 
-Report bugs and suggest features by opening an issue at
-https://github.com/ClayStan404/hexproof/issues. Include the application
-version and card-database build shown in **Settings**, your operating system,
-the hub you were connected to, and the shortest steps that reproduce the
-problem. Do not paste room passwords or resume tokens into public issues.
+Use in-client **Feedback** to report bugs or suggest features without direct
+GitHub access, or open an issue at
+https://github.com/ClayStan404/hexproof/issues. In-client submissions and replies
+require a public preview and explicit confirmation before publication. Text,
+technical information and approved attachments are public and may be processed
+by the AI providers named in the client notice. Do not include credentials,
+private conversations, hidden game information or personal data.
+
+Include the application/card-database versions, platform and minimal steps to
+reproduce. The client distinguishes acceptance, public publication, assessment,
+source delivery and a released fix. Keep its receipt to follow AI questions or
+request content removal; closing feedback preserves public history. The
+in-client full notice explains retention and removal limits.
 
 Keep changes focused and preserve the manual-tabletop and privacy boundaries.
 Rules-engine work must also follow [`docs/rules-engine.md`](../rules-engine.md).
 Format Go with `gofmt`; follow the existing Qt style; retain SPDX headers; and
 add owner/opponent/spectator tests for hidden-information changes.
 
-For wire changes, update the relevant `protocol/v1/` constant/payload schemas,
+For wire changes, update the relevant `protocol/v2/` constant/payload schemas,
 shared fixtures, and handwritten payload mappings together, then run:
 
 ```sh
@@ -430,7 +362,7 @@ python3 tools/protocol_codegen.py
 python3 tools/check-protocol-parity.py
 ```
 
-Update shared fixtures under `testdata/protocol/v1/` when the wire contract
+Update shared fixtures under `testdata/protocol/v2/` when the wire contract
 changes. Run relevant tests before submitting a change, and the complete
 `./tools/verify.sh` suite for cross-boundary milestones or releases. Documentation
 and small focused repairs do not require unrelated full rebuilds.

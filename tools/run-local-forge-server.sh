@@ -12,21 +12,19 @@ java_command="${HEXPROOF_FORGE_JAVA:-}"
 
 usage() {
     cat <<'EOF'
-Usage: ./tools/run-local-forge-server.sh [--native] [--prepare] [--] [SERVER_ARGS...]
+Usage: ./tools/run-local-forge-server.sh [--prepare] [--] [SERVER_ARGS...]
 
 Start the locally built Hexproof server with the prepared Forge runtime.
 Arguments are passed directly to hexproof-server. With no arguments, the
 server uses its normal 127.0.0.1:57320 default. --prepare builds the local Go
 server and prepares the pinned runtime if it is not installed. It does not
 install system packages or change any remote service. Only official Forge is
-supported; --native is an optional explicit selector. The prepared runtime
-is selected by build/forge-native/local-runtime.json unless overridden.
---native and --prepare may appear in either order before server arguments.
+supported. The prepared runtime is selected by build/forge-native/local-runtime.json
+unless overridden.
 
 Examples:
   ./tools/run-local-forge-server.sh
   ./tools/run-local-forge-server.sh --prepare -port 57321
-  ./tools/run-local-forge-server.sh --native --prepare -port 57321
   ./tools/run-local-forge-server.sh -port 57321
 
 Environment overrides:
@@ -41,7 +39,6 @@ EOF
 prepare=false
 while (($#)); do
     case "$1" in
-        --native) shift ;;
         --legacy)
             printf 'The legacy Forge runtime has been retired; use official Forge.\n' >&2
             exit 1 ;;

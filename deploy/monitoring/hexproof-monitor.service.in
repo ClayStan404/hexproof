@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+[Unit]
+Description=Hexproof local readiness and control-plane monitor
+After=network.target
+
+[Service]
+Type=oneshot
+DynamicUser=yes
+StateDirectory=hexproof-monitor
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 /usr/local/lib/hexproof-monitor/probe.py --port @PORT@
+TimeoutStartSec=15
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_INET
+IPAddressDeny=any
+IPAddressAllow=localhost
+MemoryMax=64M
+TasksMax=8

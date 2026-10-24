@@ -18,5 +18,14 @@ __pycache__/
 # Operator-provided SMTP credential
 /gmail
 
+# Private operator configuration and owner-only material
+/.env
+/.env.*
+!/.env.example
+/deploy/multica/operations.json
+/deploy/home/nodes.json
+/deploy/deployment-targets.json
+/docs/产品说明.md
+
 # Claude Code session/plan artifacts (not part of the project)
 .claude/

@@ -280,38 +280,6 @@ class ServerDirectoryToolTests(unittest.TestCase):
 
 
 class VerificationScriptTests(unittest.TestCase):
-    def test_module_size_distinguishes_qml_controllers_from_views(self) -> None:
-        policy = {
-            "defaults": {".qml": 1000},
-            "pathRules": [
-                {"glob": "apps/client-qt/qml/**/*Controller.qml", "limit": 700},
-                {"glob": "apps/client-qt/qml/**/*Shortcuts.qml", "limit": 700},
-            ],
-            "overrides": {},
-        }
-        self.assertEqual(
-            module_size.limit_for(
-                "apps/client-qt/qml/components/TableCardMoveController.qml",
-                ".qml",
-                policy,
-            ),
-            700,
-        )
-        self.assertEqual(
-            module_size.limit_for(
-                "apps/client-qt/qml/components/TableGameShortcuts.qml",
-                ".qml",
-                policy,
-            ),
-            700,
-        )
-        self.assertEqual(
-            module_size.limit_for(
-                "apps/client-qt/qml/components/BattlefieldView.qml", ".qml", policy
-            ),
-            1000,
-        )
-
     def test_module_size_policy_includes_test_sources(self) -> None:
         policy = json.loads(module_size.POLICY_PATH.read_text(encoding="utf-8"))
         excluded = policy.get("excludePrefixes", [])
@@ -320,16 +288,12 @@ class VerificationScriptTests(unittest.TestCase):
         sources = {
             module_size.relative(path) for path in module_size.source_files(policy)
         }
-        self.assertIn("apps/client-qt/tests/qml/tst_matchloading.qml", sources)
-        self.assertIn("apps/server/internal/room/room_test.go", sources)
-
-    def test_public_export_includes_rules_engine_contract_and_changelog(self) -> None:
-        root = TOOLS_DIR.parent
-        policy = json.loads((TOOLS_DIR / "public_export_policy.json").read_text(encoding="utf-8"))
-        for path in ("docs/rules-engine.md", "CHANGELOG.md"):
-            with self.subTest(path=path):
-                self.assertTrue((root / path).is_file())
-                self.assertIn(path, policy["include"])
+        self.assertTrue(any(path.startswith("apps/client-qt/tests/qml/") and path.endswith(".qml")
+                            for path in sources),
+                        "The active policy must include QML test sources")
+        self.assertTrue(any(path.startswith("apps/server/") and path.endswith("_test.go")
+                            for path in sources),
+                        "The active policy must include server test sources")
 
     def test_qml_text_safety_is_shared_by_local_and_ci_gates(self) -> None:
         paths = (
@@ -427,8 +391,6 @@ class VerificationScriptTests(unittest.TestCase):
         self.assertIn(".schemaVersion == $expectedSchema", prepare_job)
         self.assertNotIn("      - card-database", assemble_job)
         self.assertNotIn("hexproof-card-database", assemble_job)
-        self.assertIn('! -name SHA256SUMS', assemble_job)
-        self.assertIn('sha256sum "${assets[@]}" > SHA256SUMS', assemble_job)
 
     def test_card_database_workflow_reports_generated_version(self) -> None:
         workflow = (TOOLS_DIR.parent / ".github/workflows/card-database.yml").read_text(

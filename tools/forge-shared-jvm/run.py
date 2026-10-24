@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
-"""Local Linux feasibility experiment; does not modify the packaged Forge host.
+"""Compare separate and shared production Forge JVMs on local Linux.
 
-Compares three production JVMs with one experimental JVM on the same scripted
-human games. Synthetic decks exceed copy limits. Isolation probes are negative
-controls: reproducing a hazard is successful evidence, not production readiness.
+Both modes use the supplied packaged NativeHost and the same scripted games.
+Synthetic decks exceed copy limits; this measures hosting, not format legality.
 """
 
 import argparse
@@ -55,11 +54,9 @@ class Host:
         self.next_id = 0
         self.latencies = []
         self.log = (path / "host.log").open("w")
-        main = "SharedJvmHost" if shared and not args.production else "NativeHost"
-        command = java_args(args, "org.hexproof.forge." + main)
-        command += ([str(args.runtime / "forge-gui")] if shared and not args.production else
-                    ["--interactive-server", "--forge-home", str(args.runtime / "forge-gui")])
-        if shared and args.production:
+        command = java_args(args, "org.hexproof.forge.NativeHost")
+        command += ["--interactive-server", "--forge-home", str(args.runtime / "forge-gui")]
+        if shared:
             command += ["--max-games", "3"]
         self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=self.log, text=True, env=clean_env(profile))
@@ -265,8 +262,8 @@ def scenario(args, shared, round_index):
                     hosts[0].call("abortGame", sessionId=aborted)
                     try:
                         hosts[0].call("getPrompt", sessionId=aborted, playerIndex=0)
-                    except RuntimeError as error:
-                        assert args.production or "Unknown session" in str(error)
+                    except RuntimeError:
+                        pass
                     else:
                         raise AssertionError("Closed game still addressable")
                     for game in survivor_ids:
@@ -289,10 +286,7 @@ def scenario(args, shared, round_index):
                         errors.append(error)
                 if errors:
                     raise RuntimeError(f"{len(errors)} game driver(s) failed: {errors[0]}") from errors[0]
-                if shared and not args.production:
-                    wave_result["afterCloseGC"] = json.loads(hosts[0].call("stats", gc=True))
-                print(f"{label} wave {wave}: 3 natural wins; "
-                      f"{wave_result.get('afterCloseGC', {})}", flush=True)
+                print(f"{label} wave {wave}: 3 natural wins", flush=True)
                 if not shared:
                     for host in hosts:
                         host.close()
@@ -323,27 +317,6 @@ def scenario(args, shared, round_index):
     return report
 
 
-def isolation(args):
-    reports = []
-    for name in ("random", "blocked-menu", "failure-routing"):
-        path = args.output / name
-        path.mkdir()
-        profile = path / "profile"
-        profile.mkdir()
-        command = java_args(args, "org.hexproof.forge.SharedJvmIsolationProbe")
-        command += [str(args.runtime / "forge-gui"), name]
-        with (path / "host.log").open("w") as log:
-            result = subprocess.run(command, env=clean_env(profile), stdout=subprocess.PIPE,
-                                    stderr=log, text=True, timeout=100)
-        (path / "stdout.json").write_text(result.stdout)
-        result.check_returncode()
-        report = json.loads(result.stdout)
-        assert report["hazardReproduced"]
-        reports.append(report)
-        print(json.dumps(report), flush=True)
-    return reports
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runtime", type=Path, required=True)
@@ -351,41 +324,27 @@ def main():
     parser.add_argument("--heap", type=int, default=512)
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--waves", type=int, default=2)
-    parser.add_argument("--only", choices=("all", "games", "isolation"), default="all")
     parser.add_argument("--abort-between-waves", action="store_true",
-                        help="Also probe unsafe abort/replacement; may fail on the unmodified lifecycle")
-    parser.add_argument("--production", action="store_true",
-                        help="Measure the packaged adapter 3 shared worker; use --only games")
+                        help="Abort and replace a shared game while preserving its neighbors")
     args = parser.parse_args()
     if platform.system() != "Linux" or min(args.heap, args.rounds, args.waves) < 1:
         parser.error("Linux and positive heap/round/wave values are required")
-    if args.production and args.only != "games":
-        parser.error("Production isolation regressions run in build-native.py; choose --only games here")
     args.runtime = args.runtime.resolve(strict=True)
     args.output = args.output.resolve()
     args.output.mkdir(parents=True, exist_ok=False)
-    classes = args.output / "classes"
-    classes.mkdir()
     jars = [args.runtime / "forge-harness.jar", *sorted((args.runtime / "lib").glob("*.jar"))]
-    classpath = os.pathsep.join(map(str, jars))
-    if not args.production:
-        subprocess.run(["javac", "--release", "21", "-encoding", "UTF-8", "-cp", classpath,
-                        "-d", str(classes), *map(str, sorted(HERE.glob("*.java")))], check=True)
-    args.classpath = str(classes) + os.pathsep + classpath
-    artifacts = jars + sorted(HERE.glob("*.java")) + [Path(__file__), HOST_SOURCE / "test_full_game.py"]
+    args.classpath = os.pathsep.join(map(str, jars))
+    artifacts = jars + [Path(__file__), HOST_SOURCE / "test_full_game.py"]
     write_json(args.output / "provenance.json", {
         "platform": platform.platform(), "java": subprocess.run(["java", "-version"], capture_output=True, text=True).stderr,
         "argv": sys.argv, "sampleIntervalSeconds": .1, "metric": "sum of live JVM smaps_rollup PSS and RSS",
         "artifacts": [{"path": str(p), "sha256": hashlib.sha256(p.read_bytes()).hexdigest()} for p in artifacts]})
     report = {}
     try:
-        if args.only in ("all", "isolation"):
-            report["isolation"] = isolation(args)
-        if args.only in ("all", "games"):
-            report["scenarios"] = []
-            for index in range(args.rounds):
-                for shared in ((False, True) if index % 2 == 0 else (True, False)):
-                    report["scenarios"].append(scenario(args, shared, index))
+        report["scenarios"] = []
+        for index in range(args.rounds):
+            for shared in ((False, True) if index % 2 == 0 else (True, False)):
+                report["scenarios"].append(scenario(args, shared, index))
         report["completed"] = True
     finally:
         write_json(args.output / "result.json", report)

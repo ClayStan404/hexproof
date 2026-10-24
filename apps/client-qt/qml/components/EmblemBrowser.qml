@@ -23,7 +23,6 @@ AppPopup {
                                       && viewedSeat === tableController.roomSession.seatIndex
     readonly property var catalogModel: tableController.cardCatalogModel
     readonly property string cardLanguage: catalogModel && catalogModel.language || "en"
-    readonly property var selectedDetails: TokenPresentation.details(catalogModel, facePreview.viewedCard)
 
     width: Math.min(Theme.size(1040), parent.width - Theme.size(32))
     height: Math.min(Theme.size(680), parent.height - Theme.size(32))

@@ -1,0 +1,13 @@
+{
+  "_example": true,
+  "home-a": {
+    "ssh": "home-a-ssh",
+    "arch": "amd64",
+    "endpoint": "wss://hub.example.com/home/home-a/ws"
+  },
+  "home-b": {
+    "ssh": "home-b-ssh",
+    "arch": "arm64",
+    "endpoint": "wss://hub.example.com/home/home-b/ws"
+  }
+}

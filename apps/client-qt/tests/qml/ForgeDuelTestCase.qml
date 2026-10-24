@@ -91,6 +91,21 @@ TestCase {
             property string lastError: ""
             property var responses: []
             property int modelRetries: 0
+            property int concedeCount: 0
+            property int restartCount: 0
+            property int leaveCount: 0
+            property int returnCount: 0
+            property int readyCount: 0
+            property int moveCount: 0
+            property var chatMessages: []
+            function concede() { ++concedeCount }
+            function restartGame() { ++restartCount }
+            function leaveRoom() { ++leaveCount }
+            function returnToRoom() { ++returnCount }
+            function setSideboardReady(ready) { ++readyCount }
+            function moveSideboardCard(card, from, to) { ++moveCount }
+            function setSideboardCommander(name, designated) {}
+            function sayGameMessage(message) { chatMessages = chatMessages.concat([message]) }
             function retryModelOpponent() { ++modelRetries }
             function respondRulesPrompt(id, response) {
                 responses = responses.concat([{id:id, response:response}]); rulesResponsePending = true
@@ -192,7 +207,8 @@ TestCase {
         for (let i = 0; i < (creatureCount || 1); ++i)
             creatures.push(card("own-" + i, 0, distinctCreatures ? ("Bear " + i) : "Grizzly Bears", true))
         return {roomId:"DUEL01", gameId:"duel-game", turn:3, step:"main1", activeSeat:0, prioritySeat:0,
-            players:[{seat:0, name:"Alice", life:20}, {seat:1, name:"Bob", life:20}],
+            players:[{seat:0, name:"Alice", life:20, status:"playing"},
+                     {seat:1, name:"Bob", life:20, status:"playing"}],
             zones:[{zone:"hand", ownerSeat:0, count:hand.length, cards:hand},
                 {zone:"hand", ownerSeat:1, count:7, cards:[]},
                 {zone:"library", ownerSeat:0, count:50, cards:[]},
@@ -202,6 +218,14 @@ TestCase {
                 {zone:"battlefield", ownerSeat:1, count:1, cards:[card("opponent", 1, "Grizzly Bears", true)]}],
             stack:[]}
     }
+    function settleLayout() {
+        verify(waitForPolish(window))
+    }
+    function renderTable() {
+        settleLayout()
+        window.update()
+        verify(waitForRendering(table))
+    }
     function prompt(kind, extra) {
         transport.rulesResponsePending = false
         const data = Object.assign({roomId:"DUEL01", gameId:"duel-game", pending:true, supported:true,
@@ -209,7 +233,8 @@ TestCase {
             targets:[], contextCards:[], contextTargets:[], combatSources:[], combatTargets:[],
             damageTargets:[], scryDestinations:[], totalDamage:0}, extra || {})
         verify(testRulesPrompt.applyPrompt(data))
-        waitForRendering(table)
+        // Prompt helpers are followed by real pointer input in the shared suites.
+        renderTable()
     }
     function item(name) {
         let found = null
@@ -222,15 +247,19 @@ TestCase {
     }
     function showPile(frontId) {
         const badge = item("forgeCardStackCount-" + frontId)
-        if (!badge.parent.fanned)
+        if (!badge.parent.fanned) {
             mouseClick(badge)
-        waitForRendering(table)
+            tryCompare(badge.parent, "fanned", true)
+            renderTable()
+        }
     }
     function hidePile(frontId) {
         const badge = item("forgeCardStackCount-" + frontId)
-        if (badge.parent.fanned)
+        if (badge.parent.fanned) {
             mouseClick(badge)
-        waitForRendering(table)
+            tryCompare(badge.parent, "fanned", false)
+            renderTable()
+        }
     }
     function openSettings() {
         if (!table.presentation.modalOpen)
@@ -287,10 +316,16 @@ TestCase {
         room.actionClockEnabled = false
         room.actionClockMs = []
         room.actionClockRunning = -1
-        room.seats = []
+        room.seats = [{displayName:"Alice"}, {displayName:"Bob"}]
         room.players = []
         room.matchMode = "bo1"
         match.gameNumber = 1; match.score = [0, 0]
+        room.host = true; room.phase = "started"
+        match.result = ({}); match.sideboard = ({})
+        table.matchUi.shownResultKey = ""
+        transport.concedeCount = 0; transport.restartCount = 0; transport.leaveCount = 0
+        transport.returnCount = 0; transport.readyCount = 0; transport.moveCount = 0
+        transport.chatMessages = []; transport.lastError = ""
         match.sideboarding = false; transport.inRoom = true
         transport.responses = []; transport.rulesResponsePending = false
         transport.peerTransportAvailable = true; transport.directPeerEnabled = false
@@ -309,10 +344,19 @@ TestCase {
     }
     function cleanup() {
         window.feedbackInteractionOpen = false
+        for (const name of ["rulesGameResultPopup", "rulesConcedeConfirmation",
+                            "rulesRestartConfirmation", "rulesLeaveConfirmation"])
+            item(name).close()
+        const drawer = item("forgeGameDrawer")
+        drawer.close()
+        tryCompare(drawer, "position", 0)
+        tryCompare(drawer, "visible", false)
         const popup = item("forgeZonePopup")
         popup.close()
         tryCompare(popup, "visible", false)
         table.inspector.clear(); testRulesPrompt.clear()
+        table.setGameLogVisible(false)
+        settleLayout()
         testTranslations.setLanguage("en")
         catalog.language = "en"
         catalog.names = ({})
@@ -419,7 +463,7 @@ TestCase {
         }
         verify(testRulesPrompt.applySnapshot(state))
         prompt("chooseAction", {options:[{responseId:"$pass", kind:"pass", label:"Pass"}]})
-        verify(waitForPolish(window)); verify(waitForRendering(table))
+        settleLayout()
     }
     Component {
         id: fixtureMixedSupportField
@@ -582,7 +626,8 @@ TestCase {
             targets:[], contextCards:[], contextTargets:[], combatSources:[], combatTargets:[],
             damageTargets:[], scryDestinations:[], totalDamage:0}, extra || {})
         verify(testRulesPrompt.applyPrompt(data))
-        waitForRendering(table)
+        // Repeating an unchanged decision need not schedule another frame.
+        settleLayout()
     }
     function landBoard(ids, tapped) {
         const state = snapshot(1, 0)

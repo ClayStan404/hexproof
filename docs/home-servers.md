@@ -13,10 +13,11 @@ a player-hosted engine. Room membership, authentication, operation ordering,
 game state, and viewer-specific projections belong to that home hub. The cloud
 gateway never executes a second copy of its rooms.
 
-The existing cloud servers remain independently selectable. Each home node has
-a stable catalog ID and WSS URL ending in `/home/<node>/ws`. Room discovery is
-local to the selected hub; this feature adds neither a global lobby nor
-cross-hub matchmaking. Exact client/hub application-version checks still apply.
+Each home node has a stable catalog ID and WSS URL ending in `/home/<node>/ws`.
+Official nodes can share the unified official lobby and room placement;
+independent hubs retain local discovery. This does not add player matchmaking.
+Client/hub admission requires matching game-protocol identifiers, independently
+of application versions; see [protocol compatibility](protocol-compatibility.md).
 
 New clients prefer an authenticated WebRTC data channel to the home node.
 STUN discovery and ICE negotiation find a direct route where possible; bounded,
@@ -90,10 +91,10 @@ Keep legacy stopped home services and their data intact. Run the new home hub,
 connector, and cloud gateway as independently managed services with fixed
 artifacts, protected configuration, resource limits, and a rollback path.
 Production game hubs use fixed, verified matching server/runtime artifacts.
-The initial deployment uses published artifacts; an explicitly authorized
-private version deployment can use locally packaged artifacts with recorded
-source identity, checksums, matching complete runtime sources, and qualification
-on each target architecture. Source development does not silently replace the
+The initial deployment uses published release artifacts. An explicitly authorized
+draft release requires the deployment procedure's draft opt-in, exact artifact
+identity, checksums, matching complete runtime sources and qualification on each
+target architecture. Source development does not silently replace the
 existing cloud game services.
 
 Qualification includes actual message delivery through direct RTC, forced TURN,
@@ -108,8 +109,9 @@ WAN probes. A successful STUN response, a healthy process, or a displayed
 connection label alone does not prove that a game crossed the claimed route.
 Measure confirmed game operations separately from ICMP or connection setup.
 
-Operator deployment commands and verification evidence are recorded alongside
-the home-node deployment tooling and in the maintained fleet documentation.
+Use the [deployment procedure](../deploy/home/README.md) for operator commands.
+Keep actual node inventories and verification evidence in private operator
+storage, outside source control.
 
 ## Connector configuration
 

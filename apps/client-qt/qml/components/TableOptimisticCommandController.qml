@@ -43,10 +43,6 @@ QtObject {
         model.beginCardMoves(moves ? moves : [])
     }
 
-    function removePendingCardMove(cardId) {
-        model.removeValue("move", cardId)
-    }
-
     function clearPendingCardMoves() {
         model.clearCardMoves()
     }

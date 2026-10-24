@@ -266,10 +266,6 @@ AppPopup {
         return rows
     }
 
-    function topGroupCount(destination) {
-        return topCardRows.filter(row => row.destination === destination).length
-    }
-
     function topGroupRandomized(destination) {
         return (destination === "library_top" && inspector.randomizeTop)
                || (destination === "library_bottom" && inspector.randomizeBottom)
