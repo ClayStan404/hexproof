@@ -19,6 +19,7 @@ Item {
     property string caseId: ""
     property string replyId: ""
     property string questionId: ""
+    readonly property string imagePath: auditProbe.environment("HEXPROOF_AUDIT_FEEDBACK_IMAGE")
     readonly property string original: "Native thread audit: saved room setting is lost after reopening."
     readonly property string answer: "Open room settings, change the value, close and reopen. Expected: the saved value remains."
 
@@ -89,6 +90,25 @@ Item {
         add("Enter original public report", () => enter("feedbackDescription", original),
             () => feedbackService.draft.description === original && !feedbackService.saving)
         add("Record original case identity", () => { caseId = feedbackService.draft.id })
+        if (imagePath) {
+            add("Choose a screenshot through the file picker", () => bodyClick("feedbackAddImage"),
+                () => auditProbe.fileDialogState("feedbackImageDialog").visible)
+            add("Attach explicit test image", () => {
+                require(auditProbe.chooseFile("feedbackImageDialog", imagePath), "Cannot choose test image")
+            }, () => feedbackService.draft.attachments.some(item => item.kind === "screenshot")
+                && !feedbackService.busy && !feedbackService.saving)
+            add("Inspect normalized thumbnail before publication", () => {
+                const attachment = feedbackService.draft.attachments.find(item => item.kind === "screenshot")
+                if (!bodyReveal("feedbackThumbnail-" + attachment.id)) return false
+                require(!feedbackService.draft.uploadAuthorized, "Thumbnail authorized publication")
+                capture("screenshot-thumbnail")
+                click("feedbackThumbnail-" + attachment.id)
+            }, () => !!find("feedbackPreviewClose"))
+            add("Inspect full screenshot preview", () => {
+                capture("screenshot-preview")
+                click("feedbackPreviewClose")
+            }, () => !find("feedbackPreviewClose"))
+        }
         publish(false)
         add("Read verified clarification inside the client", () => { lastRefresh = 0 },
             () => refreshUntil(() => feedbackService.thread.caseId === caseId && !!feedbackService.thread.question))
@@ -97,6 +117,16 @@ Item {
             require(find("feedbackCurrentQuestion").text.indexOf("公开") >= 0, "Clarification was not localized")
             capture("public-question-chinese")
         })
+        add("Open bounded case history without changing selection", () => click("feedbackHistoryButton"),
+            () => !!find("feedbackHistoryAwaitingReply") && !feedbackService.busy && !feedbackService.saving)
+        add("Filter cases awaiting the user's answer", () => {
+            require(feedbackService.draft.id === caseId, "History changed the selected record")
+            click("feedbackHistoryAwaitingReply")
+        }, () => !!find("feedbackHistoryNeedsReply-" + caseId))
+        add("Inspect prominent pending reply and return to case", () => {
+            capture("history-awaiting-reply")
+            click("feedbackHistoryCase-" + caseId)
+        }, () => !!find("feedbackCurrentQuestion") && !feedbackService.busy && !feedbackService.saving)
         add("Inspect Chinese clarification and create reply", () => {
             questionId = feedbackService.thread.question.id
             if (!bodyClick("feedbackAnswerQuestion")) return false

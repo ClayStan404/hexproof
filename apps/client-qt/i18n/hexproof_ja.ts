@@ -17385,6 +17385,86 @@ Downloaded and custom images will be copied and verified before the setting chan
             <source>Public feedback notice</source>
             <translation>公開フィードバックについて</translation>
         </message>
+        <message>
+            <source>AI update: %1</source>
+            <translation>AIからの更新：%1</translation>
+        </message>
+        <message>
+            <source>All feedback</source>
+            <translation>すべてのフィードバック</translation>
+        </message>
+        <message>
+            <source>Awaiting your reply (%1)</source>
+            <translation>あなたの返信待ち（%1）</translation>
+        </message>
+        <message>
+            <source>Check status</source>
+            <translation>状態を確認</translation>
+        </message>
+        <message>
+            <source>Delivery is uncertain. Check status before preparing another submission; checking does not send it again.</source>
+            <translation>送信結果を確認できていません。別のフィードバックを準備する前に状態を確認してください。状態の確認では再送信されません。</translation>
+        </message>
+        <message>
+            <source>Hide original feedback and receipt</source>
+            <translation>元のフィードバックと受付番号を折りたたむ</translation>
+        </message>
+        <message>
+            <source>Needs your reply</source>
+            <translation>返信が必要です</translation>
+        </message>
+        <message>
+            <source>No feedback awaiting your reply in saved information.</source>
+            <translation>保存済みの情報には、あなたの返信を待っているフィードバックはありません。</translation>
+        </message>
+        <message>
+            <source>Not synced yet</source>
+            <translation>まだ同期されていません</translation>
+        </message>
+        <message>
+            <source>Not synced yet. Replies may be missing.</source>
+            <translation>まだ同期されていません。表示されていない返信がある可能性があります。</translation>
+        </message>
+        <message>
+            <source>Original feedback and receipt</source>
+            <translation>元のフィードバックと受付番号</translation>
+        </message>
+        <message>
+            <source>Preview screenshot</source>
+            <translation>スクリーンショットをプレビュー</translation>
+        </message>
+        <message>
+            <source>Refresh</source>
+            <translation>更新</translation>
+        </message>
+        <message>
+            <source>Refresh stopped. Saved information may be out of date. Try again later.</source>
+            <translation>更新が停止しました。保存済みの情報は最新ではない可能性があります。後でもう一度お試しください。</translation>
+        </message>
+        <message>
+            <source>Refreshing feedback…</source>
+            <translation>フィードバックを更新中…</translation>
+        </message>
+        <message>
+            <source>Saved locally. Another attempt is scheduled no earlier than %1 while the app is running.</source>
+            <translation>この端末に保存済みです。アプリの実行中に、%1以降に再試行します。</translation>
+        </message>
+        <message>
+            <source>Saved locally. Sending will retry automatically while the app is running.</source>
+            <translation>この端末に保存済みです。アプリの実行中に自動で送信を再試行します。</translation>
+        </message>
+        <message>
+            <source>Saved locally. We will automatically check whether it was received before trying again. Do not submit another copy.</source>
+            <translation>この端末に保存済みです。再試行の前に受信済みかどうかを自動で確認します。同じ内容を重複して送信しないでください。</translation>
+        </message>
+        <message>
+            <source>You can attach up to two screenshots.</source>
+            <translation>スクリーンショットは2枚まで添付できます。</translation>
+        </message>
+        <message>
+            <source>Your feedback was accepted. The last saved status is still available; refresh later to check for updates.</source>
+            <translation>フィードバックは受け付けられました。前回保存した状態は引き続き確認できます。後で更新して進捗を確認してください。</translation>
+        </message>
 </context>
 <context>
     <name>RulesCardHoverPreview</name>

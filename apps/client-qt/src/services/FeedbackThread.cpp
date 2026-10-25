@@ -311,7 +311,7 @@ QVariantMap FeedbackService::thread() const
     result.insert(u"caseState"_s, parent.caseState);
     result.insert(u"closurePublicationState"_s, parent.closurePublicationState);
     result.insert(u"closureRequestState"_s, parent.closureRequestState);
-    result.insert(u"loading"_s, !m_threadReply.isNull() &&
+    result.insert(u"loading"_s, !m_backgroundThread && !m_threadReply.isNull() &&
                                     m_threadAttachment.value(u"loading"_s).toBool() == false);
     result.insert(u"errorCode"_s, m_threadError);
     result.insert(u"syncedAt"_s,
@@ -357,9 +357,43 @@ bool FeedbackService::refreshThread(const QString &caseId, const QString &cursor
     readThreadPage(caseId, {});
     return true;
 }
+bool FeedbackService::refreshCaseSummary(const QString &caseId)
+{
+    // This read updates only the saved case, never the selected draft or thread.
+    // A refused parallel call must not overwrite the in-flight result identity.
+    if (busy())
+        return false;
+    const auto record = m_records.value(caseId);
+    QString error;
+    if (!m_records.contains(caseId) || record.apiVersion != 2 || !record.parentId.isEmpty() ||
+        record.secret.size() != 32 || record.state != u"accepted" || record.caseState != u"open" ||
+        record.closureRequestState != u"none" || record.closureAuthorized ||
+        record.removalState != u"none" || record.removalAuthorized || m_deleting.contains(caseId) ||
+        (record.accessExpiresAt.isValid() &&
+         record.accessExpiresAt <= QDateTime::currentDateTimeUtc()))
+        error = u"record_unavailable"_s;
+    else if (saving())
+        error = u"busy"_s;
+    else if (!trustedQuery(record.endpoint))
+        error = u"endpoint_untrusted"_s;
+    else if (m_storageFailed)
+        error = u"storage_unavailable"_s;
+    else if (record.threadNextAttempt > QDateTime::currentDateTimeUtc())
+        error = u"rate_limited"_s;
+    m_summaryCase = caseId;
+    m_summaryError = error;
+    if (!error.isEmpty()) {
+        emit changed();
+        return false;
+    }
+    m_records[caseId].threadNextAttempt = QDateTime::currentDateTimeUtc().addSecs(5);
+    changedRecord(caseId);
+    readThreadPage(caseId, {}, {}, true);
+    return true;
+}
 void FeedbackService::startThreadRead(const QString &caseId, const QUrl &url, qsizetype limit,
                                       const std::function<void(int, const QByteArray &)> &complete,
-                                      bool authenticate)
+                                      bool authenticate, bool summary)
 {
     QNetworkRequest request(url);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
@@ -375,6 +409,7 @@ void FeedbackService::startThreadRead(const QString &caseId, const QUrl &url, qs
                                                                 QByteArray::OmitTrailingEquals));
     request.setTransferTimeout(15000);
     auto *reply = m_network.get(request);
+    m_backgroundThread = summary;
     m_threadReply = reply;
     auto bytes = std::make_shared<QByteArray>();
     reply->setReadBufferSize(limit + 1);
@@ -385,7 +420,7 @@ void FeedbackService::startThreadRead(const QString &caseId, const QUrl &url, qs
     });
     connect(
         reply, &QNetworkReply::finished, this,
-        [this, reply, bytes, limit, caseId, complete, authenticate] {
+        [this, reply, bytes, limit, caseId, complete, authenticate, summary] {
             if (reply->isOpen())
                 bytes->append(reply->read(limit + 1 - bytes->size()));
             const auto status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -405,8 +440,11 @@ void FeedbackService::startThreadRead(const QString &caseId, const QUrl &url, qs
                                (reply->error() == QNetworkReply::NoError || status >= 400);
             m_threadReply.clear();
             reply->deleteLater();
-            if (m_records.contains(caseId) && m_threadCase == caseId)
+            if (m_records.contains(caseId) && !m_deleting.contains(caseId) &&
+                (summary || m_threadCase == caseId))
                 complete(valid ? status : 0, *bytes);
+            else if (summary)
+                m_summaryError = u"record_unavailable"_s;
             emit changed();
             emit statusChanged();
             pump();
@@ -419,7 +457,7 @@ void FeedbackService::startThreadRead(const QString &caseId, const QUrl &url, qs
     emit statusChanged();
 }
 void FeedbackService::readThreadPage(const QString &caseId, const QString &cursor,
-                                     QJsonObject accumulated)
+                                     QJsonObject accumulated, bool summary)
 {
     const auto record = m_records.value(caseId);
     QUrl url(record.endpoint + u"/submissions/"_s + caseId + u"/thread"_s);
@@ -430,20 +468,28 @@ void FeedbackService::readThreadPage(const QString &caseId, const QString &curso
     url.setQuery(query);
     startThreadRead(
         caseId, url, 262144,
-        [this, caseId, cursor, accumulated](int status, const QByteArray &raw) mutable {
+        [this, caseId, cursor, accumulated, summary](int status, const QByteArray &raw) mutable {
+            auto &error = summary ? m_summaryError : m_threadError;
+            const auto current = m_records.value(caseId);
+            if (summary && (current.caseState != u"open" ||
+                            current.closureRequestState != u"none" || current.closureAuthorized ||
+                            current.removalState != u"none" || current.removalAuthorized)) {
+                error = u"record_unavailable"_s;
+                return;
+            }
             if (status != 200) {
-                m_threadError = status == 404 || status == 405 ? u"thread_unsupported"_s
-                                : status == 409                ? u"thread_changed"_s
-                                : status == 410                ? u"content_unavailable"_s
-                                : status == 429                ? u"rate_limited"_s
-                                                               : u"network_error"_s;
+                error = status == 404 || status == 405 ? u"thread_unsupported"_s
+                        : status == 409                ? u"thread_changed"_s
+                        : status == 410                ? u"content_unavailable"_s
+                        : status == 429                ? u"rate_limited"_s
+                                                       : u"network_error"_s;
                 return;
             }
             const auto repository =
                 m_records.value(caseId).disclosure.value(u"repository"_s).toString();
             const auto parsed = threadPage(QJsonDocument::fromJson(raw).object(), repository);
             if (!parsed) {
-                m_threadError = u"response_invalid"_s;
+                error = u"response_invalid"_s;
                 return;
             }
             const auto page = *parsed;
@@ -453,7 +499,7 @@ void FeedbackService::readThreadPage(const QString &caseId, const QString &curso
                 page.value(u"submissionId"_s).toString() != caseId || revision < 0 ||
                 !page.value(u"items"_s).isArray() || items.size() > 5 ||
                 (!cursor.isEmpty() && revision != accumulated.value(u"revision"_s).toInteger())) {
-                m_threadError = u"response_invalid"_s;
+                error = u"response_invalid"_s;
                 return;
             }
             auto previous = accumulated.value(u"items"_s).toArray();
@@ -468,42 +514,42 @@ void FeedbackService::readThreadPage(const QString &caseId, const QString &curso
                     nextSequence <= sequence ||
                     item.value(u"description"_s).toString().toUtf8().size() > 8192 ||
                     item.value(u"attachments"_s).toArray().size() > 4) {
-                    m_threadError = u"response_invalid"_s;
+                    error = u"response_invalid"_s;
                     return;
                 }
                 sequence = nextSequence;
                 previous.append(item);
             }
             if (previous.size() > 49) {
-                m_threadError = u"response_invalid"_s;
+                error = u"response_invalid"_s;
                 return;
             }
             accumulated = page;
             accumulated.insert(u"items"_s, previous);
             if (QJsonDocument(accumulated).toJson(QJsonDocument::Compact).size() > MaxThreadBytes) {
-                m_threadError = u"response_invalid"_s;
+                error = u"response_invalid"_s;
                 return;
             }
             const auto next = page.value(u"nextCursor"_s).toString();
             if (!next.isEmpty()) {
                 if (items.isEmpty() || next == cursor ||
                     next != QString::number(revision) + u":"_s + QString::number(sequence)) {
-                    m_threadError = u"response_invalid"_s;
+                    error = u"response_invalid"_s;
                     return;
                 }
-                readThreadPage(caseId, next, accumulated);
+                readThreadPage(caseId, next, accumulated, summary);
                 return;
             }
             auto &parent = m_records[caseId];
             if (revision < parent.threadPage.value(u"revision"_s).toInteger(-1)) {
-                m_threadError = u"thread_changed"_s;
+                error = u"thread_changed"_s;
                 return;
             }
             const auto size = QJsonDocument(accumulated).toJson(QJsonDocument::Compact).size();
             if (payloadBytes() -
                     QJsonDocument(parent.threadPage).toJson(QJsonDocument::Compact).size() + size >
                 feedback::MaxStoreBytes) {
-                m_threadError = u"storage_full"_s;
+                error = u"storage_full"_s;
                 return;
             }
             parent.threadPage = accumulated;
@@ -534,10 +580,10 @@ void FeedbackService::readThreadPage(const QString &caseId, const QString &curso
                     parent.removalAuthorized = false;
                 stopReplies(caseId);
             }
-            m_threadError.clear();
+            error.clear();
             changedRecord(caseId);
         },
-        true);
+        true, summary);
 }
 bool FeedbackService::fetchThreadAttachment(const QString &contributionId,
                                             const QString &attachmentId)

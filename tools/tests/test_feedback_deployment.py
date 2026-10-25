@@ -13,6 +13,8 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
+import tarfile
 import tempfile
 import types
 import unittest
@@ -110,6 +112,47 @@ class FeedbackDeploymentTests(unittest.TestCase):
                                         env=environment, capture_output=True, text=True, timeout=5)
                 self.assertEqual(result.returncode, 2)
                 self.assertIn("Feedback", result.stderr)
+
+    def test_component_arguments_are_complete_exclusive_and_forwarded_without_network(self):
+        common = {"HEXPROOF_COMPONENT": "feedback", "HEXPROOF_VERSION": "2.5.0",
+                  "HEXPROOF_TARGETS": "fixture-host", "HEXPROOF_FEEDBACK_INPUTS": "/fixture/inputs.json"}
+        component = {"HEXPROOF_FEEDBACK_RUN_ID": "123", "HEXPROOF_FEEDBACK_ARTIFACT_ID": "456",
+                     "HEXPROOF_FEEDBACK_HEAD_SHA": "a" * 40, "HEXPROOF_FEEDBACK_EXPECTED_SHA256": "b" * 64}
+        cases = [{key: value for key, value in component.items() if key != missing} for missing in component]
+        cases += [{**component, "HEXPROOF_ALLOW_DRAFT": "1"},
+                  {**component, "HEXPROOF_FEEDBACK_TEST_RUN_ID": "10", "HEXPROOF_FEEDBACK_TEST_ARTIFACT_ID": "20",
+                   "HEXPROOF_FEEDBACK_TEST_HEAD_SHA": "c" * 40},
+                  {**component, "HEXPROOF_FEEDBACK_HEAD_SHA": "not-a-commit"},
+                  {**component, "HEXPROOF_FEEDBACK_EXPECTED_SHA256": "b" * 63},
+                  {**component, "HEXPROOF_FEEDBACK_RUN_ID": "0"}]
+        clean = {name: value for name, value in os.environ.items() if not name.startswith("HEXPROOF_")}
+        for fields in cases:
+            with self.subTest(fields=fields):
+                result = subprocess.run(["bash", str(ROOT / "deploy/deploy-release-server.sh")],
+                                        env=dict(clean, **common, **fields), capture_output=True, text=True, timeout=5)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn("Feedback", result.stderr)
+        for key, value in component.items():
+            with self.subTest(game_option=key):
+                result = subprocess.run(["bash", str(ROOT / "deploy/deploy-release-server.sh")],
+                                        env=dict(clean, HEXPROOF_COMPONENT="game", **{key: value}),
+                                        capture_output=True, text=True, timeout=5)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn("require HEXPROOF_COMPONENT=feedback", result.stderr)
+        with tempfile.TemporaryDirectory() as directory:
+            python = Path(directory) / "python3"
+            python.write_text("#!" + sys.executable + "\nimport json,sys\nprint(json.dumps(sys.argv[1:]))\n")
+            python.chmod(0o755)
+            environment = dict(clean, **common, **component)
+            environment["PATH"] = directory + os.pathsep + clean["PATH"]
+            result = subprocess.run(["bash", str(ROOT / "deploy/deploy-release-server.sh")],
+                                    env=environment, capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            args = json.loads(result.stdout)
+            self.assertTrue(args[0].endswith("/feedback/install.py"))
+            for flag, value in (("--component-run-id", "123"), ("--component-artifact-id", "456"),
+                                ("--component-head-sha", "a" * 40), ("--expected-receiver-sha", "b" * 64)):
+                self.assertEqual(args[args.index(flag) + 1], value)
 
     def actions_fixture(self, base):
         version, run_id, artifact_id, head = "3.1.0", 123, 456, "a" * 40
@@ -412,6 +455,7 @@ class FeedbackDeploymentTests(unittest.TestCase):
                    "GITHUB_TOKEN": base / "etc/github-token", "MULTICA_WEBHOOK": base / "etc/multica-webhook",
                    "BINARY": base / "bin/hexproof-feedback", "UNIT": base / "systemd/hexproof-feedback.service",
                    "BACKUPS": base / "backups", "TEST_PROVENANCE": base / "etc/test-provenance.json",
+                   "COMPONENT_PROVENANCE": base / "etc/component-provenance.json",
                    "SYSTEMD_UNIT_DIRECTORIES": tuple(base / name / "systemd/system"
                                                      for name in ("etc-units", "run", "usr-lib", "lib"))}
         for name in ("BINARY", "CONFIG", "UNIT", "PASSWORD", "GITHUB_TOKEN"):
@@ -437,11 +481,15 @@ class FeedbackDeploymentTests(unittest.TestCase):
             item.name: INSTALL.digest(item) for item in stage.iterdir() if item.name != "install.py"}}))
         return managed, config, stage
 
-    def simulated_install(self, managed, stage, *, fail_activation=False, fail_validation=False, test_initial=False):
+    def simulated_install(self, managed, stage, *, fail_activation=False, fail_validation=False, test_initial=False,
+                          component_update=False, fail_installed_validation=False, prepare_hook=None,
+                          start_hook=None, expected_error=None):
         calls = []
         checked = []
+        starts = 0
 
         def command(*arguments, **kwargs):
+            nonlocal starts
             calls.append(tuple(map(str, arguments)))
             if "-version" in arguments:
                 return "hexproof-feedback 2.5.0"
@@ -450,11 +498,24 @@ class FeedbackDeploymentTests(unittest.TestCase):
             if "-validate-config" in arguments:
                 path = Path(arguments[arguments.index("-config") + 1])
                 checked.append(json.loads(path.read_text()))
-                if fail_validation:
+                if fail_validation or fail_installed_validation and Path(arguments[0]) == managed["BINARY"]:
                     raise subprocess.CalledProcessError(1, arguments)
+            if arguments[:2] == ("systemd-analyze", "verify") and prepare_hook:
+                prepare_hook()
+            if tuple(arguments) == ("systemctl", "start", INSTALL.SERVICE):
+                starts += 1
+                if starts == 1:
+                    if start_hook:
+                        start_hook()
+                    if component_update and fail_activation:
+                        raise subprocess.CalledProcessError(1, arguments)
             if fail_activation and tuple(arguments) == ("systemctl", "enable", "--now", INSTALL.SERVICE):
                 raise subprocess.CalledProcessError(1, arguments)
             return ""
+
+        def process(arguments, **kwargs):
+            calls.append(tuple(map(str, arguments)))
+            return types.SimpleNamespace(returncode=3 if test_initial else 0)
 
         user = types.SimpleNamespace(pw_uid=os.getuid() or 1000, pw_gid=os.getgid(), pw_dir=str(managed["DATA"]))
         opener = types.SimpleNamespace(open=lambda *args, **kwargs: contextlib.nullcontext(types.SimpleNamespace(status=200)))
@@ -465,15 +526,183 @@ class FeedbackDeploymentTests(unittest.TestCase):
                 patch.object(INSTALL.pwd, "getpwnam", return_value=user), \
                 patch.object(INSTALL.os, "geteuid", return_value=0), \
                 patch.object(INSTALL.os, "chown"), patch.object(INSTALL.os, "fchown"), \
+                patch.object(INSTALL, "verify_running_component") as running, \
                 patch.object(INSTALL.urllib.request, "build_opener", return_value=opener), \
-                patch.object(INSTALL.subprocess, "run", return_value=types.SimpleNamespace(returncode=3 if test_initial else 0)), \
+                patch.object(INSTALL.subprocess, "run", side_effect=process), \
                 contextlib.redirect_stdout(output):
-            if fail_activation or fail_validation:
-                with self.assertRaises(subprocess.CalledProcessError):
-                    INSTALL.local_install(stage, "2.5.0", test_initial)
+            failure = expected_error or (subprocess.CalledProcessError if fail_activation or fail_validation or fail_installed_validation else None)
+            if failure:
+                with self.assertRaises(failure):
+                    INSTALL.local_install(stage, "2.5.0", test_initial, component_update)
             else:
-                INSTALL.local_install(stage, "2.5.0", test_initial)
+                INSTALL.local_install(stage, "2.5.0", test_initial, component_update)
+                if component_update:
+                    running.assert_called_once_with(INSTALL.digest(stage / "hexproof-feedback"))
         return calls, checked, output.getvalue()
+
+    def component_fixture(self, base):
+        managed, config, stage = self.install_fixture(base, public=True, multica=True)
+        for filename, key in (("config.json", "CONFIG"), ("hexproof-feedback.service", "UNIT"),
+                              ("github-token", "GITHUB_TOKEN"), ("multica-webhook", "MULTICA_WEBHOOK")):
+            managed[key].write_bytes((stage / filename).read_bytes())
+            managed[key].chmod(0o644 if key == "UNIT" else 0o600)
+        managed["BINARY"].chmod(0o755)
+        (managed["PUBLIC_DATA"] / "record.json").write_text('{"publicationState":"published"}')
+        provenance = {"mode": "actions-feedback-update", "componentAttested": True, "headSha": "a" * 40,
+                      "expectedReceiverSha256": INSTALL.digest(managed["BINARY"]),
+                      "receiverSha256": INSTALL.digest(stage / "hexproof-feedback"), "version": "2.5.0"}
+        (stage / "component-provenance.json").write_text(json.dumps(provenance))
+        self.refresh_stage_manifest(stage)
+        return managed, config, stage, provenance
+
+    def refresh_stage_manifest(self, stage):
+        (stage / "manifest.json").write_text(json.dumps({"version": "2.5.0", "files": {
+            item.name: INSTALL.digest(item) for item in stage.iterdir() if item.name not in ("install.py", "manifest.json")}}))
+
+    def test_component_update_changes_only_receiver_and_provenance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            managed, _, stage, provenance = self.component_fixture(Path(directory))
+            preserved = {name: (path.read_bytes(), path.stat().st_mode, path.stat().st_ino)
+                         for name, path in managed.items() if isinstance(path, Path) and path.is_file() and name != "BINARY"}
+            calls, _, output = self.simulated_install(managed, stage, component_update=True)
+            self.assertEqual(INSTALL.digest(managed["BINARY"]), provenance["receiverSha256"])
+            self.assertEqual(json.loads(managed["COMPONENT_PROVENANCE"].read_text()), provenance)
+            self.assertEqual(managed["COMPONENT_PROVENANCE"].stat().st_mode & 0o777, 0o600)
+            for name, state in preserved.items():
+                path = managed[name]
+                self.assertEqual((path.read_bytes(), path.stat().st_mode, path.stat().st_ino), state, name)
+            result = json.loads(output)
+            self.assertTrue(result["componentUpdate"])
+            self.assertEqual(result["sourceCommit"], "a" * 40)
+            self.assertEqual(result["receiverSha256"], provenance["receiverSha256"])
+            self.assertEqual([call[1] for call in calls if call[0] == "systemctl" and call[1] not in ("is-active", "is-enabled")],
+                             ["stop", "start"])
+            self.assertTrue(all(INSTALL.SERVICE in call for call in calls if call[0] == "systemctl"))
+            self.assertEqual((managed["PUBLIC_DATA"] / "record.json").read_text(), '{"publicationState":"published"}')
+
+    def test_component_update_rejects_stale_binary_configuration_and_credentials_before_stop(self):
+        for changed in ("BINARY", "CONFIG", "UNIT", "GITHUB_TOKEN", "MULTICA_WEBHOOK"):
+            with self.subTest(changed=changed), tempfile.TemporaryDirectory() as directory:
+                managed, _, stage, _ = self.component_fixture(Path(directory))
+                managed[changed].write_bytes(b'{}' if changed == "CONFIG" else b"changed installed file")
+                before = managed["BINARY"].read_bytes()
+                calls, _, _ = self.simulated_install(managed, stage, component_update=True, expected_error=ValueError)
+                self.assertFalse(any(call[0] == "systemctl" for call in calls))
+                self.assertEqual(managed["BINARY"].read_bytes(), before)
+                self.assertFalse(managed["COMPONENT_PROVENANCE"].exists())
+
+    def test_component_update_rechecks_prepared_baseline_before_stop(self):
+        with tempfile.TemporaryDirectory() as directory:
+            managed, _, stage, _ = self.component_fixture(Path(directory))
+            before = managed["BINARY"].read_bytes()
+            calls, _, _ = self.simulated_install(managed, stage, component_update=True, expected_error=ValueError,
+                prepare_hook=lambda: managed["UNIT"].chmod(0o600))
+            self.assertNotIn(("systemctl", "stop", INSTALL.SERVICE), calls)
+            self.assertEqual(managed["BINARY"].read_bytes(), before)
+            self.assertEqual(managed["UNIT"].stat().st_mode & 0o777, 0o600)
+            self.assertFalse(managed["COMPONENT_PROVENANCE"].exists())
+
+    def test_component_validation_and_failed_start_restore_binary_without_touching_stores(self):
+        for failure in ("staged_validation", "installed_validation", "start"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                managed, _, stage, _ = self.component_fixture(Path(directory))
+                before = managed["BINARY"].read_bytes()
+                calls, _, _ = self.simulated_install(managed, stage, component_update=True,
+                    fail_validation=failure == "staged_validation", fail_installed_validation=failure == "installed_validation",
+                    fail_activation=failure == "start")
+                self.assertEqual(managed["BINARY"].read_bytes(), before)
+                self.assertFalse(managed["COMPONENT_PROVENANCE"].exists())
+                self.assertEqual((managed["PUBLIC_DATA"] / "record.json").read_text(), '{"publicationState":"published"}')
+                self.assertEqual((managed["DATA"] / "accepted-record").read_text(), "must survive binary rollback")
+                self.assertNotIn(("systemctl", "daemon-reload"), calls)
+                if failure != "staged_validation":
+                    self.assertEqual(calls[-1], ("systemctl", "start", INSTALL.SERVICE))
+
+    def test_component_failed_start_after_store_write_stops_candidate_without_downgrade(self):
+        with tempfile.TemporaryDirectory() as directory:
+            managed, _, stage, provenance = self.component_fixture(Path(directory))
+            record = managed["PUBLIC_DATA"] / "record.json"
+            calls, _, _ = self.simulated_install(managed, stage, component_update=True, fail_activation=True,
+                start_hook=lambda: record.write_text('{"publicationState":"new-format-published"}'), expected_error=ValueError)
+            self.assertEqual(INSTALL.digest(managed["BINARY"]), provenance["receiverSha256"])
+            self.assertEqual(record.read_text(), '{"publicationState":"new-format-published"}')
+            self.assertTrue(managed["COMPONENT_PROVENANCE"].exists())
+            self.assertEqual(calls[-1], ("systemctl", "stop", INSTALL.SERVICE))
+            self.assertEqual(calls.count(("systemctl", "start", INSTALL.SERVICE)), 1)
+
+    def test_component_failed_start_after_nested_legacy_delivery_write_refuses_downgrade(self):
+        with tempfile.TemporaryDirectory() as directory:
+            managed, _, stage, provenance = self.component_fixture(Path(directory))
+            legacy = managed["DATA"] / "legacy-receipt"
+            legacy.mkdir()
+            (legacy / "record.json").write_text('{"accepted":true}')
+            delivery = legacy / "delivery.json"
+            delivery.write_text('{"state":"pending"}')
+            calls, _, _ = self.simulated_install(managed, stage, component_update=True, fail_activation=True,
+                start_hook=lambda: delivery.write_text('{"state":"sent"}'), expected_error=ValueError)
+            self.assertEqual(INSTALL.digest(managed["BINARY"]), provenance["receiverSha256"])
+            self.assertEqual(delivery.read_text(), '{"state":"sent"}')
+            self.assertEqual((legacy / "record.json").read_text(), '{"accepted":true}')
+            self.assertTrue(managed["COMPONENT_PROVENANCE"].exists())
+            self.assertEqual(calls[-1], ("systemctl", "stop", INSTALL.SERVICE))
+            self.assertEqual(calls.count(("systemctl", "start", INSTALL.SERVICE)), 1)
+
+    def test_unreadable_nested_store_propagates_and_prevents_component_downgrade(self):
+        with tempfile.TemporaryDirectory() as directory:
+            managed, config, stage, provenance = self.component_fixture(Path(directory))
+            legacy = managed["DATA"] / "legacy-receipt"
+            legacy.mkdir()
+            delivery = legacy / "delivery.json"
+            delivery.write_text('{"state":"pending"}')
+            real_scandir = os.scandir
+
+            def unreadable(path):
+                if Path(path) == legacy:
+                    raise OSError("fixture subtree unavailable")
+                return real_scandir(path)
+
+            with patch.multiple(INSTALL, **managed), patch.object(INSTALL.os, "scandir", side_effect=unreadable):
+                with self.assertRaisesRegex(OSError, "subtree unavailable"):
+                    INSTALL.store_revision(config)
+            with contextlib.ExitStack() as patches:
+                def make_unreadable():
+                    patches.enter_context(patch.object(INSTALL.os, "scandir", side_effect=unreadable))
+
+                calls, _, _ = self.simulated_install(managed, stage, component_update=True, fail_activation=True,
+                    start_hook=make_unreadable, expected_error=OSError)
+            self.assertEqual(INSTALL.digest(managed["BINARY"]), provenance["receiverSha256"])
+            self.assertEqual(delivery.read_text(), '{"state":"pending"}')
+            self.assertTrue(managed["COMPONENT_PROVENANCE"].exists())
+            self.assertEqual(calls[-1], ("systemctl", "stop", INSTALL.SERVICE))
+            self.assertEqual(calls.count(("systemctl", "start", INSTALL.SERVICE)), 1)
+
+    def test_component_archive_rejects_duplicate_traversal_links_and_extra_members(self):
+        prefix = "hexproof-feedback-2.5.0-linux-amd64"
+        expected = [prefix + suffix for suffix in ("/bin/hexproof-feedback", "/deploy/hexproof-feedback.service.in", "/build.json")]
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "component.tar.gz"
+            for corruption in (None, "duplicate", "traversal", "absolute", "symlink", "hardlink", "extra"):
+                with self.subTest(corruption=corruption):
+                    names = list(expected)
+                    if corruption == "duplicate": names.append(expected[0])
+                    elif corruption == "traversal": names.append(prefix + "/../escape")
+                    elif corruption == "absolute": names.append("/tmp/escape")
+                    elif corruption == "extra": names.append(prefix + "/unexpected")
+                    with tarfile.open(archive, "w:gz") as bundle:
+                        for index, name in enumerate(names):
+                            item = tarfile.TarInfo(name)
+                            if index == 0 and corruption in ("symlink", "hardlink"):
+                                item.type = tarfile.SYMTYPE if corruption == "symlink" else tarfile.LNKTYPE
+                                item.linkname = expected[1]
+                                bundle.addfile(item)
+                            else:
+                                item.size = 3
+                                bundle.addfile(item, io.BytesIO(b"abc"))
+                    if corruption is None:
+                        INSTALL.verify_component_archive(archive, "2.5.0", "amd64")
+                    else:
+                        with self.assertRaises(ValueError):
+                            INSTALL.verify_component_archive(archive, "2.5.0", "amd64")
 
     def test_initial_install_rejects_existing_service_files_or_data_before_any_write(self):
         with tempfile.TemporaryDirectory() as directory:

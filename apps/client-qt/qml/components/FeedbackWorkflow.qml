@@ -42,7 +42,7 @@ Item {
     onThreadEligibleChanged: refreshConversation()
 
     function refreshConversation() {
-        if (!panel || !panel.visible || !threadEligible || !service || typeof service.refreshThread !== "function") return
+        if (!panel || !panel.visible || historyVisible || !threadEligible || !service || typeof service.refreshThread !== "function") return
         const cached = service.thread || {}
         if (cached.caseId === caseId && cached.syncedAt && Date.now() - Date.parse(cached.syncedAt) < 5000) return
         pendingThreadCaseId = caseId
@@ -52,7 +52,10 @@ Item {
         if (!pendingThreadCaseId || !service || service.busy || service.saving) return
         const id = pendingThreadCaseId
         pendingThreadCaseId = ""
-        if (id === caseId && threadEligible && panel.visible) service.refreshThread(id)
+        // A history read may have refreshed this case while detail waited.
+        const cached = service.thread || {}
+        if (cached.caseId === id && cached.syncedAt && Date.now() - Date.parse(cached.syncedAt) < 5000) return
+        if (id === caseId && threadEligible && panel.visible && !historyVisible) service.refreshThread(id)
     }
     function refreshStatus() {
         service.queryReceipt(record.id)
@@ -124,8 +127,12 @@ Item {
         if (service.createDraft(baseContext)) historyVisible = false
     }
     function showHistory() {
+        pendingThreadCaseId = ""
         historyVisible = true
         panel.open()
+    }
+    onHistoryVisibleChanged: {
+        if (!historyVisible) refreshConversation()
     }
     function openPreview(id, title) {
         preview.titleText = title
@@ -226,6 +233,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 visible: root.historyVisible
+                active: panel.visible && root.historyVisible
                 service: root.service
                 onRecordRequested: id => {
                     root.service.selectRecord(id)
@@ -331,8 +339,18 @@ Item {
                 Layout.fillWidth: true
                 textFormat: Text.PlainText
                 text: Labels.error(root.service ? root.service.errorCode || composer.inputErrorCode || root.record.reason || "" : "disabled")
-                visible: text.length > 0
+                visible: !root.historyVisible && text.length > 0
                 color: Theme.warning
+                wrapMode: Text.WordWrap
+            }
+            Text {
+                objectName: "feedbackRecoveryHint"
+                Layout.fillWidth: true
+                textFormat: Text.PlainText
+                text: Labels.recovery(root.record, root.service ? root.service.errorCode : "")
+                visible: !root.historyVisible && text.length > 0
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSize(12)
                 wrapMode: Text.WordWrap
             }
             RowLayout {
@@ -369,8 +387,9 @@ Item {
                 AppButton {
                     objectName: "feedbackCheckReceipt"
                     visible: !!root.record.id && !root.editable && (root.record.state !== "draft")
-                    text: root.record.isPublic === true ? qsTr("Refresh status") : qsTr("Check receipt")
-                    enabled: root.service && !root.service.busy
+                    text: root.record.state === "unconfirmed" ? qsTr("Check status")
+                        : root.record.isPublic === true ? qsTr("Refresh status") : qsTr("Check receipt")
+                    enabled: root.service && !root.service.busy && !root.service.saving
                     compact: true
                     onClicked: root.refreshStatus()
                 }

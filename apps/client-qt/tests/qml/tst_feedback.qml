@@ -761,6 +761,9 @@ TestCase {
         mock.updateDraft({state:"accepted", receipt:"receipt-1", uploadAuthorized:false,
             accessExpiresAt:"2027-10-22T12:00:00Z"})
         verify(receiver.visible)
+        verify(!meaning.visible && !local.visible)
+        const composer = findChild(workflow, "feedbackComposer")
+        composer.showOriginal = true
         verify(meaning.visible && local.visible)
         verify(meaning.text.includes("storage") && meaning.text.includes("separate steps"))
         verify(local.text.includes("30 days") && local.text.includes("deleting it loses access"))
@@ -776,6 +779,53 @@ TestCase {
         compare(workflow.operationText(), "")
         mock.operationRecordId = mock.draft.id
         verify(workflow.operationText().length > 0)
+    }
+    function test_recoveryExplainsScheduledRetryAndStoppedUncertainty() {
+        mock.updateDraft({state: "queued", editable: false, uploadAuthorized: true,
+            automaticRetryPending: true, reason: "network_error"})
+        const hint = findChild(workflow, "feedbackRecoveryHint")
+        verify(hint.visible && hint.text.includes("retry automatically"))
+        mock.updateDraft({nextAttempt: "2026-10-26T00:00:00Z"})
+        verify(hint.text.includes("no earlier than") && hint.text.includes("running"))
+        mock.updateDraft({state: "unconfirmed"})
+        verify(hint.text.includes("automatically check") && hint.text.includes("Do not submit another copy"))
+        mock.stop(mock.draft.id)
+        mock.updateDraft({automaticRetryPending: false})
+        verify(hint.text.includes("Delivery is uncertain") && !hint.text.includes("automatically"))
+        const check = findChild(workflow, "feedbackCheckReceipt")
+        compare(check.text, "Check status")
+        mouseClick(check)
+        compare(mock.queries, 1)
+        compare(mock.submissions, 0)
+        mock.errorCode = "storage_unavailable"
+        verify(!hint.visible)
+    }
+    function test_historyDoesNotStartDetailRefreshOrShowDraftErrors() {
+        mock.updateDraft({state: "accepted", editable: false})
+        wait(10)
+        const before = mock.threadQueries
+        workflow.showHistory()
+        mock.errorCode = "network_error"
+        workflow.refreshConversation()
+        wait(10)
+        compare(mock.threadQueries, before)
+        verify(!findChild(workflow, "feedbackError").visible)
+        verify(!findChild(workflow, "feedbackRecoveryHint").visible)
+        mouseClick(findChild(workflow, "feedbackClose"))
+        tryCompare(findChild(workflow, "feedbackHistory"), "active", false)
+    }
+    function test_openingCaseDuringHistoryRefreshReusesItsCompletedSnapshot() {
+        workflow.showHistory()
+        mock.busy = true
+        mock.updateDraft({state: "accepted", editable: false})
+        workflow.historyVisible = false
+        verify(workflow.pendingThreadCaseId === mock.draft.id)
+        const before = mock.threadQueries
+        mock.thread = {caseId: mock.draft.id, syncedAt: new Date().toISOString(), items: []}
+        mock.busy = false
+        tryCompare(workflow, "pendingThreadCaseId", "")
+        compare(mock.threadQueries, before)
+        compare(mock.errorCode, "")
     }
     function test_compactLayout_data() {
         return [{tag: "english", language: "en", scale: 1},

@@ -136,6 +136,60 @@ activation; `monitoringConfigured: true` is an operator assertion, not a monitor
 Capacity exhaustion rejects new intake and must not evict outstanding removal
 obligations. Fresh V2 deployment needs no SMTP configuration.
 
+## Feedback-only updates
+
+A receiver fix can be deployed independently of the application release. Use
+the same deployment entry point and private inputs below; this mode only updates
+an existing, active receiver. It preserves configuration, credential bytes and
+ownership, the installed unit, enable state and both stores. A change requiring
+different configuration or a service template uses the normal release procedure.
+
+After the public PR, independent review and required checks are complete,
+dispatch `.github/workflows/feedback.yml` on `master`, supplying that exact
+public `head_sha` and the target architecture. The workflow rejects a different
+source/ref, runs the feedback package's vet and race tests, builds only the
+receiver and attests its component archive. It does not create an application
+release, build clients/Forge, change the application version or deploy anything.
+This is component qualification, not full application release qualification.
+
+Select the successful run and its exact `hexproof-feedback-<SHA>-linux-<arch>`
+artifact. Read the installed receiver's SHA-256 from the explicitly selected
+host. Then run:
+
+```sh
+HEXPROOF_COMPONENT=feedback HEXPROOF_TARGETS="$HEXPROOF_SELECTED_TARGETS" \
+  HEXPROOF_VERSION=3.1.0 HEXPROOF_FEEDBACK_INPUTS=/private/feedback-inputs.json \
+  HEXPROOF_FEEDBACK_RUN_ID="$HEXPROOF_SELECTED_RUN_ID" \
+  HEXPROOF_FEEDBACK_ARTIFACT_ID="$HEXPROOF_SELECTED_ARTIFACT_ID" \
+  HEXPROOF_FEEDBACK_HEAD_SHA="$HEXPROOF_SELECTED_PUBLIC_SHA" \
+  HEXPROOF_FEEDBACK_EXPECTED_SHA256="$HEXPROOF_INSTALLED_RECEIVER_SHA256" \
+  HEXPROOF_VERIFY_ONLY=1 ./deploy/deploy-release-server.sh
+```
+
+Use the actual source version and current identities, not old example values.
+Under deployment authorization, repeat without verify-only. The installer pins
+the run, artifact ZIP digest, source, workflow and attestation; verifies the
+archive layout, architecture and build manifest; and rechecks installed files
+before stopping the receiver. The target must still match the selected binary
+baseline. Local inputs must describe its unchanged configuration and credentials.
+Verify-only downloads/checks the package and target binary without staging or
+restarting; final configuration/credential preflight runs before activation.
+
+The installed `/etc/hexproof-feedback/component-provenance.json` records the
+source and binary identity. Verify the running process executable hash, readiness,
+the restricted native connection and unchanged game service process after an
+update. A `3.1.0` version string alone cannot identify a same-version component fix.
+No synthetic public Issue is required for deployment verification.
+
+On activation failure, automatic binary rollback is allowed only if the stopped
+stores' JSON records have not changed since the candidate started. New-format
+Issue creation can happen before readiness, so readiness failure alone does not
+make an old receiver safe. If records changed or their revision cannot be read,
+the failed candidate stays stopped for forward recovery; preserve the stores and
+component/backup identities. Never restore an older data snapshot or rewrite
+existing Issues to make a downgrade work. This mode does not relax the separate
+initial-test installation restrictions below.
+
 ## Release deployment
 
 Use the existing release entry point with one explicitly selected SSH alias

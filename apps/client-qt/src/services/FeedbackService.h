@@ -89,6 +89,7 @@ class FeedbackService final : public QObject
     Q_PROPERTY(bool busy READ busy NOTIFY statusChanged)
     Q_PROPERTY(bool saving READ saving NOTIFY statusChanged)
     Q_PROPERTY(QVariantMap thread READ thread NOTIFY changed)
+    Q_PROPERTY(QVariantMap caseRefresh READ caseRefresh NOTIFY changed)
     Q_PROPERTY(QVariantMap threadAttachmentPreview READ threadAttachmentPreview NOTIFY changed)
   public:
     explicit FeedbackService(const QString &storageRoot, const QJsonObject &configuration = {},
@@ -98,6 +99,11 @@ class FeedbackService final : public QObject
     QVariantList records() const;
     QVariantList cases() const;
     QVariantMap thread() const;
+    QVariantMap caseRefresh() const
+    {
+        return {{QStringLiteral("caseId"), m_summaryCase},
+                {QStringLiteral("errorCode"), m_summaryError}};
+    }
     QVariantMap threadAttachmentPreview() const
     {
         return m_threadAttachment;
@@ -159,6 +165,7 @@ class FeedbackService final : public QObject
     Q_INVOKABLE QString createReplyDraft(const QString &caseId, const QString &questionId = {},
                                          int questionRevision = 0);
     Q_INVOKABLE bool refreshThread(const QString &caseId, const QString &cursor = {});
+    Q_INVOKABLE bool refreshCaseSummary(const QString &caseId);
     Q_INVOKABLE bool fetchThreadAttachment(const QString &contributionId,
                                            const QString &attachmentId);
     Q_INVOKABLE bool selectRecord(const QString &id);
@@ -209,12 +216,15 @@ class FeedbackService final : public QObject
     void stopReplies(const QString &caseId);
     void startThreadRead(const QString &caseId, const QUrl &url, qsizetype limit,
                          const std::function<void(int, const QByteArray &)> &complete,
-                         bool authenticate);
-    void readThreadPage(const QString &caseId, const QString &cursor, QJsonObject accumulated = {});
+                         bool authenticate, bool summary = false);
+    void readThreadPage(const QString &caseId, const QString &cursor, QJsonObject accumulated = {},
+                        bool summary = false);
     void setOperation(const QString &code, const QString &id);
     QString m_directory, m_selected, m_error, m_operation, m_operationRecord;
     QString m_apiBase, m_supportLabel, m_configurationError;
     QString m_threadCase, m_threadError;
+    QString m_summaryCase, m_summaryError;
+    bool m_backgroundThread = false;
     QVariantMap m_threadAttachment;
     QPointer<QNetworkReply> m_threadReply;
     QString m_publicRepository, m_noticeRevision, m_noticeText, m_providerPolicyRevision;
