@@ -112,6 +112,7 @@ type Client struct {
 	diagnostics     *diagnosticCollector
 	supportsReplay  bool
 	supportsAI      bool
+	supportsDuelAI  bool
 	adapterRevision int
 	aiGame          atomic.Bool
 	shared          *sharedLease
@@ -208,6 +209,7 @@ func Start(ctx context.Context, config ProcessConfig) (*Client, error) {
 		return nil, probeError(err)
 	}
 	client.supportsAI = runtimeSupportsAI(capabilities)
+	client.supportsDuelAI = runtimeSupportsCapability(capabilities, "forge-duel-ai-v1")
 	client.supportsReplay = runtimeSupportsReplay(capabilities)
 	client.adapterRevision = runtimeAdapterRevision(capabilities)
 	client.diagnostics.bind("", "", client.adapterRevision)
@@ -440,7 +442,8 @@ func (client *Client) StartGame(ctx context.Context,
 		return SessionHandle{}, startValidationError(request, err)
 	}
 	if request.HasAI() {
-		if !client.supportsAI || client.shared != nil {
+		if !client.supportsAI || client.shared != nil ||
+			(request.Variant == "Commander" && !client.supportsDuelAI) {
 			return SessionHandle{}, errors.New("Forge AI requires a capable dedicated runtime")
 		}
 		client.aiGame.Store(true)
@@ -749,7 +752,11 @@ func (client *Client) Close() error {
 // reject AI start; the coordinator must acquire a dedicated process for it.
 func (client *Client) SupportsAI() bool { return client.supportsAI }
 
-func runtimeSupportsAI(raw string) bool {
+func (client *Client) SupportsDuelAI() bool { return client.supportsAI && client.supportsDuelAI }
+
+func runtimeSupportsAI(raw string) bool { return runtimeSupportsCapability(raw, "forge-ai-v1") }
+
+func runtimeSupportsCapability(raw, capability string) bool {
 	var metadata struct {
 		Capabilities []string `json:"capabilities"`
 	}
@@ -757,7 +764,7 @@ func runtimeSupportsAI(raw string) bool {
 		return false
 	}
 	for _, value := range metadata.Capabilities {
-		if value == "forge-ai-v1" {
+		if value == capability {
 			return true
 		}
 	}

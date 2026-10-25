@@ -37,6 +37,7 @@ public final class NativeAiRegressionTest {
             deckAdvisory(base);
             for (String tier : List.of("easy", "normal", "hard")) {
                 tactics(base, tier);
+                commanderTax(base, tier);
                 for (int aiSeat = 0; aiSeat < 2; aiSeat++) lifecycle(base, tier, aiSeat);
             }
         }
@@ -110,6 +111,15 @@ public final class NativeAiRegressionTest {
             catch (IllegalArgumentException expected) { rejected = true; }
             require(rejected, "Unknown difficulty was accepted");
         }
+        for (String variant : List.of("Commander", "Limited")) {
+            JsonObject invalid = setup("hard", 1);
+            invalid.addProperty("variant", variant);
+            invalid.addProperty("startingLife", 40);
+            boolean rejected = false;
+            try (NativeSession ignored = new NativeSession(invalid, base)) { }
+            catch (IllegalArgumentException expected) { rejected = true; }
+            require(rejected, "Unsupported AI variant/life was accepted: " + variant);
+        }
         JsonObject setup = setup("hard", 1);
         setup.getAsJsonArray("players").get(0).getAsJsonObject().addProperty("ai", true);
         boolean rejected = false;
@@ -169,6 +179,58 @@ public final class NativeAiRegressionTest {
             require(workerRandom.get(), "Actual AI evaluation did not use the game-owned RNG worker");
             System.out.println("PASS AI tactical planning " + tier + "=" + chained + "/100");
         }
+    }
+
+    // Controlled board: real native AI payment and resolution from command,
+    // with two designated commanders. Natural games are covered over WebSocket.
+    private static void commanderTax(NativeGuiBase base, String tier) {
+        JsonObject config = setup(tier, 1);
+        config.addProperty("variant", "Commander");
+        try (NativeSession session = new NativeSession(config, base); var scope = session.context.enter()) {
+            Player ai = session.game.getRegisteredPlayers().get(1);
+            session.game.setAge(GameStage.Play);
+            session.game.setStartingPlayer(ai);
+            session.game.getPhaseHandler().devModeSet(PhaseType.MAIN1, ai, false, 5);
+            Card first = card(session.game, ai, "Kediss, Emberclaw Familiar", ZoneType.Command);
+            Card second = card(session.game, ai, "Toggo, Goblin Weaponsmith", ZoneType.Command);
+            ai.addCommander(first); ai.addCommander(second);
+            for (int i = 0; i < 2; ++i) card(session.game, ai, "Mountain", ZoneType.Battlefield);
+            session.game.getAction().checkStaticAbilities();
+            var controller = (PlayerControllerAi) ai.getController();
+            var ability = first.getSpellAbilities().getFirst();
+            ability.setActivatingPlayer(ai);
+            require(controller.playChosenSpellAbility(ability), "AI command cast failed");
+            session.game.getStack().resolveStack();
+            require(ai.getCommanderCast(first) == 1 && ai.getCommanderCast(second) == 0,
+                    "Commanders did not retain independent cast counts");
+            Card permanent = ai.getCardsIn(ZoneType.Battlefield).stream()
+                    .filter(c -> c.getName().equals(first.getName())).findFirst().orElseThrow();
+            session.game.getAction().moveToCommand(permanent, null);
+            for (Card land : ai.getCardsIn(ZoneType.Battlefield)) land.setTapped(false);
+            Card taxed = ai.getCardsIn(ZoneType.Command).stream()
+                    .filter(c -> c.getName().equals(first.getName())).findFirst().orElseThrow();
+            var unpaid = taxed.getSpellAbilities().getFirst();
+            unpaid.setActivatingPlayer(ai);
+            require(!ComputerUtilMana.canPayManaCost(unpaid, ai, 0, false),
+                    "AI mana prediction ignored the first commander's tax");
+            for (int i = 0; i < 2; ++i) card(session.game, ai, "Mountain", ZoneType.Battlefield);
+            session.game.getAction().checkStaticAbilities();
+            Card returned = ai.getCardsIn(ZoneType.Command).stream()
+                    .filter(c -> c.getName().equals(first.getName())).findFirst().orElseThrow();
+            // Exercise the native controller's actual payment for the returned commander.
+            require(controller.playChosenSpellAbility(returned.getSpellAbilities().getFirst()), "Taxed AI cast failed");
+            session.game.getStack().resolveStack();
+            require(ai.getCommanderCast(returned) == 2 && ai.getCommanderCast(second) == 0,
+                    "Taxed recast changed the partner's count");
+            require(ai.getCardsIn(ZoneType.Battlefield).stream().filter(Card::isTapped).count() == 4,
+                    "AI did not pay base cost plus the native commander tax");
+            JsonArray commanders = NativeSnapshot.capture(session.game, "duel-ai-tax", -1, ai)
+                    .getAsJsonArray("players").get(1).getAsJsonObject().getAsJsonArray("commanders");
+            require(commanders.size() == 2 && commanders.get(0).getAsJsonObject().get("tax").getAsInt() == 4
+                    && commanders.get(1).getAsJsonObject().get("tax").getAsInt() == 0,
+                    "Public independent commander taxes are incorrect");
+        }
+        System.out.println("PASS Duel AI tax " + tier + ": command cast, insufficient mana rejection, paid recast and independent partner");
     }
 
     private static void lifecycle(NativeGuiBase base, String tier, int aiSeat) throws Exception {

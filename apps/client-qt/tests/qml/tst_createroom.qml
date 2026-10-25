@@ -25,6 +25,8 @@ TestCase {
         id: mockWs
         property bool forgeRulesAvailable: true
         property bool forgeAIAvailable: true
+        property bool forgeDuelAIAvailable: true
+        property bool playerHostedDuelAIAvailable: true
         property bool aiModelsAvailable: true
         property var modelOpponent: QtObject {
             property bool ready: false
@@ -85,6 +87,8 @@ TestCase {
         mockWs.createCount = 0
         mockWs.forgeRulesAvailable = true
         mockWs.forgeAIAvailable = true
+        mockWs.forgeDuelAIAvailable = true
+        mockWs.playerHostedDuelAIAvailable = true
         mockWs.aiModelsAvailable = true
         mockWs.modelOpponent.ready = false
         mockWs.playerHostingAvailable = false
@@ -147,6 +151,41 @@ TestCase {
         compare(mockWs.submittedRoom.rulesMode, "forge")
         compare(mockWs.submittedRoom.playtest, false)
         compare(findChild(page, "roomMatchModeControl").options.length, 1)
+    }
+
+    function test_duelNativeAiUsesExplicitCapabilityAndBo1() {
+        page.roomName = "Duel AI"
+        page.rulesMode = "forge"
+        page.deckFormat = "duel"
+        page.roomFormat = "duel"
+        page.matchMode = "bo3"
+        const opponent = findChild(page, "roomOpponentControl")
+        verify(opponent.visible)
+        compare(opponent.options.length, 2)
+        opponent.activated(1)
+        compare(page.aiSource, "forge")
+        compare(page.matchMode, "bo1")
+        compare(findChild(page, "roomMatchModeControl").options.length, 1)
+        mockWs.forgeDuelAIAvailable = false
+        compare(page.createBlockerReason(), "Forge AI is unavailable with this hosting option.")
+        mockWs.forgeDuelAIAvailable = true
+        page.submit()
+        compare(mockWs.submittedRoom.format, "duel")
+        compare(mockWs.submittedRoom.deckFormat, "duel")
+        compare(mockWs.submittedRoom.aiSource, "forge")
+        compare(mockWs.submittedRoom.matchMode, "bo1")
+        page.hostingMode = "player"
+        mockWs.playerHostingAvailable = true
+        mockWs.forgeHost.ready = true
+        mockWs.playerHostedDuelAIAvailable = false
+        compare(page.createBlockerReason(), "Forge AI is unavailable with this hosting option.")
+        mockWs.playerHostedDuelAIAvailable = true
+        compare(page.createBlockerReason(), "")
+        // Moving a model configuration into Duel must restore the native source.
+        page.roomFormat = "modern"
+        page.aiSource = "online"
+        page.roomFormat = "duel"
+        compare(page.aiSource, "forge")
     }
 
     function test_actionClockIsOptionalForTwoPlayerForgeRooms_data() {
@@ -263,8 +302,8 @@ TestCase {
         page.roomName = "AI practice"
         page.rulesMode = "forge"
         page.aiOpponent = true
-        page.deckFormat = "duel"
-        page.roomFormat = "duel"
+        page.deckFormat = "commander"
+        page.roomFormat = "edh"
         compare(page.aiOpponentAvailable, false)
         compare(page.aiOpponent, false)
         page.submit()

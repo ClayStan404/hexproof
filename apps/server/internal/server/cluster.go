@@ -70,7 +70,7 @@ func (h *Handler) clusterReport() cluster.Report {
 		Resources: map[string][]protocol.AccountResource{},
 		MaxRooms:  h.config.MaxRooms, MaxEvents: h.config.MaxTournaments,
 		Connections: atomic.LoadInt64(&h.activeConnections), MaxConnections: h.config.MaxConnections,
-		Forge: h.forgeRulesAvailable(), ForgeAI: h.forgeAIAvailable(),
+		Forge: h.forgeRulesAvailable(), ForgeAI: h.forgeAIAvailable(), ForgeDuelAI: h.forgeDuelAIAvailable(), PlayerHostedDuelAI: h.config.AllowPlayerHosting,
 		PlayerHosting: h.config.AllowPlayerHosting, MaxForge: h.config.MaxForgeGames,
 	}
 	r.MemoryMB, r.Load = cluster.HostMetrics()
@@ -144,6 +144,9 @@ func (h *Handler) clusterError(sess *Session, requestID string, err error) {
 	if err == cluster.ErrInvalid {
 		code, message = protocol.ErrInvalidMessage, "Invalid or expired node transfer"
 	}
+	if err == cluster.ErrUnsupported {
+		code, message = protocol.ErrRulesUnavailable, "Duel Commander AI is unavailable in this official cluster"
+	}
 	h.sendError(sess, requestID, code, message)
 }
 
@@ -162,11 +165,12 @@ func (h *Handler) accountVisibleResources(ctx context.Context, sess *Session) []
 	return resources
 }
 
-func (h *Handler) welcomeCapabilities(enabled bool) (forge, ai, hosting bool) {
-	forge, ai, hosting = h.forgeRulesAvailable(), h.forgeAIAvailable(), h.config.AllowPlayerHosting
+func (h *Handler) welcomeCapabilities(enabled bool) (forge, ai, duelAI, playerDuelAI, hosting bool) {
+	forge, ai, duelAI, playerDuelAI, hosting = h.forgeRulesAvailable(), h.forgeAIAvailable(), h.forgeDuelAIAvailable(), h.config.AllowPlayerHosting, h.config.AllowPlayerHosting
 	if enabled {
 		c := h.clusterAgent.Capabilities()
-		forge, ai, hosting = forge || c.Forge, ai || c.ForgeAI, hosting || c.PlayerHosting
+		forge, ai, duelAI, playerDuelAI, hosting = forge || c.Forge, ai || c.ForgeAI, duelAI || c.ForgeDuelAI, playerDuelAI || c.PlayerHostedDuelAI, hosting || c.PlayerHosting
+		duelAI, playerDuelAI = duelAI && c.DuelAIPlacement, playerDuelAI && c.DuelAIPlacement
 	}
 	return
 }

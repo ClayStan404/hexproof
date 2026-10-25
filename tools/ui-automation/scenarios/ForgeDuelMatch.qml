@@ -24,6 +24,7 @@ import "ForgeLotusBloomStudy.js" as LotusBloomStudy
 // the production event workflow. Every rules decision uses native UI controls.
 Item {
     id: driver
+    property bool externallyDriven: false
     property int seat: Number(auditProbe.environment("HEXPROOF_AUDIT_SEAT"))
     property string variant: auditProbe.environment("HEXPROOF_AUDIT_VARIANT") || "modern"
     readonly property bool onlineModelPractice: auditProbe.environment("HEXPROOF_AUDIT_VARIANT") === "model-online"
@@ -912,6 +913,7 @@ Item {
     }
     Connections {
         id: driverClock
+        enabled: !driver.externallyDriven
         target: auditProbe
         function onStepRequested() {
             if (driver.busy) return

@@ -1744,10 +1744,14 @@ void TestWsClient::configuresForgeAiWithoutReplacingHumanDeck() const
                        {u"connectionId"_s, u"ai-test"_s},
                        {u"serverVersion"_s, buildVersion()},
                        {u"forgeRulesAvailable"_s, true},
-                       {u"forgeAIAvailable"_s, true}};
+                       {u"forgeAIAvailable"_s, true},
+                       {u"forgeDuelAIAvailable"_s, true},
+                       {u"playerHostedDuelAIAvailable"_s, true}};
     sendEnvelope(peer, welcome);
     QTRY_VERIFY(client.connected());
     QVERIFY(client.forgeAIAvailable());
+    QVERIFY(client.forgeDuelAIAvailable());
+    QVERIFY(client.playerHostedDuelAIAvailable());
     QSignalSpy outbound(peer, &QWebSocket::textMessageReceived);
     client.createRoom(u"AI practice"_s, u"modern"_s, u"modern"_s, false, false, u"bo1"_s,
                       u"background"_s, {}, false, u"forge"_s, u"server"_s, u"hard"_s);
@@ -1811,8 +1815,12 @@ void TestWsClient::configuresForgeAiWithoutReplacingHumanDeck() const
     room->clear();
     QVERIFY(room->seats().isEmpty());
     welcome.payload.remove(u"forgeAIAvailable"_s);
+    welcome.payload.remove(u"forgeDuelAIAvailable"_s);
+    welcome.payload.remove(u"playerHostedDuelAIAvailable"_s);
     sendEnvelope(peer, welcome);
     QTRY_VERIFY(!client.forgeAIAvailable());
+    QTRY_VERIFY(!client.forgeDuelAIAvailable());
+    QTRY_VERIFY(!client.playerHostedDuelAIAvailable());
 }
 
 void TestWsClient::modelOpponentMetadataAndCommandsStayPrivate() const

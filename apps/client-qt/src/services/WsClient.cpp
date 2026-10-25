@@ -314,6 +314,8 @@ void WsClient::connectTo(const QString &url, const QString &displayName)
     m_peerTransportAvailable = false;
     m_playerHostingAvailable = false;
     m_forgeAIAvailable = false;
+    m_forgeDuelAIAvailable = false;
+    m_playerHostedDuelAIAvailable = false;
     m_aiModelsAvailable = false;
     setForgeRulesAvailable(false);
     emit capabilitiesChanged();
@@ -711,6 +713,8 @@ void WsClient::onDisconnected(quint64 transportGeneration)
     m_clusterNode.clear();
     m_playerHostingAvailable = false;
     m_forgeAIAvailable = false;
+    m_forgeDuelAIAvailable = false;
+    m_playerHostedDuelAIAvailable = false;
     m_aiModelsAvailable = false;
     setForgeRulesAvailable(false);
     emit capabilitiesChanged();

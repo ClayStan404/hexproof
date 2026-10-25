@@ -369,8 +369,11 @@ func TestForgeRuntimeHelperProcess(t *testing.T) {
 		switch request.Command {
 		case "reset", "endGame", "abortGame":
 			response.Result = ""
-			if mode == "ai-capable" && request.Command == "reset" {
+			if (mode == "ai-capable" || mode == "duel-ai-capable") && request.Command == "reset" {
 				response.Result = `{"capabilities":["forge-ai-v1"]}`
+				if mode == "duel-ai-capable" {
+					response.Result = `{"capabilities":["forge-ai-v1","forge-duel-ai-v1"]}`
+				}
 			}
 		case "submitAction":
 			if mode == "action-rejected" || mode == "action-failed" {

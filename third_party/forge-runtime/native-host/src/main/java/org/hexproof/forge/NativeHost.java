@@ -70,7 +70,7 @@ public final class NativeHost {
                     String result;
                     if (command.equals("reset")) {
                         if (session != null) throw new IllegalStateException("A process cannot reset an existing game");
-                        result = "{\"capabilities\":[\"forge-ai-v1\",\"forge-crash-diagnostics-v1\"],\"adapterRevision\":" + ADAPTER_REVISION + "}";
+                        result = "{\"capabilities\":[\"forge-ai-v1\",\"forge-duel-ai-v1\",\"forge-crash-diagnostics-v1\"],\"adapterRevision\":" + ADAPTER_REVISION + "}";
                     } else if (command.equals("startGame")) {
                         if (session != null) throw new IllegalStateException("A process hosts one game only");
                         session = new NativeSession(JsonParser.parseString(request.get("payload").getAsString()).getAsJsonObject(), base);

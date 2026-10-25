@@ -45,6 +45,8 @@ func clusterCommand(env protocol.Envelope) (demand cluster.Demand, resourceField
 				demand.Forge = 1
 			}
 			demand.ForgeAI = q.HostingMode != "player" && (q.AISource == protocol.AISourceForge || (q.AISource == "" && q.AIDifficulty != ""))
+			demand.ForgeDuelAI = demand.ForgeAI && q.Format == protocol.FormatDuel
+			demand.PlayerHostedDuelAI = q.HostingMode == "player" && q.Format == protocol.FormatDuel && (q.AISource == protocol.AISourceForge || (q.AISource == "" && q.AIDifficulty != ""))
 		}
 		eligible = true
 	case protocol.TypeTournamentCreate:

@@ -63,6 +63,19 @@ func (request StartGameRequest) validate() error {
 	if request.StartingPlayerIndex != nil && (*request.StartingPlayerIndex < 0 || *request.StartingPlayerIndex >= len(request.Players)) {
 		return errors.New("starting player index is outside the registered players")
 	}
+
+	if request.HasAI() {
+		count := 0
+		for _, player := range request.Players {
+			if player.AI {
+				count++
+			}
+		}
+		if len(request.Players) != 2 || count != 1 ||
+			(request.Variant != "Constructed" && (request.Variant != "Commander" || request.StartingLife != 20)) {
+			return errors.New("native AI requires two-player Constructed or 20-life Duel Commander")
+		}
+	}
 	for playerIndex, player := range request.Players {
 		if player.AI {
 			if player.AIDifficulty != "easy" && player.AIDifficulty != "normal" && player.AIDifficulty != "hard" {

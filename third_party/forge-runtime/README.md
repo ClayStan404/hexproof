@@ -77,7 +77,8 @@ AI without simulation or enabled preference-based cheats. The native AI still
 has Forge's engine-level information access; these presets are not a claim of
 strict player-view fairness or universally ordered win rates.
 AI sessions require a dedicated JVM. Both reset transports advertise the
-`forge-ai-v1` product capability, but shared workers reject AI game creation.
+`forge-ai-v1` product capability and `forge-duel-ai-v1` for two-player,
+20-life Commander AI, but shared workers reject AI game creation.
 Evaluation workers inherit the owning game's RNG and cancellation scope;
 evaluation failure ends the session instead of leaving a worker mutating it.
 Revision 10 retains readable live native cost and target descriptions.

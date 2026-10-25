@@ -47,7 +47,9 @@ func runForgeProbeHelper(t *testing.T) {
 		if request.Command == "quit" {
 			return
 		}
-		if _, err := fmt.Fprintln(os.Stdout, `{"ok":true,"result":""}`); err != nil {
+		result := os.Getenv("HEXPROOF_FORGE_PROBE_CAPABILITIES")
+		response, _ := json.Marshal(map[string]any{"ok": true, "result": result})
+		if _, err := fmt.Fprintln(os.Stdout, string(response)); err != nil {
 			t.Fatalf("write helper response: %v", err)
 		}
 	}

@@ -24,6 +24,7 @@ type Agent struct {
 	service              Service
 	nodeID, generation   string
 	reported, fenced     bool
+	duelAIPlacement      bool
 	snapshot             func() Report
 	reportSequence       uint64
 	lastReportedSequence uint64
@@ -95,12 +96,17 @@ func (a *Agent) acceptResult(generation string, err error) error {
 		return ErrUnavailable
 	}
 	switch err {
-	case ErrFenced:
-		a.fenced = true
+	case ErrFenced, ErrRegistration:
+		if err == ErrFenced {
+			a.fenced = true
+		} else {
+			a.generation = ""
+		}
 		a.reported = false
-	case ErrRegistration:
-		a.generation = ""
-		a.reported = false
+		a.duelAIPlacement = false
+		a.capabilities.DuelAIPlacement = false
+		a.capabilities.ForgeDuelAI = false
+		a.capabilities.PlayerHostedDuelAI = false
 	}
 	return err
 }
@@ -131,6 +137,7 @@ func (a *Agent) publish(parent context.Context, completed string, observed *uint
 	defer func() { a.recordPublication(err) }()
 	a.mu.Lock()
 	generation, fenced := a.generation, a.fenced
+	duelAIPlacement := a.duelAIPlacement
 	refreshed := observed != nil && a.reported && a.lastReportedSequence > *observed
 	a.mu.Unlock()
 	if fenced {
@@ -148,8 +155,10 @@ func (a *Agent) publish(parent context.Context, completed string, observed *uint
 			return ctx.Err()
 		}
 		generation = out.Generation
+		duelAIPlacement = out.DuelAIPlacement
 		a.mu.Lock()
 		a.generation, a.reported = generation, false
+		a.duelAIPlacement = duelAIPlacement
 		a.mu.Unlock()
 	}
 	a.mu.Lock()
@@ -161,11 +170,25 @@ func (a *Agent) publish(parent context.Context, completed string, observed *uint
 	}
 	a.mu.Unlock()
 	report := a.snapshot()
+	if !duelAIPlacement {
+		// Legacy coordinators reject unknown request fields, including nested
+		// report metadata. Preserve their complete original wire shape.
+		report.ForgeDuelAI, report.PlayerHostedDuelAI = false, false
+	}
 	if err = ctx.Err(); err != nil {
 		return err
 	}
 	out, callErr := a.call(ctx, Request{Operation: "report", NodeID: a.nodeID,
 		Generation: generation, ReportSequence: sequence, Report: &report, Completed: sent})
+	if callErr == ErrInvalid && duelAIPlacement && (report.ForgeDuelAI || report.PlayerHostedDuelAI) {
+		// A downgraded coordinator can reject the extension before checking
+		// registration. A legacy-shaped read can confirm that the generation
+		// was revoked; an arbitrary invalid report must not cause registration.
+		_, registrationErr := a.call(ctx, Request{Operation: "view", NodeID: a.nodeID, Generation: generation})
+		if registrationErr == ErrRegistration || registrationErr == ErrFenced {
+			callErr = registrationErr
+		}
+	}
 	if err = a.acceptResult(generation, callErr); err != nil {
 		return err
 	}
@@ -178,6 +201,7 @@ func (a *Agent) publish(parent context.Context, completed string, observed *uint
 	for _, token := range sent {
 		delete(a.completed, token)
 	}
+	out.DuelAIPlacement = a.duelAIPlacement
 	a.capabilities, a.reported = out, true
 	a.lastReportedSequence = sequence
 	a.lastReport = time.Now()
@@ -201,9 +225,15 @@ func (a *Agent) Do(parent context.Context, q Request) (Result, error) {
 	}
 	a.mu.Lock()
 	generation, ready := a.generation, a.reported && !a.fenced
+	duelAIPlacement := a.duelAIPlacement
 	a.mu.Unlock()
 	if generation == "" || !ready {
 		return Result{}, ErrUnavailable
+	}
+	if (q.Demand.ForgeDuelAI || q.Demand.PlayerHostedDuelAI) && !duelAIPlacement {
+		// Never strip a placement requirement and risk allocating an
+		// unsupported game. Ordinary requests still use the legacy schema.
+		return Result{}, ErrUnsupported
 	}
 	q.NodeID, q.Generation = a.nodeID, generation
 	out, err := a.call(ctx, q)

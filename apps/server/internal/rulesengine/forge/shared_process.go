@@ -49,6 +49,7 @@ type sharedWorker struct {
 	diagnostics     *diagnosticCollector
 	sessions        map[string]*diagnosticCollector
 	supportsAI      bool
+	supportsDuelAI  bool
 	supportsReplay  bool
 	adapterRevision int
 	command         *exec.Cmd
@@ -151,6 +152,7 @@ func startSharedWorker(ctx context.Context, config ProcessConfig, capacity int) 
 		return nil, fmt.Errorf("probe shared Forge runtime: %w", err)
 	}
 	worker.supportsAI = runtimeSupportsAI(result)
+	worker.supportsDuelAI = runtimeSupportsCapability(result, "forge-duel-ai-v1")
 	worker.supportsReplay = runtimeSupportsReplay(result)
 	worker.adapterRevision = runtimeAdapterRevision(result)
 	return worker, nil
