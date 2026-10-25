@@ -448,9 +448,26 @@ and expiry continue to suppress content and derived history under the existing
 contract. This adds no per-agent task database or independent release authority.
 
 The client lists original cases in **My feedback**, with progress and last sync.
+An **Awaiting your reply** filter highlights open cases with a current cached
+clarification question. Opening the list or choosing refresh reads at most five
+eligible cases, oldest sync first, serially and respecting retry deadlines.
+Closing the list stops the remaining queue; failures preserve complete cached
+information and show that it may be stale. List refresh does not change the
+selected draft or its conversation, and does not upload feedback.
 Local reply drafts and interrupted replies remain reachable inside their case;
 orphaned local records remain accessible. These views reuse the existing local
 records and thread cache, rather than changing accepted payloads or their hashes.
+
+Accepted original cases lead with progress, the latest assessment and any current
+question. Original text, attachments and receipt details remain available in an
+expandable section; closure and removal remain separate visible actions. Reply
+drafts show the question before the answer field. Conversation entries show their
+time, newest first; an unsynced conversation is distinct from an assessment.
+Screenshot thumbnails use only the already-normalized local attachment bytes,
+never remote URLs, and disappear when payload access is removed. Previewing does
+not authorize upload. Recovery hints promise automatic retry only while the
+existing frozen authorization and bounded retry limits permit it; uncertain
+stopped submissions offer a status check without sending another copy.
 
 Pagination starts without a cursor. The returned cursor is `revision:lastSequence`
 and is only for the remaining pages of that snapshot. Any intervening thread

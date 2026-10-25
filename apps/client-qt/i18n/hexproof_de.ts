@@ -17405,6 +17405,86 @@ Heruntergeladene und eigene Bilder werden kopiert und geprüft, bevor die Einste
             <source>Public feedback notice</source>
             <translation>Hinweis zu öffentlichem Feedback</translation>
         </message>
+        <message>
+            <source>AI update: %1</source>
+            <translation>KI-Aktualisierung: %1</translation>
+        </message>
+        <message>
+            <source>All feedback</source>
+            <translation>Alle Rückmeldungen</translation>
+        </message>
+        <message>
+            <source>Awaiting your reply (%1)</source>
+            <translation>Wartet auf Ihre Antwort (%1)</translation>
+        </message>
+        <message>
+            <source>Check status</source>
+            <translation>Status prüfen</translation>
+        </message>
+        <message>
+            <source>Delivery is uncertain. Check status before preparing another submission; checking does not send it again.</source>
+            <translation>Der Empfang ist unbestätigt. Prüfen Sie den Status, bevor Sie eine weitere Einsendung vorbereiten. Die Statusprüfung sendet den Inhalt nicht erneut.</translation>
+        </message>
+        <message>
+            <source>Hide original feedback and receipt</source>
+            <translation>Ursprüngliches Feedback und Beleg ausblenden</translation>
+        </message>
+        <message>
+            <source>Needs your reply</source>
+            <translation>Ihre Antwort wird benötigt</translation>
+        </message>
+        <message>
+            <source>No feedback awaiting your reply in saved information.</source>
+            <translation>In den gespeicherten Informationen wartet kein Feedback auf Ihre Antwort.</translation>
+        </message>
+        <message>
+            <source>Not synced yet</source>
+            <translation>Noch nicht synchronisiert</translation>
+        </message>
+        <message>
+            <source>Not synced yet. Replies may be missing.</source>
+            <translation>Noch nicht synchronisiert. Antworten können fehlen.</translation>
+        </message>
+        <message>
+            <source>Original feedback and receipt</source>
+            <translation>Ursprüngliches Feedback und Beleg</translation>
+        </message>
+        <message>
+            <source>Preview screenshot</source>
+            <translation>Bildschirmfoto anzeigen</translation>
+        </message>
+        <message>
+            <source>Refresh</source>
+            <translation>Aktualisieren</translation>
+        </message>
+        <message>
+            <source>Refresh stopped. Saved information may be out of date. Try again later.</source>
+            <translation>Die Aktualisierung wurde angehalten. Gespeicherte Informationen sind möglicherweise veraltet. Versuchen Sie es später erneut.</translation>
+        </message>
+        <message>
+            <source>Refreshing feedback…</source>
+            <translation>Feedback wird aktualisiert…</translation>
+        </message>
+        <message>
+            <source>Saved locally. Another attempt is scheduled no earlier than %1 while the app is running.</source>
+            <translation>Lokal gespeichert. Ein weiterer Versuch ist frühestens für %1 vorgesehen, solange die Anwendung läuft.</translation>
+        </message>
+        <message>
+            <source>Saved locally. Sending will retry automatically while the app is running.</source>
+            <translation>Lokal gespeichert. Das Senden wird automatisch erneut versucht, solange die Anwendung läuft.</translation>
+        </message>
+        <message>
+            <source>Saved locally. We will automatically check whether it was received before trying again. Do not submit another copy.</source>
+            <translation>Lokal gespeichert. Vor einem erneuten Versuch prüfen wir automatisch, ob die Einsendung empfangen wurde. Senden Sie keine weitere Kopie.</translation>
+        </message>
+        <message>
+            <source>You can attach up to two screenshots.</source>
+            <translation>Sie können bis zu zwei Bildschirmfotos anhängen.</translation>
+        </message>
+        <message>
+            <source>Your feedback was accepted. The last saved status is still available; refresh later to check for updates.</source>
+            <translation>Ihr Feedback wurde angenommen. Der zuletzt gespeicherte Status bleibt verfügbar. Aktualisieren Sie später, um nach Neuigkeiten zu sehen.</translation>
+        </message>
 </context>
 <context>
     <name>RulesCardHoverPreview</name>

@@ -14,8 +14,9 @@ ColumnLayout {
     property string caseId: ""
     property bool canReply: false
     readonly property var thread: service && service.thread && service.thread.caseId === caseId ? service.thread : ({})
+    readonly property bool hasSnapshot: !!thread.syncedAt || !!thread.workState
     readonly property var question: thread.question || ({})
-    readonly property var entries: (thread.items || []).filter(item => item.kind !== "submission" || (item.attachments || []).length > 0)
+    readonly property var entries: (thread.items || []).filter(item => item.kind !== "submission" || (item.attachments || []).length > 0).slice().reverse()
     signal replyRequested(string questionId, int revision)
     signal attachmentRequested(string contributionId, string attachmentId, string title)
     spacing: Theme.size(10)
@@ -30,7 +31,9 @@ ColumnLayout {
     Text {
         objectName: "feedbackWorkState"
         Layout.fillWidth: true
-        text: root.thread.caseState === "closed" ? qsTr("Closed") : Labels.workState(String(root.thread.workState || "new"))
+        text: root.thread.caseState === "closed" ? qsTr("Closed")
+            : !root.hasSnapshot ? (root.thread.loading ? qsTr("Refreshing conversation…") : qsTr("Not synced yet"))
+            : Labels.workState(String(root.thread.workState || "new"))
         textFormat: Text.PlainText
         color: Theme.primary
         wrapMode: Text.WordWrap
@@ -65,42 +68,12 @@ ColumnLayout {
     Text {
         objectName: "feedbackThreadConnection"
         Layout.fillWidth: true
-        text: root.thread.loading ? qsTr("Refreshing conversation…") : Labels.error(root.thread.errorCode || "")
+        text: root.thread.loading ? (root.hasSnapshot ? qsTr("Refreshing conversation…") : "")
+            : Labels.error(root.thread.errorCode || "")
         textFormat: Text.PlainText
         color: Theme.warning
         wrapMode: Text.WordWrap
         visible: text.length > 0
-    }
-    ColumnLayout {
-        Layout.fillWidth: true
-        visible: (root.thread.deliveryHistory || []).length > 0
-        spacing: Theme.size(6)
-        Text {
-            Layout.fillWidth: true
-            text: qsTr("Delivery history")
-            textFormat: Text.PlainText
-            color: Theme.text
-            font.weight: Font.DemiBold
-        }
-        Text {
-            Layout.fillWidth: true
-            text: qsTr("Earlier deliveries remain listed while the AI team assesses new information.")
-            textFormat: Text.PlainText
-            color: Theme.textSecondary
-            wrapMode: Text.WordWrap
-        }
-        Repeater {
-            model: root.thread.deliveryHistory || []
-            delegate: Text {
-                required property var modelData
-                objectName: "feedbackDelivery-" + String(modelData.projectionId || "")
-                Layout.fillWidth: true
-                text: Labels.outcome(modelData.outcome) + " · " + Labels.date(modelData.publishedAt)
-                textFormat: Text.PlainText
-                color: Theme.primary
-                wrapMode: Text.WordWrap
-            }
-        }
     }
     Text {
         objectName: "feedbackAssessmentUnavailable"
@@ -145,6 +118,14 @@ ColumnLayout {
             }
         }
     }
+    AppButton {
+        objectName: "feedbackAddReply"
+        text: qsTr("Add public information")
+        enabled: root.canReply && root.thread.replyAllowed !== false
+        compact: true
+        variant: "secondary"
+        onClicked: root.replyRequested("", 0)
+    }
     Repeater {
         model: root.entries
         delegate: Surface {
@@ -158,10 +139,13 @@ ColumnLayout {
                 anchors.margins: Theme.size(12)
                 spacing: Theme.size(8)
                 Text {
+                    objectName: "feedbackThreadEntryStatus-" + String(entry.modelData.submissionId || "")
                     Layout.fillWidth: true
                     text: (entry.modelData.kind === "submission" ? qsTr("Original feedback")
                         : entry.modelData.kind === "reply" ? qsTr("Your public reply") : qsTr("AI team"))
                         + " · " + Labels.recordState({isPublic: true, publicationState: entry.modelData.publicationState})
+                        + (entry.modelData.publishedAt || entry.modelData.acceptedAt
+                            ? " · " + Labels.date(entry.modelData.publishedAt || entry.modelData.acceptedAt) : "")
                     textFormat: Text.PlainText
                     color: Theme.textSecondary
                     wrapMode: Text.WordWrap
@@ -187,24 +171,51 @@ ColumnLayout {
                     model: entry.modelData.attachments || []
                     delegate: AppButton {
                         required property var modelData
+                        readonly property var contribution: entry ? entry.modelData : ({})
                         Layout.fillWidth: true
-                        objectName: "feedbackThreadAttachment-" + String(entry.modelData.submissionId || "") + "-" + modelData.id
+                        objectName: "feedbackThreadAttachment-" + String(contribution.submissionId || "") + "-" + modelData.id
                         text: Labels.attachment(modelData.kind) + " · " + qsTr("Preview")
-                        enabled: root.service && !root.service.busy && entry.modelData.publicationState === "published"
+                        enabled: root.service && !root.service.busy && contribution.publicationState === "published"
                         compact: true
                         variant: "secondary"
-                        onClicked: root.attachmentRequested(String(entry.modelData.submissionId), String(modelData.id), Labels.attachment(modelData.kind))
+                        onClicked: {
+                            if (contribution.submissionId)
+                                root.attachmentRequested(String(contribution.submissionId), String(modelData.id), Labels.attachment(modelData.kind))
+                        }
                     }
                 }
             }
         }
     }
-    AppButton {
-        objectName: "feedbackAddReply"
-        text: qsTr("Add public information")
-        enabled: root.canReply && root.thread.replyAllowed !== false
-        compact: true
-        variant: "secondary"
-        onClicked: root.replyRequested("", 0)
+    ColumnLayout {
+        Layout.fillWidth: true
+        visible: (root.thread.deliveryHistory || []).length > 0
+        spacing: Theme.size(6)
+        Text {
+            Layout.fillWidth: true
+            text: qsTr("Delivery history")
+            textFormat: Text.PlainText
+            color: Theme.text
+            font.weight: Font.DemiBold
+        }
+        Text {
+            Layout.fillWidth: true
+            text: qsTr("Earlier deliveries remain listed while the AI team assesses new information.")
+            textFormat: Text.PlainText
+            color: Theme.textSecondary
+            wrapMode: Text.WordWrap
+        }
+        Repeater {
+            model: root.thread.deliveryHistory || []
+            delegate: Text {
+                required property var modelData
+                objectName: "feedbackDelivery-" + String(modelData.projectionId || "")
+                Layout.fillWidth: true
+                text: Labels.outcome(modelData.outcome) + " · " + Labels.date(modelData.publishedAt)
+                textFormat: Text.PlainText
+                color: Theme.primary
+                wrapMode: Text.WordWrap
+            }
+        }
     }
 }

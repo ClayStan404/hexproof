@@ -23,6 +23,14 @@ ScrollView {
     property bool hostingAvailable: false
     property bool syncing: false
     property bool showTechnical: false
+    property bool showOriginal: false
+    readonly property bool caseDetails: record.isPublic === true && record.state === "accepted" && record.isReply !== true
+    readonly property bool localPreviewsAllowed: record.isPublic === true && record.payloadAvailable !== false
+        && (!record.removalState || record.removalState === "none")
+    property var thumbnailCache: ({})
+    readonly property string screenshotKey: JSON.stringify([record.id || "", localPreviewsAllowed,
+        (record.attachments || []).filter(item => item.kind === "screenshot")
+            .map(item => [item.id, item.sha256 || "", item.byteLength || 0])])
     signal imageRequested()
     signal crashRequested()
     signal hostingRequested()
@@ -55,17 +63,48 @@ ScrollView {
         if (fields.description !== undefined)
             descriptionInputError = accepted ? "" : service.errorCode || "invalid_description"
     }
+    function thumbnailKey(attachment) {
+        return String(record.id || "") + ":" + attachment.id + ":"
+            + String(attachment.sha256 || "") + ":" + String(attachment.byteLength || 0)
+    }
+    function refreshThumbnails() {
+        const next = {}
+        if (localPreviewsAllowed && service && typeof service.attachmentPreview === "function") {
+            for (const attachment of record.attachments || []) {
+                if (attachment.kind !== "screenshot") continue
+                const key = thumbnailKey(attachment)
+                if (Object.prototype.hasOwnProperty.call(thumbnailCache, key)) {
+                    next[key] = thumbnailCache[key]
+                    continue
+                }
+                const preview = String(service.attachmentPreview(attachment.id) || "")
+                // Only normalized, local image bytes are eligible. Never bind an
+                // attachment URL, legacy private image or removed payload here.
+                next[key] = /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(preview) ? preview : ""
+            }
+        }
+        thumbnailCache = next
+    }
+    onScreenshotKeyChanged: refreshThumbnails()
+    onServiceChanged: {
+        thumbnailCache = ({})
+        refreshThumbnails()
+    }
     // Rejected text belongs to the editor until corrected. Attachment/category
     // updates republish the saved record and must not replace that pending input.
     onEditableChanged: syncFields()
     onRecordIdChanged: {
         syncFields()
+        showOriginal = false
         Qt.callLater(() => {
             const flickable = contentItem as Flickable
             if (flickable) flickable.contentY = 0
         })
     }
-    Component.onCompleted: syncFields()
+    Component.onCompleted: {
+        syncFields()
+        refreshThumbnails()
+    }
 
     ColumnLayout {
         width: root.availableWidth
@@ -74,6 +113,7 @@ ScrollView {
             Layout.fillWidth: true
             AppComboBox {
                 id: categoryField
+                visible: !root.caseDetails
                 objectName: "feedbackCategory"
                 Layout.preferredWidth: Theme.size(190)
                 enabled: root.editable && root.record.isReply !== true
@@ -90,112 +130,28 @@ ScrollView {
             }
         }
         Text {
-            Layout.fillWidth: true
-            textFormat: Text.PlainText
-            text: root.record.isReply === true ? qsTr("Your public reply") : qsTr("What happened?")
-            color: Theme.text
-            font.weight: Font.DemiBold
-        }
-        TextArea {
-            id: descriptionField
-            objectName: "feedbackDescription"
-            Layout.fillWidth: true
-            Layout.minimumHeight: Theme.size(145)
-            textFormat: TextEdit.PlainText
-            readOnly: !root.editable
-            selectByMouse: true
-            wrapMode: TextEdit.Wrap
-            color: Theme.text
-            placeholderText: qsTr("Describe the problem, what you did and what you expected.")
-            placeholderTextColor: Theme.textMuted
-            font.pixelSize: Theme.fontSize(14)
-            padding: Theme.size(12)
-            background: Rectangle {
-                color: Theme.surfaceMuted
-                radius: Theme.radiusMedium
-                border.color: descriptionField.activeFocus ? Theme.primary : Theme.border
-            }
-            onTextChanged: root.update({description: text})
-        }
-        Text {
-            Layout.fillWidth: true
-            visible: root.record.isReply === true && !!root.record.questionText
-            text: Labels.question(root.record.questionCode, root.record.questionText)
-            textFormat: Text.PlainText
-            color: Theme.textSecondary
-            wrapMode: Text.WrapAnywhere
-        }
-        AppButton {
-            objectName: "feedbackBackToCase"
-            visible: root.record.isReply === true
-            enabled: root.record.parentAvailable !== false
-            text: qsTr("Back to original feedback")
-            compact: true
-            variant: "ghost"
-            onClicked: root.parentRequested()
-        }
-        Text {
-            objectName: "feedbackLegacyNotice"
-            Layout.fillWidth: true
-            visible: root.record.isPublic !== true
-            textFormat: Text.PlainText
-            text: qsTr("This record uses the earlier private-feedback contract. It will not be published. To share it publicly, create a new public draft and review it first.")
-            color: Theme.warning
-            wrapMode: Text.WordWrap
-        }
-        Text {
-            Layout.fillWidth: true
-            visible: !!root.record.receipt
-            textFormat: Text.PlainText
-            text: qsTr("Receipt: %1").arg(String(root.record.receipt || ""))
-                  + (root.record.acceptedAt ? " · " + Labels.date(root.record.acceptedAt) : "")
-            color: Theme.textSecondary
-            wrapMode: Text.WrapAnywhere
-        }
-        Text {
-            objectName: "feedbackReceivedMeaning"
-            Layout.fillWidth: true
-            visible: (root.record.state === "received" || root.record.state === "accepted")
-            textFormat: Text.PlainText
-            text: root.record.isPublic === true
-                ? qsTr("Accepted confirms storage by the feedback service. Publication, assessment and resolution are separate steps.")
-                : qsTr("Received confirms storage by support. It does not confirm review or resolution.")
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSize(12)
-            wrapMode: Text.WordWrap
-        }
-        Text {
-            objectName: "feedbackReceivedLocalRetention"
-            Layout.fillWidth: true
-            visible: (root.record.state === "received" || root.record.state === "accepted")
-            textFormat: Text.PlainText
-            text: root.record.isPublic === true
-                ? qsTr("On this device, content is kept for up to 30 days. Keep this receipt to check status or request removal; deleting it loses access.")
-                : qsTr("On this device, received content is kept for up to 30 days and receipts for up to 90 days, subject to storage limits.")
-            color: Theme.textMuted
-            font.pixelSize: Theme.fontSize(12)
-            wrapMode: Text.WordWrap
-        }
-        Text {
-            objectName: "feedbackReceiptAccess"
-            Layout.fillWidth: true
-            visible: root.record.isPublic === true && !!root.record.accessExpiresAt
-            textFormat: Text.PlainText
-            text: qsTr("Receipt access until at least %1. Access is retained while removal remains unresolved.")
-                .arg(Labels.date(root.record.accessExpiresAt))
-            color: Theme.textMuted
-            font.pixelSize: Theme.fontSize(12)
-            wrapMode: Text.WordWrap
-        }
-        Text {
             objectName: "feedbackPublicationMeaning"
             Layout.fillWidth: true
             visible: root.record.isPublic === true && !!root.record.publicationState
+                && (root.record.publicationState !== "published" || !root.caseDetails || root.showOriginal)
                 && (!root.record.removalState || root.record.removalState === "none")
             textFormat: Text.PlainText
             text: Labels.publicationDescription(root.record.publicationState)
             color: root.record.publicationState === "published" ? Theme.success : Theme.textSecondary
             wrapMode: Text.WordWrap
+        }
+        FeedbackThread {
+            Layout.fillWidth: true
+            visible: root.record.isPublic === true && root.record.state === "accepted" && root.record.isReply !== true
+                && (!root.record.removalState || root.record.removalState === "none")
+            service: root.service
+            caseId: String(root.record.parentSubmissionId || root.record.id || "")
+            canReply: visible && root.service && root.service.enabled && !root.service.busy && !root.service.saving
+                && root.record.caseState !== "closed" && (!root.record.closureRequestState || root.record.closureRequestState === "none")
+                && (!root.record.removalState || root.record.removalState === "none")
+                && root.record.publicationState === "published"
+            onReplyRequested: (questionId, revision) => root.replyRequested(questionId, revision)
+            onAttachmentRequested: (contributionId, attachmentId, title) => root.threadAttachmentRequested(contributionId, attachmentId, title)
         }
         Text {
             objectName: "feedbackRemovalMeaning"
@@ -214,15 +170,6 @@ ScrollView {
             text: Labels.closureDescription(root.record)
             color: root.record.closureRequestState === "stalled" || root.record.closurePublicationState === "stalled" ? Theme.warning : Theme.textSecondary
             wrapMode: Text.WordWrap
-        }
-        Text {
-            objectName: "feedbackIssueReference"
-            Layout.fillWidth: true
-            visible: !!root.record.issueUrl
-            textFormat: Text.PlainText
-            text: String(root.record.issueUrl || "")
-            color: Theme.textSecondary
-            wrapMode: Text.WrapAnywhere
         }
         ColumnLayout {
             Layout.fillWidth: true
@@ -259,121 +206,265 @@ ScrollView {
                 }
             }
         }
-        FeedbackThread {
-            Layout.fillWidth: true
-            visible: root.record.isPublic === true && root.record.state === "accepted" && root.record.isReply !== true
-                && (!root.record.removalState || root.record.removalState === "none")
-            service: root.service
-            caseId: String(root.record.parentSubmissionId || root.record.id || "")
-            canReply: visible && root.service && root.service.enabled && !root.service.busy && !root.service.saving
-                && root.record.caseState !== "closed" && (!root.record.closureRequestState || root.record.closureRequestState === "none")
-                && (!root.record.removalState || root.record.removalState === "none")
-                && root.record.publicationState === "published"
-            onReplyRequested: (questionId, revision) => root.replyRequested(questionId, revision)
-            onAttachmentRequested: (contributionId, attachmentId, title) => root.threadAttachmentRequested(contributionId, attachmentId, title)
+        AppButton {
+            objectName: "feedbackOriginalToggle"
+            visible: root.caseDetails
+            text: root.showOriginal ? qsTr("Hide original feedback and receipt") : qsTr("Original feedback and receipt")
+            variant: "ghost"
+            compact: true
+            onClicked: root.showOriginal = !root.showOriginal
         }
-        Text {
+        ColumnLayout {
+            objectName: "feedbackOriginalContent"
             Layout.fillWidth: true
-            visible: root.record.payloadAvailable === false
-            textFormat: Text.PlainText
-            text: qsTr("Older content has been removed from local storage. The receipt remains available.")
-            color: Theme.warning
-            wrapMode: Text.WordWrap
-        }
-        Flow {
-            Layout.fillWidth: true
-            visible: root.editable
-            spacing: Theme.size(8)
-            AppButton {
-                objectName: "feedbackAddImage"
-                text: qsTr("Add image")
-                variant: "secondary"
-                compact: true
-                enabled: root.service && !root.service.busy
-                onClicked: root.imageRequested()
-            }
-            AppButton {
-                objectName: "feedbackPasteImage"
-                text: qsTr("Paste image")
-                variant: "ghost"
-                compact: true
-                enabled: root.service && !root.service.busy
-                onClicked: root.service.pasteImage()
-            }
-            AppButton {
-                objectName: "feedbackChooseCrash"
-                text: qsTr("Choose crash report")
-                variant: "secondary"
-                compact: true
-                onClicked: root.crashRequested()
-            }
-            AppButton {
-                objectName: "feedbackAddHosting"
-                text: qsTr("Add hosting diagnostics")
-                variant: "ghost"
-                compact: true
-                enabled: root.hostingAvailable && root.service && !root.service.busy
-                onClicked: root.hostingRequested()
-            }
-        }
-        Repeater {
-            model: root.record.attachments || []
-            delegate: Surface {
-                required property var modelData
+            visible: !root.caseDetails || root.showOriginal
+            spacing: Theme.size(12)
+            Text {
+                objectName: "feedbackReplyQuestion"
                 Layout.fillWidth: true
-                implicitHeight: attachmentRow.implicitHeight + Theme.size(20)
-                radius: Theme.radiusSmall
-                RowLayout {
-                    id: attachmentRow
-                    anchors.fill: parent
-                    anchors.margins: Theme.size(10)
-                    spacing: Theme.size(8)
-                    Text {
-                        Layout.fillWidth: true
-                        textFormat: Text.PlainText
-                        text: Labels.attachment(modelData.kind) + " · "
-                              + Math.ceil(Number(modelData.byteLength || 0) / 1024) + " KiB"
-                        color: Theme.text
-                        wrapMode: Text.WordWrap
-                    }
-                    AppButton {
-                        objectName: "feedbackPreview-" + modelData.id
-                        compact: true
-                        text: qsTr("Preview")
-                        variant: "secondary"
-                        onClicked: root.previewRequested(modelData.id, Labels.attachment(modelData.kind))
-                    }
-                    AppButton {
-                        objectName: "feedbackRemove-" + modelData.id
-                        visible: root.editable
-                        enabled: root.service && !root.service.busy
-                        compact: true
-                        text: qsTr("Remove")
-                        variant: "ghost"
-                        onClicked: root.service.removeAttachment(modelData.id)
+                visible: root.record.isReply === true && !!root.record.questionText
+                text: Labels.question(root.record.questionCode, root.record.questionText)
+                textFormat: Text.PlainText
+                color: Theme.textSecondary
+                wrapMode: Text.WrapAnywhere
+            }
+            Text {
+                Layout.fillWidth: true
+                textFormat: Text.PlainText
+                text: root.record.isReply === true ? qsTr("Your public reply") : qsTr("What happened?")
+                color: Theme.text
+                font.weight: Font.DemiBold
+            }
+            TextArea {
+                id: descriptionField
+                objectName: "feedbackDescription"
+                Layout.fillWidth: true
+                Layout.minimumHeight: Theme.size(145)
+                textFormat: TextEdit.PlainText
+                readOnly: !root.editable
+                selectByMouse: true
+                wrapMode: TextEdit.Wrap
+                color: Theme.text
+                placeholderText: qsTr("Describe the problem, what you did and what you expected.")
+                placeholderTextColor: Theme.textMuted
+                font.pixelSize: Theme.fontSize(14)
+                padding: Theme.size(12)
+                background: Rectangle {
+                    color: Theme.surfaceMuted
+                    radius: Theme.radiusMedium
+                    border.color: descriptionField.activeFocus ? Theme.primary : Theme.border
+                }
+                onTextChanged: root.update({description: text})
+            }
+            AppButton {
+                objectName: "feedbackBackToCase"
+                visible: root.record.isReply === true
+                enabled: root.record.parentAvailable !== false
+                text: qsTr("Back to original feedback")
+                compact: true
+                variant: "ghost"
+                onClicked: root.parentRequested()
+            }
+            Text {
+                objectName: "feedbackLegacyNotice"
+                Layout.fillWidth: true
+                visible: root.record.isPublic !== true
+                textFormat: Text.PlainText
+                text: qsTr("This record uses the earlier private-feedback contract. It will not be published. To share it publicly, create a new public draft and review it first.")
+                color: Theme.warning
+                wrapMode: Text.WordWrap
+            }
+            Text {
+                Layout.fillWidth: true
+                visible: !!root.record.receipt
+                textFormat: Text.PlainText
+                text: qsTr("Receipt: %1").arg(String(root.record.receipt || ""))
+                      + (root.record.acceptedAt ? " · " + Labels.date(root.record.acceptedAt) : "")
+                color: Theme.textSecondary
+                wrapMode: Text.WrapAnywhere
+            }
+            Text {
+                objectName: "feedbackReceivedMeaning"
+                Layout.fillWidth: true
+                visible: (root.record.state === "received" || root.record.state === "accepted")
+                textFormat: Text.PlainText
+                text: root.record.isPublic === true
+                    ? qsTr("Accepted confirms storage by the feedback service. Publication, assessment and resolution are separate steps.")
+                    : qsTr("Received confirms storage by support. It does not confirm review or resolution.")
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSize(12)
+                wrapMode: Text.WordWrap
+            }
+            Text {
+                objectName: "feedbackReceivedLocalRetention"
+                Layout.fillWidth: true
+                visible: (root.record.state === "received" || root.record.state === "accepted")
+                textFormat: Text.PlainText
+                text: root.record.isPublic === true
+                    ? qsTr("On this device, content is kept for up to 30 days. Keep this receipt to check status or request removal; deleting it loses access.")
+                    : qsTr("On this device, received content is kept for up to 30 days and receipts for up to 90 days, subject to storage limits.")
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontSize(12)
+                wrapMode: Text.WordWrap
+            }
+            Text {
+                objectName: "feedbackReceiptAccess"
+                Layout.fillWidth: true
+                visible: root.record.isPublic === true && !!root.record.accessExpiresAt
+                textFormat: Text.PlainText
+                text: qsTr("Receipt access until at least %1. Access is retained while removal remains unresolved.")
+                    .arg(Labels.date(root.record.accessExpiresAt))
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontSize(12)
+                wrapMode: Text.WordWrap
+            }
+            Text {
+                objectName: "feedbackIssueReference"
+                Layout.fillWidth: true
+                visible: !!root.record.issueUrl
+                textFormat: Text.PlainText
+                text: String(root.record.issueUrl || "")
+                color: Theme.textSecondary
+                wrapMode: Text.WrapAnywhere
+            }
+            Text {
+                Layout.fillWidth: true
+                visible: root.record.payloadAvailable === false
+                textFormat: Text.PlainText
+                text: qsTr("Older content has been removed from local storage. The receipt remains available.")
+                color: Theme.warning
+                wrapMode: Text.WordWrap
+            }
+            Flow {
+                Layout.fillWidth: true
+                visible: root.editable
+                spacing: Theme.size(8)
+                AppButton {
+                    objectName: "feedbackAddImage"
+                    text: qsTr("Add image")
+                    variant: "secondary"
+                    compact: true
+                    enabled: root.service && !root.service.busy
+                    onClicked: root.imageRequested()
+                }
+                AppButton {
+                    objectName: "feedbackPasteImage"
+                    text: qsTr("Paste image")
+                    variant: "ghost"
+                    compact: true
+                    enabled: root.service && !root.service.busy
+                    onClicked: root.service.pasteImage()
+                }
+                AppButton {
+                    objectName: "feedbackChooseCrash"
+                    text: qsTr("Choose crash report")
+                    variant: "secondary"
+                    compact: true
+                    onClicked: root.crashRequested()
+                }
+                AppButton {
+                    objectName: "feedbackAddHosting"
+                    text: qsTr("Add hosting diagnostics")
+                    variant: "ghost"
+                    compact: true
+                    enabled: root.hostingAvailable && root.service && !root.service.busy
+                    onClicked: root.hostingRequested()
+                }
+            }
+            Text {
+                objectName: "feedbackImageLimit"
+                Layout.fillWidth: true
+                visible: root.editable
+                text: qsTr("You can attach up to two screenshots.")
+                textFormat: Text.PlainText
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontSize(12)
+                wrapMode: Text.WordWrap
+            }
+            Repeater {
+                model: root.record.attachments || []
+                delegate: Surface {
+                    id: attachmentCard
+                    required property var modelData
+                    readonly property string thumbnailSource: root.localPreviewsAllowed
+                        ? String(root.thumbnailCache[root.thumbnailKey(modelData)] || "") : ""
+                    Layout.fillWidth: true
+                    implicitHeight: attachmentRow.implicitHeight + Theme.size(20)
+                    radius: Theme.radiusSmall
+                    RowLayout {
+                        id: attachmentRow
+                        anchors.fill: parent
+                        anchors.margins: Theme.size(10)
+                        spacing: Theme.size(8)
+                        AppButton {
+                            objectName: "feedbackThumbnail-" + attachmentCard.modelData.id
+                            visible: attachmentCard.modelData.kind === "screenshot"
+                                && attachmentCard.thumbnailSource.length > 0
+                            Layout.preferredWidth: Theme.size(96)
+                            Layout.preferredHeight: Theme.size(72)
+                            compact: true
+                            variant: "ghost"
+                            accessibleName: qsTr("Preview screenshot")
+                            contentItem: Image {
+                                objectName: "feedbackThumbnailImage-" + attachmentCard.modelData.id
+                                source: attachmentCard.thumbnailSource
+                                sourceSize.width: 192
+                                sourceSize.height: 144
+                                fillMode: Image.PreserveAspectFit
+                                asynchronous: true
+                            }
+                            onClicked: root.previewRequested(attachmentCard.modelData.id,
+                                Labels.attachment(attachmentCard.modelData.kind))
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            textFormat: Text.PlainText
+                            text: Labels.attachment(modelData.kind) + " · "
+                                  + Math.ceil(Number(modelData.byteLength || 0) / 1024) + " KiB"
+                            color: Theme.text
+                            wrapMode: Text.WordWrap
+                        }
+                        AppButton {
+                            objectName: "feedbackPreview-" + modelData.id
+                            enabled: root.service && root.record.payloadAvailable !== false
+                                && (root.record.isPublic !== true || !root.record.removalState || root.record.removalState === "none")
+                            compact: true
+                            text: qsTr("Preview")
+                            variant: "secondary"
+                            onClicked: root.previewRequested(modelData.id, Labels.attachment(modelData.kind))
+                        }
+                        AppButton {
+                            objectName: "feedbackRemove-" + modelData.id
+                            visible: root.editable
+                            enabled: root.service && !root.service.busy
+                            compact: true
+                            text: qsTr("Remove")
+                            variant: "ghost"
+                            onClicked: root.service.removeAttachment(modelData.id)
+                        }
                     }
                 }
             }
-        }
-        AppButton {
-            objectName: "feedbackTechnicalToggle"
-            text: root.showTechnical ? qsTr("Hide technical information") : qsTr("Technical information")
-            variant: "ghost"
-            compact: true
-            onClicked: root.showTechnical = !root.showTechnical
-        }
-        TextArea {
-            objectName: "feedbackTechnicalInfo"
-            Layout.fillWidth: true
-            visible: root.showTechnical
-            textFormat: TextEdit.PlainText
-            text: JSON.stringify(root.record.context || {}, null, 2)
-            readOnly: true
-            selectByMouse: true
-            wrapMode: TextEdit.WrapAnywhere
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSize(12)
-            background: Rectangle { color: Theme.surface; radius: Theme.radiusSmall }
+            AppButton {
+                objectName: "feedbackTechnicalToggle"
+                text: root.showTechnical ? qsTr("Hide technical information") : qsTr("Technical information")
+                variant: "ghost"
+                compact: true
+                onClicked: root.showTechnical = !root.showTechnical
+            }
+            TextArea {
+                objectName: "feedbackTechnicalInfo"
+                Layout.fillWidth: true
+                visible: root.showTechnical
+                textFormat: TextEdit.PlainText
+                text: JSON.stringify(root.record.context || {}, null, 2)
+                readOnly: true
+                selectByMouse: true
+                wrapMode: TextEdit.WrapAnywhere
+                color: Theme.textSecondary
+                font.pixelSize: Theme.fontSize(12)
+                background: Rectangle { color: Theme.surface; radius: Theme.radiusSmall }
+            }
         }
         Flow {
             Layout.fillWidth: true

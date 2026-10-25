@@ -17405,6 +17405,86 @@ Las imágenes descargadas y personalizadas se copiarán y verificarán antes de 
             <source>Public feedback notice</source>
             <translation>Aviso sobre comentarios públicos</translation>
         </message>
+        <message>
+            <source>AI update: %1</source>
+            <translation>Actualización de la IA: %1</translation>
+        </message>
+        <message>
+            <source>All feedback</source>
+            <translation>Todos los comentarios</translation>
+        </message>
+        <message>
+            <source>Awaiting your reply (%1)</source>
+            <translation>Esperando tu respuesta (%1)</translation>
+        </message>
+        <message>
+            <source>Check status</source>
+            <translation>Consultar estado</translation>
+        </message>
+        <message>
+            <source>Delivery is uncertain. Check status before preparing another submission; checking does not send it again.</source>
+            <translation>No se ha confirmado la recepción. Consulta el estado antes de preparar otro envío; consultar no vuelve a enviarlo.</translation>
+        </message>
+        <message>
+            <source>Hide original feedback and receipt</source>
+            <translation>Ocultar comentario original y recibo</translation>
+        </message>
+        <message>
+            <source>Needs your reply</source>
+            <translation>Se necesita tu respuesta</translation>
+        </message>
+        <message>
+            <source>No feedback awaiting your reply in saved information.</source>
+            <translation>No hay comentarios pendientes de tu respuesta en la información guardada.</translation>
+        </message>
+        <message>
+            <source>Not synced yet</source>
+            <translation>Aún no se ha sincronizado</translation>
+        </message>
+        <message>
+            <source>Not synced yet. Replies may be missing.</source>
+            <translation>Aún no se ha sincronizado. Puede que falten respuestas.</translation>
+        </message>
+        <message>
+            <source>Original feedback and receipt</source>
+            <translation>Comentario original y recibo</translation>
+        </message>
+        <message>
+            <source>Preview screenshot</source>
+            <translation>Vista previa de la captura de pantalla</translation>
+        </message>
+        <message>
+            <source>Refresh</source>
+            <translation>Actualizar</translation>
+        </message>
+        <message>
+            <source>Refresh stopped. Saved information may be out of date. Try again later.</source>
+            <translation>La actualización se detuvo. La información guardada puede estar desactualizada. Inténtalo de nuevo más tarde.</translation>
+        </message>
+        <message>
+            <source>Refreshing feedback…</source>
+            <translation>Actualizando comentarios…</translation>
+        </message>
+        <message>
+            <source>Saved locally. Another attempt is scheduled no earlier than %1 while the app is running.</source>
+            <translation>Guardado localmente. Se ha programado otro intento a partir de %1, mientras la aplicación esté en ejecución.</translation>
+        </message>
+        <message>
+            <source>Saved locally. Sending will retry automatically while the app is running.</source>
+            <translation>Guardado localmente. El envío se reintentará automáticamente mientras la aplicación esté en ejecución.</translation>
+        </message>
+        <message>
+            <source>Saved locally. We will automatically check whether it was received before trying again. Do not submit another copy.</source>
+            <translation>Guardado localmente. Antes de reintentar, comprobaremos automáticamente si se ha recibido. No envíes otra copia.</translation>
+        </message>
+        <message>
+            <source>You can attach up to two screenshots.</source>
+            <translation>Puedes adjuntar hasta dos capturas de pantalla.</translation>
+        </message>
+        <message>
+            <source>Your feedback was accepted. The last saved status is still available; refresh later to check for updates.</source>
+            <translation>Tu comentario fue aceptado. El último estado guardado sigue disponible; actualiza más tarde para consultar las novedades.</translation>
+        </message>
 </context>
 <context>
     <name>RulesCardHoverPreview</name>

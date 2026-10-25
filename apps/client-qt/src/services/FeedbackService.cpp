@@ -147,6 +147,14 @@ void FeedbackService::setOperation(const QString &code, const QString &id)
 }
 QVariantMap FeedbackService::project(const feedback::Record &r) const
 {
+    // Upload retry eligibility only; receipt/removal/closure polling is separate.
+    const auto now = QDateTime::currentDateTimeUtc();
+    const bool automaticRetryPending = r.authorized && r.apiVersion == 2 && m_enabled &&
+                                       r.endpoint == m_apiBase && replyAllowed(r) &&
+                                       !m_storageFailed && !m_deleting.contains(r.id) &&
+                                       r.frozenAt.isValid() && r.frozenAt.addDays(7) > now &&
+                                       ((r.state == u"queued" && r.attempts < 20) ||
+                                        (r.state == u"unconfirmed" && r.queries < 40));
     QVariantList attachments;
     for (const auto &a : r.attachments) {
         auto descriptor = a.descriptor.toVariantMap();
@@ -189,6 +197,8 @@ QVariantMap FeedbackService::project(const feedback::Record &r) const
             {u"reason"_s, r.reason},
             {u"editable"_s, r.state == u"draft" && r.apiVersion == 2},
             {u"uploadAuthorized"_s, r.authorized},
+            {u"automaticRetryPending"_s, automaticRetryPending},
+            {u"nextAttempt"_s, r.nextAttempt.toString(Qt::ISODateWithMs)},
             {u"payloadAvailable"_s, r.payloadAvailable}};
 }
 QVariantMap FeedbackService::draft() const
@@ -224,7 +234,23 @@ QVariantList FeedbackService::cases() const
                 ++localReplies;
         row.insert(u"localReplyCount"_s, localReplies);
         row.insert(u"workState"_s, record.threadPage.value(u"workState"_s).toString());
+        row.insert(u"summary"_s, record.threadPage.value(u"summary"_s).toString());
         row.insert(u"syncedAt"_s, record.threadSyncedAt.toString(Qt::ISODateWithMs));
+        row.insert(u"threadNextAttempt"_s, record.threadNextAttempt.toString(Qt::ISODateWithMs));
+        const bool openPublicCase = record.apiVersion == 2 && record.parentId.isEmpty() &&
+                                    record.state == u"accepted" && record.caseState == u"open" &&
+                                    record.closureRequestState == u"none" &&
+                                    !record.closureAuthorized && record.removalState == u"none" &&
+                                    !record.removalAuthorized && !m_deleting.contains(id) &&
+                                    (!record.accessExpiresAt.isValid() ||
+                                     record.accessExpiresAt > QDateTime::currentDateTimeUtc());
+        row.insert(u"threadRefreshAllowed"_s, openPublicCase && record.secret.size() == 32 &&
+                                                  trustedQuery(record.endpoint) &&
+                                                  !m_storageFailed);
+        row.insert(u"needsReply"_s,
+                   openPublicCase &&
+                       record.threadPage.value(u"workState"_s).toString() == u"needs-information" &&
+                       !record.threadPage.value(u"question"_s).toObject().isEmpty());
         result.append(row);
     }
     return result;

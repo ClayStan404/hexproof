@@ -191,6 +191,161 @@ class FeedbackServiceTest : public QObject
     }
 
   private slots:
+    void historyProjectionUsesCurrentQuestionAndProtectsRefreshAuthority()
+    {
+        QTemporaryDir dir;
+        FeedbackReceiver receiver;
+        FeedbackService service(dir.path(), receiver.config(), true);
+        QTRY_VERIFY(!service.saving());
+        const auto id = acceptedCase(service, receiver);
+        QTRY_VERIFY(!service.saving());
+        auto &record = service.m_records[id];
+        record.threadPage = threadPage(id, 1, {});
+        record.threadPage.insert(u"workState"_s, u"needs-information"_s);
+        record.threadPage.insert(u"summary"_s, u"Please describe <b>the result</b>"_s);
+        record.threadSyncedAt = QDateTime::currentDateTimeUtc().addSecs(-60);
+        record.threadNextAttempt = QDateTime::currentDateTimeUtc().addSecs(600);
+        auto row = [&] { return service.cases().first().toMap(); };
+        QVERIFY(!row().value(u"needsReply"_s).toBool());
+        record.threadPage.insert(u"question"_s, QJsonObject{{u"id"_s, id}, {u"revision"_s, 1}});
+        QVERIFY(row().value(u"needsReply"_s).toBool());
+        QVERIFY(row().value(u"threadRefreshAllowed"_s).toBool());
+        QCOMPARE(row().value(u"summary"_s).toString(), u"Please describe <b>the result</b>"_s);
+        QCOMPARE(row().value(u"syncedAt"_s).toString(),
+                 record.threadSyncedAt.toString(Qt::ISODateWithMs));
+        QCOMPARE(row().value(u"threadNextAttempt"_s).toString(),
+                 record.threadNextAttempt.toString(Qt::ISODateWithMs));
+        QVERIFY(!row().contains(u"secret"_s));
+        QVERIFY(!row().contains(u"endpoint"_s));
+        record.closureRequestState = u"requested"_s;
+        QVERIFY(!row().value(u"needsReply"_s).toBool());
+        QVERIFY(!row().value(u"threadRefreshAllowed"_s).toBool());
+        record.closureRequestState = u"none"_s;
+        record.caseState = u"closed"_s;
+        QVERIFY(!row().value(u"needsReply"_s).toBool());
+        QVERIFY(!row().value(u"threadRefreshAllowed"_s).toBool());
+        record.caseState = u"open"_s;
+        record.removalAuthorized = true;
+        QVERIFY(!row().value(u"needsReply"_s).toBool());
+        QVERIFY(!row().value(u"threadRefreshAllowed"_s).toBool());
+        record.removalAuthorized = false;
+        record.threadPage.remove(u"question"_s);
+        QVERIFY(!row().value(u"needsReply"_s).toBool());
+        record.endpoint = u"https://untrusted.invalid/feedback/v2"_s;
+        QVERIFY(!row().value(u"threadRefreshAllowed"_s).toBool());
+        record.endpoint = receiver.base();
+        record.secret.clear();
+        QVERIFY(!row().value(u"threadRefreshAllowed"_s).toBool());
+        QCOMPARE(receiver.requests.size(), 0);
+    }
+    void retryProjectionDoesNotPromiseStoppedOrExhaustedUploads()
+    {
+        QTemporaryDir dir;
+        FeedbackReceiver receiver;
+        FeedbackService service(dir.path(), receiver.config(), true);
+        QTRY_VERIFY(!service.saving());
+        const auto id = service.createDraft();
+        QTRY_VERIFY(!service.saving());
+        auto &record = service.m_records[id];
+        record.authorized = true;
+        record.state = u"queued"_s;
+        record.endpoint = receiver.base();
+        record.frozenAt = QDateTime::currentDateTimeUtc();
+        record.nextAttempt = record.frozenAt.addSecs(600);
+        auto retry = [&] { return service.draft().value(u"automaticRetryPending"_s).toBool(); };
+        QVERIFY(retry());
+        QCOMPARE(service.draft().value(u"nextAttempt"_s).toString(),
+                 record.nextAttempt.toString(Qt::ISODateWithMs));
+        const auto eligible = record;
+        record.authorized = false;
+        QVERIFY(!retry());
+        record = eligible;
+        record.attempts = 20;
+        QVERIFY(!retry());
+        record.state = u"unconfirmed"_s;
+        QVERIFY(retry()); // The final upload still permits receipt recovery.
+        record.queries = 40;
+        QVERIFY(!retry());
+        record = eligible;
+        record.frozenAt = QDateTime::currentDateTimeUtc().addDays(-7);
+        QVERIFY(!retry());
+        record.frozenAt = {};
+        QVERIFY(!retry());
+        for (const auto &state : {u"accepted"_s, u"received"_s, u"needs_attention"_s}) {
+            record = eligible;
+            record.state = state;
+            QVERIFY(!retry());
+        }
+        record = eligible;
+        record.endpoint = u"https://untrusted.invalid/feedback/v2"_s;
+        QVERIFY(!retry());
+        record = eligible;
+        service.m_storageFailed = true;
+        QVERIFY(!retry());
+        service.m_storageFailed = false;
+        service.m_deleting.insert(id);
+        QVERIFY(!retry());
+        service.m_deleting.remove(id);
+        const auto parent = acceptedCase(service, receiver);
+        service.m_records[id] = eligible;
+        service.m_records[id].parentId = parent;
+        service.selectRecord(id);
+        QVERIFY(retry());
+        service.m_records[parent].caseState = u"closed"_s;
+        QVERIFY(!retry());
+        QCOMPARE(receiver.requests.size(), 0);
+    }
+    void summaryRefreshKeepsSelectedDraftAndThreadContext()
+    {
+        QTemporaryDir dir;
+        FeedbackReceiver receiver;
+        FeedbackService service(dir.path(), receiver.config(), true);
+        QTRY_VERIFY(!service.saving());
+        const auto parent = acceptedCase(service, receiver);
+        const auto draft = service.createDraft();
+        QVERIFY(service.updateDraft({{u"description"_s, u"Unsent draft"_s}}));
+        QTRY_VERIFY(!service.saving());
+        service.m_threadError = u"existing_thread_error"_s;
+        service.m_error = u"existing_operation_error"_s;
+        service.m_threadAttachment = {{u"content"_s, u"existing preview"_s}};
+        const auto selectedDraft = service.draft();
+        const auto selectedThread = service.thread();
+        const auto attachment = service.threadAttachmentPreview();
+        QVERIFY(service.refreshCaseSummary(parent));
+        QVERIFY(!service.refreshCaseSummary(parent));
+        QCOMPARE(service.draft(), selectedDraft);
+        QCOMPARE(service.thread(), selectedThread);
+        QTRY_COMPARE(receiver.requests.size(), 1);
+        auto page = threadPage(parent, 2, {threadItem(parent, 0, u"submission"_s)});
+        page.insert(u"summary"_s, u"Please provide reproduction steps"_s);
+        FeedbackReceiver::respond(receiver.requests.last(), 200, QJsonDocument(page).toJson());
+        QTRY_VERIFY(!service.busy() && !service.saving());
+        QCOMPARE(service.draft(), selectedDraft);
+        QCOMPARE(service.thread(), selectedThread);
+        QCOMPARE(service.threadAttachmentPreview(), attachment);
+        QCOMPARE(service.errorCode(), u"existing_operation_error"_s);
+        QCOMPARE(service.caseRefresh().value(u"caseId"_s).toString(), parent);
+        QVERIFY(service.caseRefresh().value(u"errorCode"_s).toString().isEmpty());
+        const auto record = service.m_records[parent];
+        QCOMPARE(record.threadPage.value(u"summary"_s).toString(),
+                 u"Please provide reproduction steps"_s);
+        QVERIFY(record.threadSyncedAt.isValid());
+        QVERIFY(!service.refreshCaseSummary(parent));
+        QCOMPARE(service.caseRefresh().value(u"errorCode"_s).toString(), u"rate_limited"_s);
+        service.m_records[parent].threadNextAttempt = {};
+        QVERIFY(service.refreshCaseSummary(parent));
+        QTRY_COMPARE(receiver.requests.size(), 2);
+        FeedbackReceiver::respond(receiver.requests.last(), 503, {}, "Retry-After: 600\r\n");
+        QTRY_VERIFY(!service.busy() && !service.saving());
+        QCOMPARE(service.caseRefresh().value(u"errorCode"_s).toString(), u"network_error"_s);
+        QCOMPARE(service.m_records[parent].threadPage, record.threadPage);
+        QCOMPARE(service.m_records[parent].threadSyncedAt, record.threadSyncedAt);
+        QVERIFY(service.m_records[parent].threadNextAttempt >
+                QDateTime::currentDateTimeUtc().addSecs(590));
+        QCOMPARE(service.draft().value(u"id"_s).toString(), draft);
+        QCOMPARE(service.thread(), selectedThread);
+        QCOMPARE(service.errorCode(), u"existing_operation_error"_s);
+    }
     void sharedAIConversationFixtures_data()
     {
         QTest::addColumn<QString>("fileName");

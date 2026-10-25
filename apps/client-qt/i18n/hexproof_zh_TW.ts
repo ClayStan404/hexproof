@@ -17385,6 +17385,86 @@ Downloaded and custom images will be copied and verified before the setting chan
             <source>Public feedback notice</source>
             <translation>公開意見回饋說明</translation>
         </message>
+        <message>
+            <source>AI update: %1</source>
+            <translation>AI 更新：%1</translation>
+        </message>
+        <message>
+            <source>All feedback</source>
+            <translation>全部回饋</translation>
+        </message>
+        <message>
+            <source>Awaiting your reply (%1)</source>
+            <translation>等待你回覆（%1）</translation>
+        </message>
+        <message>
+            <source>Check status</source>
+            <translation>查詢狀態</translation>
+        </message>
+        <message>
+            <source>Delivery is uncertain. Check status before preparing another submission; checking does not send it again.</source>
+            <translation>傳送結果尚未確認。準備另一則回饋前請先查詢狀態；查詢不會重新傳送。</translation>
+        </message>
+        <message>
+            <source>Hide original feedback and receipt</source>
+            <translation>收起原始回饋與收件憑證</translation>
+        </message>
+        <message>
+            <source>Needs your reply</source>
+            <translation>需要你回覆</translation>
+        </message>
+        <message>
+            <source>No feedback awaiting your reply in saved information.</source>
+            <translation>已儲存的資訊中沒有等待你回覆的回饋。</translation>
+        </message>
+        <message>
+            <source>Not synced yet</source>
+            <translation>尚未同步</translation>
+        </message>
+        <message>
+            <source>Not synced yet. Replies may be missing.</source>
+            <translation>尚未同步，可能還有未顯示的回覆。</translation>
+        </message>
+        <message>
+            <source>Original feedback and receipt</source>
+            <translation>原始回饋與收件憑證</translation>
+        </message>
+        <message>
+            <source>Preview screenshot</source>
+            <translation>預覽螢幕截圖</translation>
+        </message>
+        <message>
+            <source>Refresh</source>
+            <translation>重新整理</translation>
+        </message>
+        <message>
+            <source>Refresh stopped. Saved information may be out of date. Try again later.</source>
+            <translation>重新整理已停止。已儲存的資訊可能不是最新狀態，請稍後重試。</translation>
+        </message>
+        <message>
+            <source>Refreshing feedback…</source>
+            <translation>正在重新整理回饋…</translation>
+        </message>
+        <message>
+            <source>Saved locally. Another attempt is scheduled no earlier than %1 while the app is running.</source>
+            <translation>已儲存在本機。應用程式執行期間，將不早於 %1 再次嘗試。</translation>
+        </message>
+        <message>
+            <source>Saved locally. Sending will retry automatically while the app is running.</source>
+            <translation>已儲存在本機。應用程式執行期間會自動重試傳送。</translation>
+        </message>
+        <message>
+            <source>Saved locally. We will automatically check whether it was received before trying again. Do not submit another copy.</source>
+            <translation>已儲存在本機。重試前會自動確認服務是否已收到，請勿重複提交。</translation>
+        </message>
+        <message>
+            <source>You can attach up to two screenshots.</source>
+            <translation>最多可附加兩張螢幕截圖。</translation>
+        </message>
+        <message>
+            <source>Your feedback was accepted. The last saved status is still available; refresh later to check for updates.</source>
+            <translation>回饋已由服務接收。仍可查看上次儲存的狀態，稍後重新整理可檢查進度。</translation>
+        </message>
 </context>
 <context>
     <name>RulesCardHoverPreview</name>
