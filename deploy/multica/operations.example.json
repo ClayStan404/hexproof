@@ -40,6 +40,25 @@
         "id": "00000000-0000-4000-8000-000000000000",
         "triggerId": "00000000-0000-4000-8000-000000000000"
       }
+    },
+    "team": {
+      "revision": "budget-quality-v1",
+      "primaryDeveloperIds": [
+        "00000000-0000-4000-8000-000000000000"
+      ],
+      "supplementaryDeveloperIds": [
+        "00000000-0000-4000-8000-000000000000"
+      ],
+      "reviewerId": "00000000-0000-4000-8000-000000000000",
+      "specialistReviewerId": "00000000-0000-4000-8000-000000000000",
+      "maximumConcurrentDevelopers": 2,
+      "maximumNoProgressAttempts": 2,
+      "unavailableAgentIds": []
+    },
+    "feedbackPolicyAgents": {
+      "approved-provider-policy-v1": [
+        "00000000-0000-4000-8000-000000000000"
+      ]
     }
   },
   "release": {

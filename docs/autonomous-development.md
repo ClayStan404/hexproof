@@ -48,18 +48,53 @@ leases, provider adapters or development database. Preserve the
 
 ## Team assignment and independence
 
-Use only the approved three-agent OpenAI team through Multica, with `ultra`
-reasoning: Mika/Astra coordinates, Sol normally implements and a separate Astra
-session independently reviews. The trusted manifest's `native.allowedAgentIds`
-is the allowlist. Broader workspace membership does not grant provider access.
-Read back actual agent, runtime, model and effort; a tool brand alone does not
-establish identity or reviewer independence. A changed assignment must retain
-separate developer/reviewer sessions and the highest configured effort.
+Resolve actual agents, runtimes, exact models and highest supported reasoning
+levels from the trusted manifest and native readback. `native.allowedAgentIds`
+is the team ceiling; a particular task's scope and contribution permissions can
+narrow it. Workspace membership alone grants no access.
 
-Mika assigns work within that policy from each task's scope and acceptance
-criteria. It may substitute an available approved member only when the task
-permits it; record the actual choice and cancel superseded retries. Otherwise
-leave the work unresolved. Do not silently change effort or provider.
+| Responsibility | Default assignment |
+| --- | --- |
+| Mika: assessment, acceptance criteria, delegation and delivery | Codex Sol; delegate difficult design decisions to Astra. |
+| Routine implementation and focused verification | agy Opus/Argon or Cursor Grok, selected by task fit and available subscription capacity. |
+| Small bounded changes, supporting analysis and fallback implementation | GLM or DeepSeek through the approved Claude runtime. |
+| Independent code review | Separate Codex Sol agent/session; Astra for high-risk changes. |
+
+These are dispatch defaults, not a model-quality ranking or a pipeline through
+every provider. One developer normally owns reproduction, implementation and
+verification. The reviewer must not have authored or repaired the candidate;
+review findings return to its developer. A distinct tool, account or model name
+alone does not establish independence. Read back the actual model and effort;
+never silently substitute aliases, lower effort or enable paid overages.
+
+Mika uses the compact handoff and member-result wakeups rather than repeatedly
+polling healthy work or reading complete histories. Reserve scarce Codex capacity
+for independent review and difficult decisions: finish in-flight reviews before
+opening more development when capacity is tight. Start at most two independent
+development tasks; serialize changes to the same module and avoid overlapping
+complete verification suites. Multica concurrency limits bound runs, not module
+ownership or the number of developers; Mika enforces these dispatch rules.
+
+Use `native.team` for role bindings and dispatch limits. After two attempts
+without new evidence or progress, reconcile side effects and change approach or
+select an available permitted developer. Record capacity/authentication/model
+failures and cancel superseded retries. Subscription capacity is shared according
+to the provider account, not multiplied by agent count; unknown capacity stays
+unknown. No separate quota scheduler or automatic billing configuration is added.
+Codex remains the default independent reviewer. A separately authorized fallback
+reviewer must meet the same evidence and independence requirements; high-risk
+work waits if its required reviewer is unavailable.
+
+Before sending feedback or derived summaries to any model, intersect the team
+allowlist with `native.feedbackPolicyAgents` for **every** included contribution's
+recorded policy. Unknown policies or missing provenance stop delegation. Keep
+mixed-policy work on the common permitted route or split its context without
+leaking restricted material. Current OpenAI-only feedback remains with the
+approved Codex agents; owner authorization to configure a broader team does not
+expand historical submitters' permissions. New-provider feedback processing
+requires matching client/receiver disclosure, policy and operational activation.
+If that policy leaves Sol as the eligible implementer, assign implementation to
+Sol and independent review to Astra; never let Sol approve its own candidate.
 
 Normal development has no recurring human product, code-review or release gate.
 The owner can stop or override work. Credentials, limits and capability activation
@@ -136,6 +171,46 @@ Finish with the public PR/merge result and validation, not only a local commit.
 If blocked, keep the candidate and report the exact pending action; do not
 silently classify an unmerged task as complete. Code availability, an installable
 release and deployed services remain separate outcomes.
+
+### Code quality and risk
+
+Mika establishes observable acceptance criteria and relevant existing contracts
+before implementation. A routine fix needs a concise description, not a design
+essay. Protocol/compatibility, hidden-information projection, permissions,
+concurrency, durable state/recovery and substantial architecture changes need a
+short pre-implementation design decision and Astra review. Identify state
+ownership, interface effects and failure recovery; update existing specifications
+when their contracts change. File or line counts do not determine risk.
+
+The developer delivers one coherent, working change with applicable tests and
+necessary documentation. Reuse existing facilities; justify new abstractions,
+dependencies and state. Keep large unrelated refactors out of a bug fix, while
+allowing cohesive local cleanup. Do not optimize for coverage percentages,
+changed-line limits or artificially small but incomplete PRs.
+
+The independent reviewer reads the complete candidate diff and relevant callers,
+contracts and tests, not just its author's summary. Check acceptance, regressions,
+state ownership, failure/cancellation/retry paths, concurrency and privacy where
+applicable, as well as unnecessary complexity, duplication and maintainability.
+Tests need useful behavioral assertions; a bug regression should fail before the
+fix and pass after it where practical. Do not weaken tests or change a contract
+merely to make a failure pass. Use native GUI evidence for relevant visual/input
+behavior and race checks for shared-state changes under the development policy.
+
+A review records exact base/head, scope, applicable executed evidence and gaps.
+Evidence reuse does not waive independent inspection or missing risk-relevant
+checks. After changes, refresh the verdict for the complete final candidate,
+concentrating reinspection on the delta and its effects. Correctness, privacy,
+concurrency and material maintainability defects block merge; stylistic
+preferences and optional improvements are explicitly nonblocking. A clean first
+review is valid. Neither agreement between models nor passing CI alone proves
+correctness. Existing guarded merge and release qualification remain required.
+
+Use native task/PR history to compare cycle time, substantive rework, post-merge
+regressions, reopenings and rollbacks. Do not rank agents by finding count, first
+approval rate or speed alone. Change assignments from comparable real outcomes;
+no new scoring service, periodic full-repository review or extra mandatory agent
+stage is required.
 
 For a routine defect, use one developer for reproduction, implementation and
 risk-scoped local verification, then one independent reviewer. Use an explicitly

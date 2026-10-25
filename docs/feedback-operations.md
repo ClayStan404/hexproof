@@ -93,14 +93,21 @@ The official notice uses `hexproof-public-20261024-v2`. The client exposes the
 full notice through an in-app reading action and omits hosting addresses,
 model/effort names and internal coordination details from user-facing prose.
 Confirm installed revisions from current deployment records and service state.
-Keep provider policy
-`hexproof-test-openai-multica-20261023-v1` unchanged in the client, receiver
-`public` object and receiver `multica` object. Despite its historical name,
-this identifier still means the same qualified Multica/OpenAI processing
-permission: Mika coordinates with `gpt-6-astra`, Sol develops with `gpt-6.1-sol`
-and Astra independently reviews with `gpt-6-astra`, all at `ultra`. It does not enable Claude, GLM,
-DeepSeek, agy or Cursor/Grok. The revised formal notice simplifies user-facing wording
-without broadening the processors that can receive historical contributions.
+Keep provider policy `hexproof-test-openai-multica-20261023-v1` unchanged in
+the current client, receiver `public` object and receiver `multica` object.
+Despite its historical name, this identifier retains qualified Multica/OpenAI
+processing permission. Resolve the permitted Codex agents from
+`native.feedbackPolicyAgents`; changed role assignments within that approved
+OpenAI route do not authorize Claude, GLM, DeepSeek, agy or Cursor/Grok access.
+The broader owner-approved development team is separate from feedback consent.
+
+A future multi-provider notice must name the actual processing services, including
+intermediary coding-tool services where applicable, and use a new policy revision.
+Prepare it with matching client/receiver inputs and verify historical-case access
+before activation. Do not overwrite the current disclosure merely to make a new
+agent eligible, copy old feedback or derived summaries into a new-provider task,
+or infer consent from a later notice. Until a separately authorized coordinated
+rollout, retain the current official client configuration and OpenAI-only route.
 
 For a disclosure-only revision, change `public.noticeRevision` and
 `public.noticeText` together with the matching client disclosure and notice page.
