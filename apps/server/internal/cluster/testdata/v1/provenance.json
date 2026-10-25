@@ -1,0 +1,23 @@
+{
+  "repository": "ClayStan404/hexproof",
+  "commit": "7f6ee48ebdefb15ef64e949e3d22720ba0022842",
+  "directory": "apps/server/internal/cluster",
+  "files": {
+    "config.go": {
+      "gitBlob": "a598861ee16e785762c0127d7b762c55cd960b45",
+      "sha256": "60a0e4cc08918afb8906127926eb179837851def6d1188e832c10014cea20a29"
+    },
+    "coordinator.go": {
+      "gitBlob": "0504c97913a356a4e8307b72f46fef159836e98e",
+      "sha256": "07fc4d6ae2416cf24859ff76480c4bf7c5c629123399903c42d87c0e99d0b53d"
+    },
+    "transport.go": {
+      "gitBlob": "9369af871dfea8f31ed6bc37f10b82d8a3a64a02",
+      "sha256": "e20fcb32070dc1cde22d618864a45591344c620b1751403feaf9829900f3a3e0"
+    },
+    "agent.go": {
+      "gitBlob": "7513fbadaae86e4b43b44eafcb498ed20a12e20e",
+      "sha256": "8da184408b40925eef86cffef89b418664cda96ce2d5c71b938d75c7afa9cfdf"
+    }
+  }
+}

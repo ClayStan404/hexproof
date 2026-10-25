@@ -294,14 +294,33 @@ creation choices. The game protocol remains `hexproof.v2`.
 
 Runtime support is independent: `forge-duel-ai-v1` is required in addition to
 `forge-ai-v1`, including before player-hosted start. Constructed-only runtimes
-still support ordinary AI. Cluster reports, capability summaries and demands
-carry optional `forgeDuelAI` and `playerHostedDuelAI` booleans; upgraded coordinators place Duel AI
-only on supporting nodes. Older peers omit the capability, so it cannot be
-inferred from ordinary AI availability. An older coordinator may ignore the
-new demand; the destination's authoritative admission still rejects an
-unsupported request, without creating an engine session. Mixed clusters should
-upgrade the coordinator before advertising the new placement capability.
+still support ordinary AI.
 
-Focused regressions cover omitted welcome metadata, constructed-only runtime
-rejection, new-capability admission and mixed-capability node selection. These
+Cluster request decoding remains strict, including nested report and placement
+demand fields. New agents first send the original `register` request shape.
+A supporting coordinator returns optional `duelAIPlacement: true` in its
+registration response. Only that affirmative response permits the agent to
+send `forgeDuelAI` / `playerHostedDuelAI` reports and placement requirements.
+The negotiation belongs to that registration generation and is cleared on
+revocation or fencing. Ordinary invalid reports do not silently renegotiate.
+If a previously supporting coordinator is replaced by an older strict peer,
+a rejected extended report uses an original-schema read to check registration;
+only an explicit registration/fencing response changes the generation state.
+
+A missing/false response flag preserves the complete original report shape and
+ordinary room allocation. Duel AI requests are rejected locally without sending
+or dropping their unsupported placement requirements; clustered client welcomes
+suppress both Duel AI flags even if the local engine supports them. Standalone
+connections retain local runtime/hosting support. Old agents ignore the optional
+response flag, report only their original fields, and remain eligible for
+ordinary rooms on a new coordinator. They are never inferred to support Duel AI.
+New coordinators place Duel AI only on nodes explicitly reporting its relevant
+capability.
+
+Focused regressions use the frozen public baseline's actual agent, remote
+client, strict HTTP decoder and coordinator sources. They cover both mixed
+versions, both extended report/demand fields, ordinary and Duel AI allocation,
+new-to-new negotiated placement, replacement coordinator generations, and
+strict rejection before mutation. A new hub's real welcome/create path also
+checks that unsupported Duel AI does not break ordinary room creation. These
 are contract checks, not a qualification of every historical release artifact.

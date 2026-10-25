@@ -75,7 +75,9 @@ uses `forge-ai-v1`; Duel AI additionally requires `forge-duel-ai-v1`. The option
 welcome flags `forgeDuelAIAvailable` (server runtime) and
 `playerHostedDuelAIAvailable` (hub admission for the bundled player runtime)
 default to false when absent. Cluster
-placement carries the separate requirement, and both server and player-hosted
+placement carries the separate requirement only after the coordinator explicitly
+acknowledges support during registration; legacy coordinators retain ordinary
+room allocation with Duel AI disabled. Both server and player-hosted
 processes recheck it before start. Player hosting uses the bundled helper and
 its exact current overlay identity. Older runtimes keep constructed AI support
 but reject Duel AI explicitly. AI games use dedicated JVMs even if human rooms

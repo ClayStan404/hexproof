@@ -23,6 +23,7 @@ var (
 	ErrInvalid      = errors.New("invalid cluster request or ticket")
 	ErrFenced       = errors.New("cluster node generation replaced")
 	ErrRegistration = errors.New("cluster registration required")
+	ErrUnsupported  = errors.New("cluster capability unsupported")
 )
 
 const RPCVersion = "hexproof.cluster.v1"
@@ -97,6 +98,7 @@ type Request struct {
 
 type Result struct {
 	RPCVersion         string                         `json:"rpcVersion"`
+	DuelAIPlacement    bool                           `json:"duelAIPlacement,omitempty"`
 	Generation         string                         `json:"generation,omitempty"`
 	Ticket             *Ticket                        `json:"ticket,omitempty"`
 	Rooms              []protocol.RoomListEntry       `json:"rooms"`
@@ -161,7 +163,9 @@ func (c *Coordinator) Do(ctx context.Context, q Request) (out Result, err error)
 	if q.Operation == "register" {
 		generation := randomToken()
 		c.states[q.NodeID] = nodeState{generation: generation}
-		return Result{Generation: generation}, nil
+		// Register uses the original request schema. An optional response flag
+		// permits newer agents to send the extended report/demand fields.
+		return Result{Generation: generation, DuelAIPlacement: true}, nil
 	}
 	s, ok := c.states[q.NodeID]
 	if !ok {
