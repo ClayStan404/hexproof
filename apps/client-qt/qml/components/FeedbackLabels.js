@@ -176,3 +176,21 @@ function date(value) {
     const parsed = new Date(value || "")
     return isNaN(parsed.getTime()) ? "" : parsed.toLocaleString(Qt.locale(), "yyyy-MM-dd hh:mm")
 }
+
+// The service owns retry eligibility, including limits and frozen authorization.
+// A past network error alone never promises another upload.
+function recovery(record, errorCode) {
+    if (!record || errorCode === "storage_unavailable" || errorCode === "storage_full") return ""
+    if (record.automaticRetryPending === true) {
+        if (record.state === "unconfirmed")
+            return qsTranslate("Feedback", "Saved locally. We will automatically check whether it was received before trying again. Do not submit another copy.")
+        const next = date(record.nextAttempt)
+        return next ? qsTranslate("Feedback", "Saved locally. Another attempt is scheduled no earlier than %1 while the app is running.").arg(next)
+            : qsTranslate("Feedback", "Saved locally. Sending will retry automatically while the app is running.")
+    }
+    if (record.state === "unconfirmed")
+        return qsTranslate("Feedback", "Delivery is uncertain. Check status before preparing another submission; checking does not send it again.")
+    if (record.state === "accepted" && ["network_error", "rate_limited", "response_invalid"].indexOf(errorCode) >= 0)
+        return qsTranslate("Feedback", "Your feedback was accepted. The last saved status is still available; refresh later to check for updates.")
+    return ""
+}
