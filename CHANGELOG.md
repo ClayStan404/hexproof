@@ -9,11 +9,43 @@ application changes that use new catalog metadata are included here.
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-10-25
+
+### Changed
+
+- Feedback details lead with AI progress and questions. Original text and
+  receipts remain expandable; conversation entries show timestamps, newest first.
+- My feedback highlights current questions and filters cases awaiting a reply.
+  Opening or manually refreshing the list reads at most five eligible cases,
+  without changing the selected draft or continuously polling.
+- Screenshot attachments show local thumbnails. Recovery messages distinguish
+  authorized automatic retries from uncertain delivery that needs a status check.
+- New public feedback issues use readable description excerpts as titles and
+  put reports and attachments before folded technical/tracking details.
+- Development and independent review now use the public repository directly.
+  Release packaging reuses complete verification of the exact frozen source,
+  and feedback-service maintenance has an independent attested package path.
+
 ### Fixed
 
 - Feedback accepts larger PNG/JPEG source images and proportionally reduces
   oversized images to the existing upload limit before preview. Size-limit
   failures no longer appear as unsupported-format errors.
+- Forge priority action lists for graveyard and other non-battlefield cards can
+  be hidden to reach covered permanents. Hiding survives updates and resizing
+  until the next decision, without moving cards or submitting an action.
+- Opening feedback while its history refresh completes no longer triggers a
+  redundant query and a misleading rate-limit error. Removing thread attachments
+  no longer leaves a transient QML access to a destroyed conversation item.
+
+### Compatibility
+
+- Retain `hexproof.v2`, `hexproof.cluster.v1` and Forge adapter 34. A matching
+  game protocol permits 3.1.0 and 3.2.0 clients/hubs to interoperate; exact Forge
+  runtime/helper checks remain separate. Legacy v1 peers still require an upgrade.
+- Client interface changes require the new client. Readable GitHub issues require
+  the updated feedback receiver; a client update does not deploy that service.
+  No game-server upgrade is required solely for the application-version change.
 
 ## [3.1.0] - 2026-10-24
 

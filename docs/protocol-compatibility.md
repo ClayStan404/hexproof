@@ -242,8 +242,9 @@ every fleet node or connected client has the same application version.
 
 ## 8. Implementation acceptance and continuing verification
 
-Implementation and release qualification use this matrix. Local results are
-recorded in the development handoff; no released v2 peer exists yet:
+Implementation and release qualification use this matrix. Keep exact results
+in the private release evidence. The first released v2 baseline is 3.1.0; later
+v2 releases must verify interoperability with its published artifacts:
 
 | Combination or event | Required result |
 | --- | --- |
