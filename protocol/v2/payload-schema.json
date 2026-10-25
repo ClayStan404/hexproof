@@ -238,6 +238,16 @@
           "required": false
         },
         {
+          "name": "forgeDuelAIAvailable",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "playerHostedDuelAIAvailable",
+          "type": "boolean",
+          "required": false
+        },
+        {
           "name": "v",
           "type": "string",
           "required": true,

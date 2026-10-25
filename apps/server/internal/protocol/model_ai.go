@@ -56,3 +56,12 @@ type AIRejected struct {
 	RequestID string `json:"requestId"`
 	Code      string `json:"code"`
 }
+
+// SupportsAIFormat keeps native Duel Commander separate from model practice.
+func SupportsAIFormat(source, format, deckFormat string) bool {
+	if format == FormatDuel {
+		return source == AISourceForge && deckFormat == DeckFormatDuel
+	}
+	return format == FormatModern && TableModeForDeckFormat(deckFormat) == FormatModern &&
+		ValidDeckFormat(deckFormat) && deckFormat != DeckFormatLimited && deckFormat != DeckFormatCube
+}

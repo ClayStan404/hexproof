@@ -215,3 +215,69 @@ func (r *aiRejectedActionRuntime) SubmitAction(context.Context, string, json.Raw
 	}
 	return forge.ErrRuntime
 }
+
+func TestDuelAIAdmissionAndLegacyWelcome(t *testing.T) {
+	if os.Getenv("HEXPROOF_DUEL_AI_HELPER") == "1" {
+		runForgeProbeHelper(t)
+		return
+	}
+	for _, capable := range []bool{false, true} {
+		t.Run(fmt.Sprint(capable), func(t *testing.T) {
+			caps := `{"capabilities":["forge-ai-v1"]}`
+			if capable {
+				caps = `{"capabilities":["forge-ai-v1","forge-duel-ai-v1"]}`
+			}
+			config := DefaultConfig()
+			config.ForgeRuntime = &forge.ProcessConfig{Command: os.Args[0], Args: []string{"-test.run=^TestDuelAIAdmissionAndLegacyWelcome$"}, Env: []string{"HEXPROOF_DUEL_AI_HELPER=1", "HEXPROOF_FORGE_PROBE_CAPABILITIES=" + caps}}
+			srv, handler := newConfiguredTestServer(t, config)
+			defer handler.Close()
+			host := dial(t, srv)
+			defer host.close()
+			var welcome protocol.SessionWelcome
+			if err := host.hello("Human").DecodePayload(&welcome); err != nil {
+				t.Fatal(err)
+			}
+			if !welcome.ForgeAIAvailable || welcome.ForgeDuelAIAvailable != capable {
+				t.Fatal("incorrect optional capabilities", welcome)
+			}
+			for _, scope := range []struct{ format, deck, source, mode, rules, code string }{
+				{"duel", "duel", "local", "bo1", "forge", protocol.ErrInvalidMessage},
+				{"duel", "duel", "online", "bo1", "forge", protocol.ErrInvalidMessage},
+				{"duel", "duel", "forge", "bo3", "forge", protocol.ErrInvalidMessage},
+				{"edh", "commander", "forge", "bo1", "forge", protocol.ErrInvalidMessage},
+				{"modern", "limited", "forge", "bo1", "forge", protocol.ErrInvalidMessage},
+				{"modern", "cube", "forge", "bo1", "forge", protocol.ErrUnsupportedFormat},
+				{"duel", "duel", "forge", "bo1", "manual", protocol.ErrInvalidMessage},
+			} {
+				difficulty := "normal"
+				if scope.source != "forge" {
+					difficulty = ""
+				}
+				env, _ := protocol.NewEnvelope(protocol.TypeRoomCreate, protocol.RoomCreate{Name: "AI admission", Format: scope.format, DeckFormat: scope.deck, RulesMode: scope.rules, MatchMode: scope.mode, AISource: scope.source, AIDifficulty: difficulty})
+				env.ID = strings.Join([]string{scope.format, scope.deck, scope.source, scope.mode, scope.rules}, "-")
+				host.send(env)
+				var rejected protocol.ErrorPayload
+				if err := host.recvType(protocol.TypeError).DecodePayload(&rejected); err != nil || rejected.Code != scope.code {
+					t.Fatalf("scope %+v: %+v %v", scope, rejected, err)
+				}
+			}
+			env, _ := protocol.NewEnvelope(protocol.TypeRoomCreate, protocol.RoomCreate{Name: "Duel AI", Format: "duel", DeckFormat: "duel", RulesMode: "forge", MatchMode: "bo1", AISource: "forge", AIDifficulty: "normal"})
+			env.ID = "duel-create"
+			host.send(env)
+			if capable {
+				host.recvType(protocol.TypeRoomCreated)
+				var snapshot protocol.RoomSnapshot
+				_ = host.recvType(protocol.TypeRoomSnapshot).DecodePayload(&snapshot)
+				if snapshot.Format != "duel" || snapshot.Seats[1].Controller != protocol.SeatControllerForgeAI {
+					t.Fatal("missing Duel AI seat")
+				}
+			} else {
+				var rejected protocol.ErrorPayload
+				_ = host.recvType(protocol.TypeError).DecodePayload(&rejected)
+				if rejected.Code != protocol.ErrRulesUnavailable {
+					t.Fatal("legacy runtime admitted Duel AI", rejected)
+				}
+			}
+		})
+	}
+}

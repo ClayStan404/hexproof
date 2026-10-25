@@ -5,6 +5,7 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
 	"strings"
 	"sync"
@@ -295,5 +296,32 @@ func TestPlacementAvoidsFailedClientProbe(t *testing.T) {
 	out, err := c.Do(context.Background(), q)
 	if err != nil || out.Ticket.NodeID != "N1" {
 		t.Fatal("failed endpoint won over reachable node", out, err)
+	}
+}
+
+func TestDuelAIPlacementRequiresExplicitNodeCapability(t *testing.T) {
+	for _, playerHosted := range []bool{false, true} {
+		t.Run(fmt.Sprint(playerHosted), func(t *testing.T) {
+			c, _ := New(testConfig())
+			legacy, capable := report(), report()
+			legacy.ForgeAI, capable.ForgeAI, capable.ForgeDuelAI = true, true, true
+			legacy.PlayerHosting, capable.PlayerHosting, capable.PlayerHostedDuelAI = true, true, true
+			g := register(t, c, "N1", legacy)
+			register(t, c, "N2", capable)
+			demand := Demand{Rooms: 1, Forge: 1, ForgeAI: true, ForgeDuelAI: true}
+			if playerHosted {
+				demand = Demand{Rooms: 1, PlayerHosting: true, PlayerHostedDuelAI: true}
+			}
+			q := allocation("N1", g, demand)
+			out, err := c.Do(context.Background(), q)
+			if err != nil || out.Ticket.NodeID != "N2" {
+				t.Fatalf("Duel AI placement: %+v %v", out, err)
+			}
+			capable.ForgeDuelAI, capable.PlayerHostedDuelAI = false, false
+			register(t, c, "N2", capable)
+			if _, err := c.Do(context.Background(), q); err != ErrFull {
+				t.Fatal("legacy nodes accepted Duel AI", err)
+			}
+		})
 	}
 }

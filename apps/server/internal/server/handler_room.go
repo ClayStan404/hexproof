@@ -136,12 +136,13 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 	}
 	if rc.AISource != "" {
 		if !protocol.ValidAIConfiguration(rc.AISource, rc.AIDifficulty) || rc.RulesMode != protocol.RulesModeForge ||
-			rc.Format != protocol.FormatModern || rc.MatchMode != protocol.MatchBO1 || rc.Playtest ||
+			!protocol.SupportsAIFormat(rc.AISource, rc.Format, rc.DeckFormat) || rc.MatchMode != protocol.MatchBO1 || rc.Playtest ||
 			rc.DeckFormat == protocol.DeckFormatCube || rc.DeckFormat == protocol.DeckFormatLimited {
 			h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "AI practice requires a two-player constructed Forge BO1 room")
 			return nil
 		}
-		if rc.AISource == protocol.AISourceForge && rc.HostingMode != "player" && !h.forgeAIAvailable() {
+		if rc.AISource == protocol.AISourceForge && rc.HostingMode != "player" &&
+			(!h.forgeAIAvailable() || (rc.Format == protocol.FormatDuel && !h.forgeDuelAIAvailable())) {
 			h.sendError(sess, env.ID, protocol.ErrRulesUnavailable, "This runtime does not support Forge AI")
 			return nil
 		}

@@ -12,8 +12,12 @@ import (
 )
 
 func newAIPracticeRoom(t *testing.T, loadMode string) *Room {
+	return newAIPracticeFormatRoom(t, loadMode, protocol.FormatModern)
+}
+
+func newAIPracticeFormatRoom(t *testing.T, loadMode, format string) *Room {
 	t.Helper()
-	r, err := NewWithRulesMode("AIGAME", "Practice", protocol.FormatModern, protocol.MatchBO1,
+	r, err := NewWithRulesMode("AIGAME", "Practice", format, protocol.MatchBO1,
 		loadMode, protocol.RulesModeForge, 2, true, false, "Human", "human", testNow)
 	if err != nil {
 		t.Fatal(err)
@@ -25,79 +29,84 @@ func newAIPracticeRoom(t *testing.T, loadMode string) *Room {
 }
 
 func TestAIPracticeGatePrivacyAndRematch(t *testing.T) {
-	for _, mode := range []string{protocol.CardLoadPreload, protocol.CardLoadBackground} {
-		t.Run(mode, func(t *testing.T) {
-			r := newAIPracticeRoom(t, mode)
-			if r.Member("") || r.FindSeatByConnection("") != -1 || r.Seats[1].ConnectionID != "" {
-				t.Fatal("AI acquired transport membership")
-			}
-			if _, err := r.Join("other", "Other", false, ""); err == nil {
-				t.Fatal("human replaced reserved AI seat")
-			}
-			deck := testDeck(protocol.FormatModern)
-			deck.Name, deck.Mainboard[0].Name = "Private AI deck", "Private AI card"
-			if _, err := r.ConfigureAI("human", protocol.RoomAIConfigure{Difficulty: protocol.AIDifficultyEasy, Deck: &deck}); err != nil {
-				t.Fatal(err)
-			}
-			deck.Mainboard[0].Name = "mutated input"
-			if r.Seats[1].Deck.Mainboard[0].Name != "Private AI card" {
-				t.Fatal("deck was not copied")
-			}
-			raw, _ := json.Marshal(r.Snapshot())
-			if strings.Contains(string(raw), "Private AI") || strings.Contains(string(raw), "human") {
-				t.Fatal("snapshot leaked deck or connection")
-			}
-			if r.Snapshot().Seats[1].Controller != protocol.SeatControllerForgeAI || !r.Seats[1].Ready || r.ListEntry().PlayerJoinable {
-				t.Fatal("AI room projection is incomplete")
-			}
-			human := testDeck(protocol.FormatModern)
-			if _, err := r.SelectDeck("human", human); err != nil {
-				t.Fatal(err)
-			}
-			result, err := r.SetReady("human", true)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if mode == protocol.CardLoadPreload {
-				if r.Phase != protocol.RoomPhaseLoading || !r.Seats[1].Loaded {
-					t.Fatal("AI blocked load gate")
+	for _, format := range []string{protocol.FormatModern, protocol.FormatDuel} {
+		for _, mode := range []string{protocol.CardLoadPreload, protocol.CardLoadBackground} {
+			t.Run(format+"/"+mode, func(t *testing.T) {
+				r := newAIPracticeFormatRoom(t, mode, format)
+				if r.Member("") || r.FindSeatByConnection("") != -1 || r.Seats[1].ConnectionID != "" {
+					t.Fatal("AI acquired transport membership")
 				}
-				result, err = r.CompleteLoad("human", r.LoadID)
+				if _, err := r.Join("other", "Other", false, ""); err == nil {
+					t.Fatal("human replaced reserved AI seat")
+				}
+				deck := testDeck(format)
+				deck.Name, deck.Mainboard[0].Name = "Private AI deck", "Private AI card"
+				if format == protocol.FormatDuel {
+					deck.Commander = "Private AI card"
+				}
+				if _, err := r.ConfigureAI("human", protocol.RoomAIConfigure{Difficulty: protocol.AIDifficultyEasy, Deck: &deck}); err != nil {
+					t.Fatal(err)
+				}
+				deck.Mainboard[0].Name = "mutated input"
+				if r.Seats[1].Deck.Mainboard[0].Name != "Private AI card" {
+					t.Fatal("deck was not copied")
+				}
+				raw, _ := json.Marshal(r.Snapshot())
+				if strings.Contains(string(raw), "Private AI") || strings.Contains(string(raw), "human") {
+					t.Fatal("snapshot leaked deck or connection")
+				}
+				if r.Snapshot().Seats[1].Controller != protocol.SeatControllerForgeAI || !r.Seats[1].Ready || r.ListEntry().PlayerJoinable {
+					t.Fatal("AI room projection is incomplete")
+				}
+				human := testDeck(format)
+				if _, err := r.SelectDeck("human", human); err != nil {
+					t.Fatal(err)
+				}
+				result, err := r.SetReady("human", true)
 				if err != nil {
 					t.Fatal(err)
 				}
-			}
-			if !result.StartRulesGame || r.Phase != protocol.RoomPhaseStarted {
-				t.Fatal("single human did not start game")
-			}
-			players, err := r.RulesStartPlayers()
-			if err != nil || players[1].Controller != protocol.SeatControllerForgeAI || players[1].AIDifficulty != protocol.AIDifficultyEasy {
-				t.Fatalf("lost AI controller: %v", err)
-			}
-			if _, err := r.ConfigureAI("human", protocol.RoomAIConfigure{Difficulty: protocol.AIDifficultyHard}); err == nil {
-				t.Fatal("live difficulty changed")
-			}
-			if _, err := r.CompleteRulesGame(1, testNow.Add(time.Minute)); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := r.ReturnToRoom("human"); err != nil {
-				t.Fatal(err)
-			}
-			if !r.Seats[1].Ready || r.Seats[0].Ready || r.Seats[1].Deck == nil {
-				t.Fatal("rematch did not preserve AI deck/readiness")
-			}
-			if _, err := r.ConfigureAI("human", protocol.RoomAIConfigure{Difficulty: protocol.AIDifficultyHard}); err != nil {
-				t.Fatal(err)
-			}
-			if r.Seats[1].Deck == nil || r.AIDifficulty != protocol.AIDifficultyHard {
-				t.Fatal("difficulty-only update discarded AI deck")
-			}
-		})
+				if mode == protocol.CardLoadPreload {
+					if r.Phase != protocol.RoomPhaseLoading || !r.Seats[1].Loaded {
+						t.Fatal("AI blocked load gate")
+					}
+					result, err = r.CompleteLoad("human", r.LoadID)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				if !result.StartRulesGame || r.Phase != protocol.RoomPhaseStarted {
+					t.Fatal("single human did not start game")
+				}
+				players, err := r.RulesStartPlayers()
+				if err != nil || players[1].Controller != protocol.SeatControllerForgeAI || players[1].AIDifficulty != protocol.AIDifficultyEasy {
+					t.Fatalf("lost AI controller: %v", err)
+				}
+				if _, err := r.ConfigureAI("human", protocol.RoomAIConfigure{Difficulty: protocol.AIDifficultyHard}); err == nil {
+					t.Fatal("live difficulty changed")
+				}
+				if _, err := r.CompleteRulesGame(1, testNow.Add(time.Minute)); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := r.ReturnToRoom("human"); err != nil {
+					t.Fatal(err)
+				}
+				if !r.Seats[1].Ready || r.Seats[0].Ready || r.Seats[1].Deck == nil {
+					t.Fatal("rematch did not preserve AI deck/readiness")
+				}
+				if _, err := r.ConfigureAI("human", protocol.RoomAIConfigure{Difficulty: protocol.AIDifficultyHard}); err != nil {
+					t.Fatal(err)
+				}
+				if r.Seats[1].Deck == nil || r.AIDifficulty != protocol.AIDifficultyHard {
+					t.Fatal("difficulty-only update discarded AI deck")
+				}
+			})
+		}
 	}
 }
 
 func TestAIPracticeAuthorizationReconnectAndFinalHumanCleanup(t *testing.T) {
-	r := newAIPracticeRoom(t, protocol.CardLoadBackground)
+	r := newAIPracticeFormatRoom(t, protocol.CardLoadBackground, protocol.FormatDuel)
 	if _, err := r.Join("observer", "Observer", true, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +132,8 @@ func TestAIPracticeRejectsInvalidScopeAndAtomicConfiguration(t *testing.T) {
 	for _, alter := range []func(*Room){
 		func(r *Room) { r.RulesMode = protocol.RulesModeManual },
 		func(r *Room) { r.MatchMode = protocol.MatchBO3 },
-		func(r *Room) { r.Format = protocol.FormatDuel },
+		func(r *Room) { r.Format = protocol.FormatEDH },
+		func(r *Room) { r.Format = protocol.FormatDuel; r.DeckFormat = protocol.DeckFormatCustom },
 		func(r *Room) { r.DeckFormat = protocol.DeckFormatCube },
 		func(r *Room) { r.LimitedDeckLocked = true },
 	} {

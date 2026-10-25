@@ -281,3 +281,27 @@ The implementation spans the Go/Qt handshake, generated wire schema and fixtures
 cluster report/request/ticket paths, client update metadata, release packaging,
 deployment smoke assertions and the living networking/operator documentation.
 It must not be reduced to deleting the server's application-version comparison.
+
+## Optional Duel Commander AI capability
+
+Duel Commander native AI reuses the existing `duel`, `forge`, `bo1`, `forgeAi`,
+commander, configuration and decision payloads. `session.welcome` adds only the
+optional booleans `forgeDuelAIAvailable` and `playerHostedDuelAIAvailable`.
+The latter advertises hub admission for the bundled player runtime. New clients
+treat omission by an older
+hub as false; older clients ignore the extra field and retain their existing
+creation choices. The game protocol remains `hexproof.v2`.
+
+Runtime support is independent: `forge-duel-ai-v1` is required in addition to
+`forge-ai-v1`, including before player-hosted start. Constructed-only runtimes
+still support ordinary AI. Cluster reports, capability summaries and demands
+carry optional `forgeDuelAI` and `playerHostedDuelAI` booleans; upgraded coordinators place Duel AI
+only on supporting nodes. Older peers omit the capability, so it cannot be
+inferred from ordinary AI availability. An older coordinator may ignore the
+new demand; the destination's authoritative admission still rejects an
+unsupported request, without creating an engine session. Mixed clusters should
+upgrade the coordinator before advertising the new placement capability.
+
+Focused regressions cover omitted welcome metadata, constructed-only runtime
+rejection, new-capability admission and mixed-capability node selection. These
+are contract checks, not a qualification of every historical release artifact.

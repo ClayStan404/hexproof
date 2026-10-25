@@ -37,6 +37,7 @@ WebSocket. The decision fixture includes only the model seat's private hand.
 | `session-hello.json` | C -> S | Handshake offer (no top-level `v`) |
 | `session-cluster-hello.json` / `session-route.json` | both | Official-realm routing opt-in, latency hints and private single-use destination ticket; the original command keeps its request ID |
 | `session-welcome.json` | S -> C | Authoritative `v` and opaque resume credential in payload; echoes `id`. No `seq` (session-level, not per-room) |
+| `session-welcome-duel-ai.json` | S -> C | Optional server and player-hosted Duel Commander AI capabilities; older welcomes omit them |
 | `session-resume-hello.json` | C -> S | Reconnect offer with the opaque credential and last observed room sequence |
 | `session-resumed.json` | S -> C | Accepted reconnect with role and seat metadata; fresh room/game projections follow |
 | `session-ping.json` / `session-pong.json` | both | Correlated transport heartbeat envelopes |

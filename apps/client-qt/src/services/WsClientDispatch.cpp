@@ -304,6 +304,8 @@ void WsClient::handleWelcome(const Envelope &env)
     m_peerTransportAvailable = env.payload.value(u"peerTransportAvailable"_s).toBool();
     m_playerHostingAvailable = env.payload.value(u"playerHostingAvailable"_s).toBool();
     m_forgeAIAvailable = env.payload.value(u"forgeAIAvailable"_s).toBool();
+    m_forgeDuelAIAvailable = env.payload.value(u"forgeDuelAIAvailable"_s).toBool();
+    m_playerHostedDuelAIAvailable = env.payload.value(u"playerHostedDuelAIAvailable"_s).toBool();
     m_aiModelsAvailable = env.payload.value(u"aiModelsAvailable"_s).toBool();
     setForgeRulesAvailable(env.payload.value(u"forgeRulesAvailable"_s).toBool());
     emit capabilitiesChanged();

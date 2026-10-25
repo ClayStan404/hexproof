@@ -64,10 +64,22 @@ defaults, decision ownership, and pause/restart behavior.
 
 Forge rooms may be created with an optional `aiDifficulty` of `easy`, `normal`,
 or `hard`. This selects one human host and one room-owned AI opponent in
-ordinary constructed 1v1 BO1; it is unavailable for manual Playtest, Commander,
-Limited/Cube pairings, and tournaments. An AI room keeps two engine players.
-AI admission requires explicit support from the selected runtime. AI games use
-dedicated JVMs even if human rooms use shared workers.
+ordinary constructed or Duel Commander 1v1 BO1; it is unavailable for manual
+Playtest, Commander/EDH, Limited/Cube pairings, BO3 and tournaments. An AI room
+keeps two engine players. Duel Commander uses 20 life and each player's own
+one or two designated commanders, command zone, legal native casting and
+independent per-commander tax. Both deck pickers retain the existing Duel
+Commander 100-card, singleton, color-identity and catalog legality policy.
+AI admission requires explicit support from the selected runtime. Ordinary AI
+uses `forge-ai-v1`; Duel AI additionally requires `forge-duel-ai-v1`. The optional
+welcome flags `forgeDuelAIAvailable` (server runtime) and
+`playerHostedDuelAIAvailable` (hub admission for the bundled player runtime)
+default to false when absent. Cluster
+placement carries the separate requirement, and both server and player-hosted
+processes recheck it before start. Player hosting uses the bundled helper and
+its exact current overlay identity. Older runtimes keep constructed AI support
+but reject Duel AI explicitly. AI games use dedicated JVMs even if human rooms
+use shared workers.
 
 The host chooses the AI deck independently in the waiting room using
 `room.ai.configure`, which also accepts a difficulty change. The same deck
@@ -96,8 +108,8 @@ an otherwise abandoned room. The human reconnect window, concession, restart,
 post-match return, and resource cleanup remain supported. Difficulty and deck
 changes take effect on the next game after returning to the waiting room.
 
-Local and online model opponents use the same practice scope and independent
-deck selection. Their `modelAi` seat receives the native human-compatible legal
+Local and online model opponents retain ordinary constructed BO1 practice and
+independent deck selection; they are not offered for Duel Commander. Their `modelAi` seat receives the native human-compatible legal
 decision queue rather than a native AI controller. The desktop runs inference
 through a separate, revocable AI-seat connection with only that seat's permitted
 view. See [model opponents](model-opponents.md) for configuration, information

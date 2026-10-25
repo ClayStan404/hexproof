@@ -15,7 +15,7 @@ func (r *Room) AddForgeAI(difficulty string) error {
 // AddAI keeps provider identity separate from the native decision controller.
 func (r *Room) AddAI(source, difficulty string) error {
 	if !protocol.ValidAIConfiguration(source, difficulty) || r.RulesMode != protocol.RulesModeForge ||
-		r.Format != protocol.FormatModern || r.MatchMode != protocol.MatchBO1 || r.MaxSeats != 2 ||
+		!protocol.SupportsAIFormat(source, r.Format, r.DeckFormat) || r.MatchMode != protocol.MatchBO1 || r.MaxSeats != 2 ||
 		r.LimitedDeckLocked || r.DeckFormat == protocol.DeckFormatLimited ||
 		r.DeckFormat == protocol.DeckFormatCube || r.Phase != protocol.RoomPhaseWaiting || r.Seats[1].Occupied {
 		return newError(protocol.ErrInvalidMessage)

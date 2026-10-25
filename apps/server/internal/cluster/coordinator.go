@@ -31,32 +31,36 @@ const NodeLifetime = 10 * time.Second
 const TicketLifetime = 30 * time.Second
 
 type Report struct {
-	Protocol       string                                `json:"protocol"`
-	Version        string                                `json:"version"`
-	Rooms          []protocol.RoomListEntry              `json:"rooms"`
-	Events         []protocol.TournamentListEntry        `json:"events"`
-	Resources      map[string][]protocol.AccountResource `json:"resources"`
-	RoomCount      int                                   `json:"roomCount"`
-	MaxRooms       int                                   `json:"maxRooms"`
-	EventCount     int                                   `json:"eventCount"`
-	MaxEvents      int                                   `json:"maxEvents"`
-	Connections    int64                                 `json:"connections"`
-	MaxConnections int64                                 `json:"maxConnections"`
-	ForgeDemand    int                                   `json:"forgeDemand"`
-	MaxForge       int                                   `json:"maxForge"`
-	Forge          bool                                  `json:"forge"`
-	ForgeAI        bool                                  `json:"forgeAI"`
-	PlayerHosting  bool                                  `json:"playerHosting"`
-	MemoryMB       int64                                 `json:"memoryMB"`
-	Load           float64                               `json:"load"`
+	Protocol           string                                `json:"protocol"`
+	Version            string                                `json:"version"`
+	Rooms              []protocol.RoomListEntry              `json:"rooms"`
+	Events             []protocol.TournamentListEntry        `json:"events"`
+	Resources          map[string][]protocol.AccountResource `json:"resources"`
+	RoomCount          int                                   `json:"roomCount"`
+	MaxRooms           int                                   `json:"maxRooms"`
+	EventCount         int                                   `json:"eventCount"`
+	MaxEvents          int                                   `json:"maxEvents"`
+	Connections        int64                                 `json:"connections"`
+	MaxConnections     int64                                 `json:"maxConnections"`
+	ForgeDemand        int                                   `json:"forgeDemand"`
+	MaxForge           int                                   `json:"maxForge"`
+	Forge              bool                                  `json:"forge"`
+	ForgeAI            bool                                  `json:"forgeAI"`
+	ForgeDuelAI        bool                                  `json:"forgeDuelAI,omitempty"`
+	PlayerHostedDuelAI bool                                  `json:"playerHostedDuelAI,omitempty"`
+	PlayerHosting      bool                                  `json:"playerHosting"`
+	MemoryMB           int64                                 `json:"memoryMB"`
+	Load               float64                               `json:"load"`
 }
 
 type Demand struct {
-	Rooms         int  `json:"rooms"`
-	Events        int  `json:"events"`
-	Forge         int  `json:"forge"`
-	ForgeAI       bool `json:"forgeAI"`
-	PlayerHosting bool `json:"playerHosting"`
+	Rooms              int  `json:"rooms"`
+	Events             int  `json:"events"`
+	Forge              int  `json:"forge"`
+	ForgeAI            bool `json:"forgeAI"`
+	ForgeDuelAI        bool `json:"forgeDuelAI,omitempty"`
+	PlayerHostedDuelAI bool `json:"playerHostedDuelAI,omitempty"`
+	PlayerHosting      bool `json:"playerHosting"`
 }
 
 type Ticket struct {
@@ -92,15 +96,17 @@ type Request struct {
 }
 
 type Result struct {
-	RPCVersion    string                         `json:"rpcVersion"`
-	Generation    string                         `json:"generation,omitempty"`
-	Ticket        *Ticket                        `json:"ticket,omitempty"`
-	Rooms         []protocol.RoomListEntry       `json:"rooms"`
-	Events        []protocol.TournamentListEntry `json:"events"`
-	Resources     []protocol.AccountResource     `json:"resources"`
-	Forge         bool                           `json:"forge,omitempty"`
-	ForgeAI       bool                           `json:"forgeAI,omitempty"`
-	PlayerHosting bool                           `json:"playerHosting,omitempty"`
+	RPCVersion         string                         `json:"rpcVersion"`
+	Generation         string                         `json:"generation,omitempty"`
+	Ticket             *Ticket                        `json:"ticket,omitempty"`
+	Rooms              []protocol.RoomListEntry       `json:"rooms"`
+	Events             []protocol.TournamentListEntry `json:"events"`
+	Resources          []protocol.AccountResource     `json:"resources"`
+	Forge              bool                           `json:"forge,omitempty"`
+	ForgeAI            bool                           `json:"forgeAI,omitempty"`
+	ForgeDuelAI        bool                           `json:"forgeDuelAI,omitempty"`
+	PlayerHostedDuelAI bool                           `json:"playerHostedDuelAI,omitempty"`
+	PlayerHosting      bool                           `json:"playerHosting,omitempty"`
 }
 
 type Service interface {
@@ -172,7 +178,7 @@ func (c *Coordinator) Do(ctx context.Context, q Request) (out Result, err error)
 		// Delayed HTTP retries cannot replace a newer capacity snapshot or
 		// refresh the health lease. Sequence ownership resets on registration.
 		if q.ReportSequence <= s.reportSequence {
-			out.Forge, out.ForgeAI, out.PlayerHosting = c.capabilities(s.report.Protocol, now)
+			out.Forge, out.ForgeAI, out.ForgeDuelAI, out.PlayerHostedDuelAI, out.PlayerHosting = c.capabilities(s.report.Protocol, now)
 			return out, nil
 		}
 		// A report is a full snapshot. Decode into fresh storage so omitted
@@ -191,7 +197,7 @@ func (c *Coordinator) Do(ctx context.Context, q Request) (out Result, err error)
 				delete(c.tickets, token)
 			}
 		}
-		out.Forge, out.ForgeAI, out.PlayerHosting = c.capabilities(s.report.Protocol, now)
+		out.Forge, out.ForgeAI, out.ForgeDuelAI, out.PlayerHostedDuelAI, out.PlayerHosting = c.capabilities(s.report.Protocol, now)
 	case "allocate":
 		if s.reportSequence == 0 || now.Sub(s.seen) >= NodeLifetime {
 			return out, ErrUnavailable
@@ -262,7 +268,7 @@ func (c *Coordinator) selectNode(q Request, gameProtocol string, now time.Time) 
 			}
 		}
 		d := q.Demand
-		if (id != q.NodeID && connections >= r.MaxConnections) || (d.Rooms > 0 && rooms+d.Rooms > r.MaxRooms) || (d.Events > 0 && events+d.Events > r.MaxEvents) || (d.Forge > 0 && (!r.Forge || forge+d.Forge > r.MaxForge || (r.MemoryMB > 0 && r.MemoryMB < int64(d.Forge)*384))) || (d.ForgeAI && !r.ForgeAI) || (d.PlayerHosting && !r.PlayerHosting) {
+		if (id != q.NodeID && connections >= r.MaxConnections) || (d.Rooms > 0 && rooms+d.Rooms > r.MaxRooms) || (d.Events > 0 && events+d.Events > r.MaxEvents) || (d.Forge > 0 && (!r.Forge || forge+d.Forge > r.MaxForge || (r.MemoryMB > 0 && r.MemoryMB < int64(d.Forge)*384))) || (d.ForgeAI && !r.ForgeAI) || (d.ForgeDuelAI && !r.ForgeDuelAI) || (d.PlayerHostedDuelAI && !r.PlayerHostedDuelAI) || (d.PlayerHosting && !r.PlayerHosting) {
 			continue
 		}
 		load := float64(rooms+events*2+forge*4+1)/float64(n.Weight) + r.Load*2
@@ -291,6 +297,8 @@ func (c *Coordinator) view(gameProtocol, accountID string, now time.Time) Result
 		}
 		out.Forge = out.Forge || s.report.Forge
 		out.ForgeAI = out.ForgeAI || s.report.ForgeAI
+		out.ForgeDuelAI = out.ForgeDuelAI || s.report.ForgeDuelAI
+		out.PlayerHostedDuelAI = out.PlayerHostedDuelAI || s.report.PlayerHostedDuelAI
 		out.PlayerHosting = out.PlayerHosting || s.report.PlayerHosting
 		for _, r := range s.report.Rooms {
 			r.RoomID = GlobalCode(id, r.RoomID)
@@ -318,10 +326,10 @@ func (c *Coordinator) view(gameProtocol, accountID string, now time.Time) Result
 	return out
 }
 
-func (c *Coordinator) capabilities(gameProtocol string, now time.Time) (forge, ai, hosting bool) {
+func (c *Coordinator) capabilities(gameProtocol string, now time.Time) (forge, ai, duelAI, playerDuelAI, hosting bool) {
 	for _, s := range c.states {
 		if now.Sub(s.seen) < NodeLifetime && s.report.Protocol == gameProtocol {
-			forge, ai, hosting = forge || s.report.Forge, ai || s.report.ForgeAI, hosting || s.report.PlayerHosting
+			forge, ai, duelAI, playerDuelAI, hosting = forge || s.report.Forge, ai || s.report.ForgeAI, duelAI || s.report.ForgeDuelAI, playerDuelAI || s.report.PlayerHostedDuelAI, hosting || s.report.PlayerHosting
 		}
 	}
 	return

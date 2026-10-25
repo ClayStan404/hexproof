@@ -22,7 +22,7 @@ func TestHostedAIStartHasNoMigrationCheckpoint(t *testing.T) {
 
 func TestHostedAIRejectsUnsupportedControllerLayouts(t *testing.T) {
 	for _, request := range []forge.StartGameRequest{
-		{GameID: "ai", Variant: "Commander", Players: []forge.PlayerConfig{{}, {AI: true, AIDifficulty: "normal"}}},
+		{GameID: "ai", Variant: "Commander", StartingLife: 40, Players: []forge.PlayerConfig{{}, {AI: true, AIDifficulty: "normal"}}},
 		{GameID: "ai", Variant: "Constructed", Players: []forge.PlayerConfig{{AI: true, AIDifficulty: "normal"}, {}}},
 		{GameID: "ai", Variant: "Constructed", Players: []forge.PlayerConfig{{AI: true, AIDifficulty: "normal"}, {AI: true, AIDifficulty: "normal"}}},
 	} {

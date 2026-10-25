@@ -236,7 +236,7 @@ func (h *Handler) handleHello(ctx context.Context, sess *Session, env protocol.E
 	if hello.AccountSession == "" && !h.acceptClusterHello(ctx, sess, hello, "", env.ID) {
 		return nil
 	}
-	forgeAvailable, aiAvailable, hostingAvailable := h.welcomeCapabilities(sess.clusterEnabled)
+	forgeAvailable, aiAvailable, duelAIAvailable, playerDuelAIAvailable, hostingAvailable := h.welcomeCapabilities(sess.clusterEnabled)
 	clusterNode := ""
 	if sess.clusterEnabled {
 		clusterNode = h.clusterNode()
@@ -261,20 +261,22 @@ func (h *Handler) handleHello(ctx context.Context, sess *Session, env protocol.E
 						V:            protocol.ProtocolVersion,
 						ClusterNode:  clusterNode,
 						AccountRealm: h.accountRealm(), AccountID: sess.Account().ID, AccountName: displayName,
-						ConnectionID:           sess.ConnectionID,
-						ServerVersion:          buildinfo.Version,
-						ResumeToken:            sess.ResumeToken,
-						Resumed:                true,
-						RoomID:                 hold.room.ID,
-						Role:                   info.Role,
-						Seat:                   info.Seat,
-						Host:                   info.Host,
-						ForgeRulesAvailable:    forgeAvailable,
-						ForgeAIAvailable:       aiAvailable,
-						AIModelsAvailable:      forgeAvailable || hostingAvailable,
-						PlayerHostingAvailable: hostingAvailable,
-						PeerTransportAvailable: hostingAvailable,
-						HostMigrationAvailable: hostingAvailable,
+						ConnectionID:                sess.ConnectionID,
+						ServerVersion:               buildinfo.Version,
+						ResumeToken:                 sess.ResumeToken,
+						Resumed:                     true,
+						RoomID:                      hold.room.ID,
+						Role:                        info.Role,
+						Seat:                        info.Seat,
+						Host:                        info.Host,
+						ForgeRulesAvailable:         forgeAvailable,
+						ForgeAIAvailable:            aiAvailable,
+						ForgeDuelAIAvailable:        duelAIAvailable,
+						PlayerHostedDuelAIAvailable: playerDuelAIAvailable,
+						AIModelsAvailable:           forgeAvailable || hostingAvailable,
+						PlayerHostingAvailable:      hostingAvailable,
+						PeerTransportAvailable:      hostingAvailable,
+						HostMigrationAvailable:      hostingAvailable,
 					}
 					welcomeEnvelope, _ := protocol.NewEnvelope(
 						protocol.TypeSessionWelcome, welcome)
@@ -307,15 +309,17 @@ func (h *Handler) handleHello(ctx context.Context, sess *Session, env protocol.E
 		V:            protocol.ProtocolVersion,
 		ClusterNode:  clusterNode,
 		AccountRealm: h.accountRealm(), AccountID: sess.Account().ID, AccountName: displayName,
-		ConnectionID:           sess.ConnectionID,
-		ServerVersion:          buildinfo.Version,
-		ResumeToken:            sess.ResumeToken,
-		ForgeRulesAvailable:    forgeAvailable,
-		ForgeAIAvailable:       aiAvailable,
-		AIModelsAvailable:      forgeAvailable || hostingAvailable,
-		PlayerHostingAvailable: hostingAvailable,
-		PeerTransportAvailable: hostingAvailable,
-		HostMigrationAvailable: hostingAvailable,
+		ConnectionID:                sess.ConnectionID,
+		ServerVersion:               buildinfo.Version,
+		ResumeToken:                 sess.ResumeToken,
+		ForgeRulesAvailable:         forgeAvailable,
+		ForgeAIAvailable:            aiAvailable,
+		ForgeDuelAIAvailable:        duelAIAvailable,
+		PlayerHostedDuelAIAvailable: playerDuelAIAvailable,
+		AIModelsAvailable:           forgeAvailable || hostingAvailable,
+		PlayerHostingAvailable:      hostingAvailable,
+		PeerTransportAvailable:      hostingAvailable,
+		HostMigrationAvailable:      hostingAvailable,
 	}
 	wEnv, _ := protocol.NewEnvelope(protocol.TypeSessionWelcome, welcome)
 	wEnv.ID = env.ID

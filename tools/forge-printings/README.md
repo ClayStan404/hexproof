@@ -92,14 +92,13 @@ a resolver/generator change. Rebuilding the native runtime also checks every
 exclusion against the actual registration lookup and reports newly supported
 entries that need a baseline refresh.
 
-Adapter 29 added snapshot batching and prompt waiting to `NativeSession` without
-changing its registration or printing lookup. Its provenance includes the exact
-reviewed 32-line addition and the previous census source hash. Static checks
-still require the current whole-file hash and prove that removing only that
-hash-bound addition restores every byte of the census source. Changes to the
-addition, imports, registration, lookup or any other source bytes fail this
-proof. This preserves the September 20 census without claiming it was rerun;
-the next full generation naturally replaces the proof with fresh provenance.
+Session lifecycle and AI admission changes do not alter printing registration.
+The provenance retains the original census commit and SHA-256 of the exact
+registration/lookup region, from `resolveDecks` through the next `handle`
+method. Static checks require both the current whole-file source hash and that
+unchanged region hash. Updating the current source hash does not claim a new
+census; any change inside the protected region requires one. The next full
+generation naturally replaces the preservation proof with fresh provenance.
 
 `NativePrintingAliasRegressionTest` tests every shipped alias and actual startup
 of the reported decks. Existing rejection tests continue to reject mismatched

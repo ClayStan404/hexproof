@@ -81,6 +81,9 @@ class WsClient : public QObject
     Q_PROPERTY(QString releaseDownloadUrl READ releaseDownloadUrl CONSTANT)
     Q_PROPERTY(bool forgeRulesAvailable READ forgeRulesAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool forgeAIAvailable READ forgeAIAvailable NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool forgeDuelAIAvailable READ forgeDuelAIAvailable NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool playerHostedDuelAIAvailable READ playerHostedDuelAIAvailable NOTIFY
+                   capabilitiesChanged)
     Q_PROPERTY(bool aiModelsAvailable READ aiModelsAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(ModelOpponentService *modelOpponent READ modelOpponent CONSTANT)
     Q_PROPERTY(bool playerHostingAvailable READ playerHostingAvailable NOTIFY capabilitiesChanged)
@@ -348,6 +351,14 @@ class WsClient : public QObject
         return m_serverProtocol;
     }
     QString releaseDownloadUrl() const;
+    bool forgeDuelAIAvailable() const
+    {
+        return m_forgeDuelAIAvailable;
+    }
+    bool playerHostedDuelAIAvailable() const
+    {
+        return m_playerHostedDuelAIAvailable;
+    }
     bool forgeAIAvailable() const
     {
         return m_forgeAIAvailable;
@@ -749,6 +760,8 @@ class WsClient : public QObject
     bool m_protocolMismatch = false;
     bool m_forgeRulesAvailable = false;
     bool m_forgeAIAvailable = false;
+    bool m_forgeDuelAIAvailable = false;
+    bool m_playerHostedDuelAIAvailable = false;
     bool m_aiModelsAvailable = false;
     bool m_playerHostingAvailable = false;
     bool m_playerHostingConsent = false;

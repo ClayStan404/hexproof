@@ -102,6 +102,7 @@ type Handler struct {
 	modelMu                 sync.Mutex
 	modelWorkers            map[string]*modelWorker
 	forgeNativeAI           bool
+	forgeNativeDuelAI       bool
 	forgePool               *forge.Pool
 	forgeMu                 sync.Mutex
 	forgeClients            map[forge.Runtime]struct{}
@@ -157,7 +158,7 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		}
 	}()
 	var forgeRuntime *forge.ProcessConfig
-	var forgeNativeAI bool
+	var forgeNativeAI, forgeNativeDuelAI bool
 	var forgePool *forge.Pool
 	if config.ForgeRuntime != nil {
 		var probe *forge.Client
@@ -177,6 +178,7 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 			return nil, fmt.Errorf("configure Forge runtime: %w", probeErr)
 		}
 		forgeNativeAI = probe.SupportsAI()
+		forgeNativeDuelAI = probe.SupportsDuelAI()
 		if closeErr := probe.Close(); closeErr != nil {
 			if forgePool != nil {
 				_ = forgePool.Close()
@@ -219,6 +221,7 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		playerPeers:             make(map[string]*playerPeerState),
 		forgeRuntime:            forgeRuntime,
 		forgeNativeAI:           forgeNativeAI,
+		forgeNativeDuelAI:       forgeNativeDuelAI,
 		modelWorkers:            make(map[string]*modelWorker),
 		forgePool:               forgePool,
 		forgeClients:            make(map[forge.Runtime]struct{}),
@@ -243,4 +246,10 @@ func (h *Handler) forgeAIAvailable() bool {
 	h.forgeMu.Lock()
 	defer h.forgeMu.Unlock()
 	return !h.forgeClosed && h.forgeRuntime != nil && h.forgeNativeAI && !time.Now().Before(h.forgeRetryAfter)
+}
+
+func (h *Handler) forgeDuelAIAvailable() bool {
+	h.forgeMu.Lock()
+	defer h.forgeMu.Unlock()
+	return !h.forgeClosed && h.forgeRuntime != nil && h.forgeNativeAI && h.forgeNativeDuelAI && !time.Now().Before(h.forgeRetryAfter)
 }

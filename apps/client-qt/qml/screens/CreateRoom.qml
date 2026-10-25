@@ -91,16 +91,22 @@ Page {
         return modelService !== null && modelService.configured(aiSource)
     }
     readonly property bool aiOpponentAvailable: !playtestMode && rulesMode === "forge"
-        && roomFormat === "modern" && !isCubeFormat
-        && ["modern", "standard", "pioneer", "legacy", "vintage", "pauper", "custom"].includes(deckFormat)
-    readonly property bool aiBackendAvailable: aiSource === "forge"
-        ? (hostingMode === "player" ? hub.playerHostingAvailable === true : hub.forgeAIAvailable === true)
-        : hub.aiModelsAvailable === true
+        && !isCubeFormat
+        && ((roomFormat === "duel" && deckFormat === "duel")
+            || (roomFormat === "modern"
+                && ["modern", "standard", "pioneer", "legacy", "vintage", "pauper", "custom"].includes(deckFormat)))
+    readonly property bool aiBackendAvailable: aiSource !== "forge"
+        ? hub.aiModelsAvailable === true
+        : hostingMode === "player"
+          ? hub.playerHostingAvailable === true
+            && (roomFormat !== "duel" || hub.playerHostedDuelAIAvailable === true)
+          : roomFormat === "duel" ? hub.forgeDuelAIAvailable === true : hub.forgeAIAvailable === true
     readonly property bool aiPractice: aiOpponentAvailable && aiOpponent
 
     onForgeFormatAvailableChanged: if (!forgeFormatAvailable) rulesMode = "manual"
     onRulesModeChanged: if (!forgeFormatAvailable && rulesMode !== "manual") rulesMode = "manual"
     onAiOpponentAvailableChanged: if (!aiOpponentAvailable) aiOpponent = false
+    onRoomFormatChanged: if (roomFormat === "duel") aiSource = "forge"
     onAiPracticeChanged: if (aiPractice) matchMode = "bo1"
     Connections {
         target: root.modelService
@@ -455,8 +461,10 @@ Page {
                                 SegmentedControl {
                                     objectName: "roomOpponentControl"
                                     Layout.fillWidth: true
-                                    options: [qsTr("Another player"), qsTr("Forge AI"),
-                                              qsTr("Local model"), qsTr("Online model")]
+                                    options: root.roomFormat === "duel"
+                                             ? [qsTr("Another player"), qsTr("Forge AI")]
+                                             : [qsTr("Another player"), qsTr("Forge AI"),
+                                                qsTr("Local model"), qsTr("Online model")]
                                     currentIndex: root.aiOpponent ? ["forge", "local", "online"].indexOf(root.aiSource) + 1 : 0
                                     onActivated: index => {
                                         root.aiSource = ["forge", "local", "online"][Math.max(0, index - 1)]

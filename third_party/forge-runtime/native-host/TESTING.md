@@ -160,6 +160,21 @@ with the trusted catalog, matching native runtime, a fresh output directory and
 Static checks bind the census to its generator and lookup sources; the native
 build rechecks all aliases and exclusions without requiring the catalog SQLite.
 
+Duel Commander coverage extends native AI admission to two players at 20 life.
+`TestLiveForgeAIPractice/duel_single` and `/duel_partners_player` use separate
+100-card decks over the public WebSocket flow, observe autonomous commander
+casts and natural wins, and retain spectator privacy, reconnect, rematch,
+concession and final-human cleanup checks. The latter crosses the player-host
+relay; the former verifies dedicated AI execution with a shared-worker setting.
+`NativeAiRegressionTest` additionally uses a controlled two-commander board at
+each difficulty to exercise actual command-zone payment/resolution, an
+insufficient-mana tax prediction, a paid recast and independent partner counts.
+This mechanism fixture is distinct from the natural full-game checks.
+`DuelForgeAI.qml` in the native UI runner imports catalog-eligible single and
+partner decks through production controls, creates the AI room, selects each
+deck independently and observes actual commander casts before leaving. Its
+`baseline` variant records the older client's unavailable AI choice.
+
 `NativeAiRegressionTest` checks all official Default profile values against
 the hard preset, rejects missing/unknown difficulties and production two-AI
 setups, and runs Forge's actual two-Lightning-Bolt planner with 100 controlled

@@ -30,7 +30,7 @@ final class NativeSharedHost {
         String command = request.get("command").getAsString();
         if (closing) throw new IllegalStateException("Worker is closing");
         if (command.equals("reset")) return "{\"sharedVersion\":1,\"capacity\":" + capacity
-                + ",\"capabilities\":[\"forge-ai-v1\",\"forge-crash-diagnostics-v1\"],\"adapterRevision\":" + NativeHost.ADAPTER_REVISION + "}";
+                + ",\"capabilities\":[\"forge-ai-v1\",\"forge-duel-ai-v1\",\"forge-crash-diagnostics-v1\"],\"adapterRevision\":" + NativeHost.ADAPTER_REVISION + "}";
         if (command.equals("startGame")) {
             NativeSession session;
             synchronized (sessions) {

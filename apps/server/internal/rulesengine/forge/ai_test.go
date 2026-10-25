@@ -58,3 +58,34 @@ func TestNativeFatalActionRetiresRuntimeWithoutDisclosingDetails(t *testing.T) {
 		t.Fatalf("fatal action remained usable or exposed diagnostics: %v", err)
 	}
 }
+
+func TestDuelAIRequiresSeparateCapabilityAndTwentyLife(t *testing.T) {
+	request := validStartRequest()
+	request.Variant, request.StartingLife = "Commander", 20
+	request.Players[1].AI, request.Players[1].AIDifficulty = true, "normal"
+	old := newHelperClient(t, "ai-capable")
+	defer old.Close()
+	if old.SupportsDuelAI() {
+		t.Fatal("constructed-only runtime advertised Duel AI")
+	}
+	if _, err := old.StartGame(t.Context(), request); err == nil || !old.Healthy() {
+		t.Fatal("legacy Duel AI admission did not reject cleanly")
+	}
+	capable := newHelperClient(t, "duel-ai-capable")
+	defer capable.Close()
+	if !capable.SupportsDuelAI() {
+		t.Fatal("Duel AI capability missing")
+	}
+	if _, err := capable.StartGame(t.Context(), request); err != nil {
+		t.Fatal(err)
+	}
+	request.StartingLife = 40
+	if err := request.validate(); err == nil {
+		t.Fatal("EDH AI accepted")
+	}
+	request.StartingLife = 20
+	request.Players[0].AI, request.Players[0].AIDifficulty = true, "hard"
+	if err := request.validate(); err == nil {
+		t.Fatal("two AI seats accepted")
+	}
+}

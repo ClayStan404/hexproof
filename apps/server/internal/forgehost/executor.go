@@ -111,7 +111,7 @@ func (e *Executor) execute(parent context.Context, req Request, response Respons
 		e.peerContext = nil
 		if runtime != nil || req.Start == nil || len(req.Start.Players) != 2 ||
 			(req.Start.Variant != "Constructed" && req.Start.Variant != "Commander") ||
-			(req.Start.HasAI() && (req.Start.Variant != "Constructed" || req.Start.Players[0].AI || !req.Start.Players[1].AI)) {
+			(req.Start.HasAI() && ((req.Start.Variant != "Constructed" && (req.Start.Variant != "Commander" || req.Start.StartingLife != 20)) || req.Start.Players[0].AI || !req.Start.Players[1].AI)) {
 			response.Error = "invalid"
 			return response
 		}

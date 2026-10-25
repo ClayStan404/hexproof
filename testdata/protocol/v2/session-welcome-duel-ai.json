@@ -1,0 +1,15 @@
+{
+  "type": "session.welcome",
+  "id": "req-1",
+  "payload": {
+    "v": "hexproof.v2",
+    "connectionId": "conn-7F3A",
+    "serverVersion": "0.1.0",
+    "resumeToken": "fixture-resume-token",
+    "forgeRulesAvailable": true,
+    "forgeAIAvailable": true,
+    "forgeDuelAIAvailable": true,
+    "playerHostedDuelAIAvailable": true,
+    "aiModelsAvailable": true
+  }
+}

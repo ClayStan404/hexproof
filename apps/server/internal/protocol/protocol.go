@@ -42,25 +42,27 @@ type SessionHello struct {
 // membership metadata for a restarted client to interpret the fresh room and
 // role-specific game snapshots that immediately follow.
 type SessionWelcome struct {
-	ClusterNode            string `json:"clusterNode,omitempty"`
-	V                      string `json:"v"`
-	ConnectionID           string `json:"connectionId"`
-	ServerVersion          string `json:"serverVersion"`
-	ResumeToken            string `json:"resumeToken"`
-	Resumed                bool   `json:"resumed,omitempty"`
-	RoomID                 string `json:"roomId,omitempty"`
-	Role                   string `json:"role,omitempty"`
-	Seat                   *int   `json:"seat,omitempty"`
-	Host                   bool   `json:"host,omitempty"`
-	AIModelsAvailable      bool   `json:"aiModelsAvailable"`
-	ForgeAIAvailable       bool   `json:"forgeAIAvailable,omitempty"`
-	ForgeRulesAvailable    bool   `json:"forgeRulesAvailable"`
-	PlayerHostingAvailable bool   `json:"playerHostingAvailable,omitempty"`
-	PeerTransportAvailable bool   `json:"peerTransportAvailable,omitempty"`
-	HostMigrationAvailable bool   `json:"hostMigrationAvailable,omitempty"`
-	AccountRealm           string `json:"accountRealm,omitempty"`
-	AccountID              string `json:"accountId,omitempty"`
-	AccountName            string `json:"accountName,omitempty"`
+	ClusterNode                 string `json:"clusterNode,omitempty"`
+	V                           string `json:"v"`
+	ConnectionID                string `json:"connectionId"`
+	ServerVersion               string `json:"serverVersion"`
+	ResumeToken                 string `json:"resumeToken"`
+	Resumed                     bool   `json:"resumed,omitempty"`
+	RoomID                      string `json:"roomId,omitempty"`
+	Role                        string `json:"role,omitempty"`
+	Seat                        *int   `json:"seat,omitempty"`
+	Host                        bool   `json:"host,omitempty"`
+	AIModelsAvailable           bool   `json:"aiModelsAvailable"`
+	ForgeAIAvailable            bool   `json:"forgeAIAvailable,omitempty"`
+	ForgeDuelAIAvailable        bool   `json:"forgeDuelAIAvailable,omitempty"`
+	PlayerHostedDuelAIAvailable bool   `json:"playerHostedDuelAIAvailable,omitempty"`
+	ForgeRulesAvailable         bool   `json:"forgeRulesAvailable"`
+	PlayerHostingAvailable      bool   `json:"playerHostingAvailable,omitempty"`
+	PeerTransportAvailable      bool   `json:"peerTransportAvailable,omitempty"`
+	HostMigrationAvailable      bool   `json:"hostMigrationAvailable,omitempty"`
+	AccountRealm                string `json:"accountRealm,omitempty"`
+	AccountID                   string `json:"accountId,omitempty"`
+	AccountName                 string `json:"accountName,omitempty"`
 }
 
 // ErrorPayload is the payload of an `error` message.

@@ -27,6 +27,9 @@ func TestLiveForgeAIPractice(t *testing.T) {
 		t.Fatal("HEXPROOF_REAL_FORGE_ROOT is required")
 	}
 	engine := forge.JavaProcessConfig(os.Getenv("HEXPROOF_FORGE_JAVA"), filepath.Join(root, "forge-harness.jar"), filepath.Join(root, "forge-gui"))
+	if overlay := os.Getenv("HEXPROOF_REAL_FORGE_OVERLAY"); overlay != "" {
+		engine = forge.JavaOverlayProcessConfig(os.Getenv("HEXPROOF_FORGE_JAVA"), filepath.Join(root, "forge-harness.jar"), filepath.Join(root, "forge-gui"), overlay)
+	}
 	engine.Args = append([]string{"-Xmx768m", "-XX:+UseSerialGC", "-XX:ActiveProcessorCount=2", "-Djava.awt.headless=true"}, engine.Args...)
 	for _, test := range []struct {
 		name, difficulty, hosting string
@@ -38,6 +41,8 @@ func TestLiveForgeAIPractice(t *testing.T) {
 		{"hard", "hard", "server", 1, false},
 		{"player_hosted", "normal", "player", 1, false},
 		{"deck_advisory", "normal", "server", 1, true},
+		{"duel_single", "easy", "server", 2, false},
+		{"duel_partners_player", "hard", "player", 1, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := DefaultConfig()
@@ -61,7 +66,12 @@ func TestLiveForgeAIPractice(t *testing.T) {
 			if test.hosting == "server" && !human.welcome.ForgeAIAvailable {
 				t.Fatal("capable native runtime not advertised")
 			}
-			human.command(t, ctx, protocol.TypeRoomCreate, "create", protocol.RoomCreate{Name: "AI practice", Format: protocol.FormatModern, DeckFormat: protocol.DeckFormatCustom, MatchMode: protocol.MatchBO1, RulesMode: protocol.RulesModeForge, HostingMode: test.hosting, AIDifficulty: test.difficulty, AllowSpectators: true, CardLoadMode: protocol.CardLoadBackground})
+			format, deckFormat := protocol.FormatModern, protocol.DeckFormatCustom
+			duel := strings.HasPrefix(test.name, "duel_")
+			if duel {
+				format, deckFormat = protocol.FormatDuel, protocol.DeckFormatDuel
+			}
+			human.command(t, ctx, protocol.TypeRoomCreate, "create", protocol.RoomCreate{Name: "AI practice", Format: format, DeckFormat: deckFormat, MatchMode: protocol.MatchBO1, RulesMode: protocol.RulesModeForge, HostingMode: test.hosting, AIDifficulty: test.difficulty, AllowSpectators: true, CardLoadMode: protocol.CardLoadBackground})
 			created := human.until(t, ctx, protocol.TypeRoomCreated)
 			var roomCreated protocol.RoomCreated
 			_ = created.DecodePayload(&roomCreated)
@@ -93,7 +103,22 @@ func TestLiveForgeAIPractice(t *testing.T) {
 				}
 			}
 			deck := protocol.DeckSelect{Name: "Synthetic Burn", Format: protocol.FormatModern, DeckFormat: protocol.DeckFormatCustom, Mainboard: []protocol.DeckCard{{Name: "Mountain", Count: 24, SetCode: "M11", CollectorNumber: "242"}, {Name: "Lightning Bolt", Count: 36, SetCode: "M11", CollectorNumber: "149"}}, Sideboard: []protocol.DeckCard{}}
+			if duel {
+				deck = protocol.DeckSelect{Name: "Human Duel", Format: format, DeckFormat: deckFormat, Commanders: []string{"Isamaru, Hound of Konda"}, Mainboard: []protocol.DeckCard{
+					{Name: "Plains", Count: 99, SetCode: "C15", CollectorNumber: "323"},
+					{Name: "Isamaru, Hound of Konda", Count: 1, SetCode: "CHK", CollectorNumber: "19"},
+				}, Sideboard: []protocol.DeckCard{}}
+			}
 			aiDeck := deck
+			if duel {
+				aiDeck.Name = "AI Duel"
+			}
+			if test.name == "duel_partners_player" {
+				aiDeck.Commanders = []string{"Kediss, Emberclaw Familiar", "Toggo, Goblin Weaponsmith"}
+				aiDeck.Mainboard = []protocol.DeckCard{{Name: "Mountain", Count: 98, SetCode: "M11", CollectorNumber: "242"},
+					{Name: "Kediss, Emberclaw Familiar", Count: 1, SetCode: "CMR", CollectorNumber: "188"},
+					{Name: "Toggo, Goblin Weaponsmith", Count: 1, SetCode: "CMR", CollectorNumber: "204"}}
+			}
 			if test.advisory {
 				// Both exact pinned card scripts have AI:RemoveDeck:All. Keep
 				// them in the sideboard so the synthetic game's play stays simple.
@@ -114,6 +139,20 @@ func TestLiveForgeAIPractice(t *testing.T) {
 			human.until(t, ctx, protocol.TypeRulesPrompt)
 			if game, ok := handler.forgeGame(roomID); !ok || !game.nativeAI {
 				t.Fatal("native controller not recorded")
+			}
+			if duel {
+				if len(human.snapshot.Players) != 2 {
+					t.Fatal("Duel player count")
+				}
+				for seat, player := range human.snapshot.Players {
+					want := 1
+					if seat == 1 {
+						want = len(aiDeck.Commanders)
+					}
+					if player.Life != 20 || len(player.Commanders) != want {
+						t.Fatalf("Duel initialization: %+v", player)
+					}
+				}
 			}
 			observer := &liveForgePeer{client: dialLiveForge(t, srv), seat: -1, name: "Observer"}
 			defer observer.client.conn.CloseNow()
@@ -165,6 +204,15 @@ func TestLiveForgeAIPractice(t *testing.T) {
 					}
 				}
 				answer := liveForgeAnswer(t, human, stats)
+				if duel && human.prompt.Kind == "chooseAction" {
+					answer.ResponseID = "$pass"
+					for _, option := range human.prompt.Options {
+						if option.Kind == "playLand" {
+							answer.ResponseID = option.ResponseID
+							break
+						}
+					}
+				}
 				human.command(t, ctx, protocol.TypeRulesRespond, fmt.Sprintf("decision-%d", decisions), answer)
 				human.until(t, ctx, protocol.TypeRulesResponded)
 				human.until(t, ctx, protocol.TypeRulesPrompt)
@@ -172,6 +220,19 @@ func TestLiveForgeAIPractice(t *testing.T) {
 			}
 			if !human.snapshot.GameOver || human.snapshot.WinnerSeat == nil {
 				t.Fatal("AI game did not finish naturally")
+			}
+			if duel {
+				aiCasts := 0
+				for _, commander := range human.snapshot.Players[1].Commanders {
+					aiCasts += commander.Casts
+					if commander.Tax != commander.Casts*2 {
+						t.Fatal("native commander tax lost", commander)
+					}
+				}
+				if aiCasts == 0 || *human.snapshot.WinnerSeat != 1 {
+					t.Fatal("Duel AI never cast a commander or won", aiCasts)
+				}
+				t.Logf("Duel AI commander casts=%d", aiCasts)
 			}
 			if test.advisory && !advisorySeen {
 				t.Fatal("unsupported AI cards did not produce a deck advisory")
@@ -185,6 +246,35 @@ func TestLiveForgeAIPractice(t *testing.T) {
 			}
 			human.command(t, ctx, protocol.TypePlayerReady, "rematch", protocol.PlayerReady{Ready: true})
 			human.until(t, ctx, protocol.TypeRulesPrompt)
+			if duel {
+				// Starting-player selection/opening hands precede restart eligibility.
+				for decision := 0; human.snapshot.Turn == 0 && decision < 20; decision++ {
+					human.command(t, ctx, protocol.TypeRulesRespond, fmt.Sprintf("restart-setup-%d", decision), liveForgeAnswer(t, human, stats))
+					human.until(t, ctx, protocol.TypeRulesResponded)
+					human.until(t, ctx, protocol.TypeRulesPrompt)
+				}
+				if human.snapshot.Turn == 0 {
+					t.Fatal("Duel rematch did not enter play before restart")
+				}
+				before := human.snapshot.GameID
+				human.command(t, ctx, protocol.TypeGameRestart, "restart-ai", protocol.GameRestart{})
+				human.until(t, ctx, protocol.TypeGameRestarted)
+				human.until(t, ctx, protocol.TypeRulesPrompt)
+				if human.snapshot.GameID == before || len(human.snapshot.Players[1].Commanders) != len(aiDeck.Commanders) {
+					t.Fatal("Duel AI restart lost its new game or registered commanders")
+				}
+				for _, player := range human.snapshot.Players {
+					if player.Life != 20 {
+						t.Fatal("Duel restart changed life")
+					}
+					for _, commander := range player.Commanders {
+						if commander.Casts != 0 || commander.Tax != 0 {
+							t.Fatal("Duel restart retained old commander tax")
+						}
+					}
+				}
+			}
+
 			human.command(t, ctx, protocol.TypeGameConcede, "concede", protocol.EmptyPayload{})
 			human.until(t, ctx, protocol.TypeGameConceded)
 			human.command(t, ctx, protocol.TypeRoomLeave, "leave", protocol.EmptyPayload{})

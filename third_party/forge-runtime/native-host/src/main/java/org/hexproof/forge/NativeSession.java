@@ -82,8 +82,9 @@ final class NativeSession implements AutoCloseable {
                 default -> throw new IllegalArgumentException("Unsupported game variant");
             };
             long aiCount = configured.asList().stream().filter(e -> isAi(e.getAsJsonObject())).count();
-            if (aiCount > 0 && (configured.size() != 2 || aiCount != 1 || type != GameType.Constructed))
-                throw new IllegalArgumentException("AI requires one human and one AI in Constructed");
+            if (aiCount > 0 && (configured.size() != 2 || aiCount != 1 || (type != GameType.Constructed
+                    && (type != GameType.Commander || request.get("startingLife").getAsInt() != 20))))
+                throw new IllegalArgumentException("AI requires one human and one AI in Constructed or 20-life Duel Commander");
             List<RegisteredPlayer> registered = new ArrayList<>();
             Integer starts = request.has("startingPlayerIndex") ? request.get("startingPlayerIndex").getAsInt() : null;
             if (starts != null && (starts < 0 || starts >= configured.size())) throw new IllegalArgumentException("Invalid starting seat");

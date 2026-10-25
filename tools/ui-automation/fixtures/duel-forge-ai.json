@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "description": "Catalog-legal 100-card Duel Commander decks with one and two commanders for native AI practice verification.",
+  "decks": [
+    {
+      "name": "Duel human",
+      "format": "duel",
+      "deckFormat": "duel",
+      "commanders": [
+        "Isamaru, Hound of Konda"
+      ],
+      "mainboard": [
+        {
+          "name": "Plains",
+          "count": 99,
+          "setCode": "C15",
+          "collectorNumber": "323",
+          "typeLine": "Basic Land \u2014 Plains",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "cardColors": "",
+          "legalFormats": "|alchemy|brawl|commander|competitivebrawl|duel|future|gladiator|historic|legacy|modern|oathbreaker|pauper|paupercommander|penny|pioneer|predh|premodern|standard|standardbrawl|timeless|tlr|vintage|"
+        },
+        {
+          "name": "Isamaru, Hound of Konda",
+          "count": 1,
+          "setCode": "CHK",
+          "collectorNumber": "19",
+          "typeLine": "Legendary Creature \u2014 Dog",
+          "manaValue": 1.0,
+          "manaCost": "{W}",
+          "cardColors": "W",
+          "legalFormats": "|brawl|commander|competitivebrawl|duel|gladiator|historic|legacy|modern|oathbreaker|penny|predh|timeless|tlr|vintage|"
+        }
+      ],
+      "sideboard": []
+    },
+    {
+      "name": "Duel AI partners",
+      "format": "duel",
+      "deckFormat": "duel",
+      "commanders": [
+        "Kediss, Emberclaw Familiar",
+        "Toggo, Goblin Weaponsmith"
+      ],
+      "mainboard": [
+        {
+          "name": "Mountain",
+          "count": 98,
+          "setCode": "M11",
+          "collectorNumber": "242",
+          "typeLine": "Basic Land \u2014 Mountain",
+          "manaValue": 0.0,
+          "manaCost": "",
+          "cardColors": "",
+          "legalFormats": "|alchemy|brawl|commander|competitivebrawl|duel|future|gladiator|historic|legacy|modern|oathbreaker|pauper|paupercommander|penny|pioneer|predh|premodern|standard|standardbrawl|timeless|tlr|vintage|"
+        },
+        {
+          "name": "Kediss, Emberclaw Familiar",
+          "count": 1,
+          "setCode": "CMR",
+          "collectorNumber": "188",
+          "typeLine": "Legendary Creature \u2014 Elemental Lizard",
+          "manaValue": 2.0,
+          "manaCost": "{1}{R}",
+          "cardColors": "R",
+          "legalFormats": "|commander|duel|legacy|oathbreaker|tlr|vintage|"
+        },
+        {
+          "name": "Toggo, Goblin Weaponsmith",
+          "count": 1,
+          "setCode": "CMR",
+          "collectorNumber": "204",
+          "typeLine": "Legendary Creature \u2014 Goblin Artificer",
+          "manaValue": 3.0,
+          "manaCost": "{2}{R}",
+          "cardColors": "R",
+          "legalFormats": "|commander|duel|legacy|oathbreaker|tlr|vintage|"
+        }
+      ],
+      "sideboard": []
+    }
+  ]
+}

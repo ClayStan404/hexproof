@@ -148,8 +148,8 @@ The creation screen provides:
     two ordinary 20-life seats. Custom applies no card-pool policy; named
     formats use local advisory deck validation.
   - **Duel Commander · 2** creates two player seats at 20 life with command
-    zones and manual commander tax. Hexproof does not enforce its construction
-    rules, ban list, or card rules.
+    zones. Manual rooms keep manual commander tax; Forge rules handle legal
+    casting and tax. Deck construction and ban-list advice use the local catalog.
   - **Commander · 3–4** provides four player seats and may start once three or
     four seated players are Ready.
   - **Cube** creates a two-to-eight-player draft room from a saved Cube deck.
@@ -169,6 +169,15 @@ The creation screen provides:
 - **Card images**: choose preload or background loading.
 - **Room password**: optional access control in addition to the room code.
 - **Create room**: enters the waiting room as host in seat one.
+
+For native AI practice, choose **Forge rules**, an ordinary constructed format or
+**Duel Commander**, then **Forge AI**. Practice always uses BO1. Choose your deck
+and **Select AI deck** independently in the waiting room, select a difficulty,
+and get ready. Duel Commander uses 20 life; both decks retain the 100-card policy
+and their designated commanders. Forge handles casting, command-zone return
+choices and each commander's tax. If the selected hosting option lacks Duel AI
+support, creation remains unavailable. Local/online model opponents retain their
+ordinary constructed scope; Commander/EDH does not offer AI practice.
 
 Ordinary table hosts can copy the generated room code, remove non-host players
 or spectators, and disband the room. In a Cube room, the host starts the draft
