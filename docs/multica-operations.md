@@ -58,6 +58,14 @@ feedback case, connection and provider-policy bindings during host replacement.
 Standing authorization does not bypass platform approval controls or authorize
 new providers, credentials, destinations or deployments.
 
+## Project lifecycle
+
+Resolve `native.lifecycle.workflowId` and verify both configured Hexproof projects
+use it. Native workflow moves permit [AI-owned completion](autonomous-development.md#ai-owned-native-completion)
+without a member acceptance gate while retaining independent review and actual
+delivery checks. Do not modify the workspace Default, unrelated projects or
+waiting/deferred cases to make completion counts look better.
+
 ## Public merge and source delivery
 
 Follow [the merge procedure](autonomous-development.md#public-merge-and-source-delivery).
@@ -86,15 +94,23 @@ wakeup. Daily reconciliation is fallback, not a mandatory delay between stages.
 Read current operator configuration, known handoffs and new events. When disabled,
 exit with `PREPARED_DISABLED`; do not replay or write GitHub. When enabled:
 
-1. Inspect canonical tasks and current public PR/branch state before replacing
+1. Run the separately enabled [public-feedback association sweep](multica-recovery.md#discover-published-feedback-without-a-native-association)
+   alongside native history recovery; missing delivery/lineage access does not
+   skip public discovery. Share `recovery.maximumActionsPerInvocation` and the
+   existing time budget. Reconcile a complete inventory before advancing its
+   saved cutoff, and retain a resumable remainder when bounded work is incomplete.
+2. Inspect canonical tasks and current public PR/branch state before replacing
    interrupted work. Preserve an existing candidate, approval and confirmed merge.
    Reconcile associated receiver outcomes with the same saved operation ID; a
    failed handoff does not require repeating completed development or review.
-2. Apply [native intake recovery](multica-recovery.md) only after `feedback.enabled`
+   Reconcile stale native completion through the project workflow once actual
+   acceptance/delivery evidence is verified; source-complete work does not need
+   human acceptance or a new release to finish. Preserve concrete waits.
+3. Apply [native intake recovery](multica-recovery.md) only after `feedback.enabled`
    and the real receiver connection are configured. Read current closure,
    removal and input revisions first. Closed cases are not replayed; retain shared
    work still justified by other active reports.
-3. A failed developer/reviewer may be replaced only within the approved team,
+4. A failed developer/reviewer may be replaced only within the approved team,
    retaining independent sessions and the highest configured effort. Record the
    actual model and cancel the superseded retry. Preserve the contribution-specific
    provider intersection and the required reviewer for its risk. If Mika cannot
@@ -102,7 +118,7 @@ exit with `PREPARED_DISABLED`; do not replay or write GitHub. When enabled:
    bounded control task without changing global models or gaining broader authority.
    Finish in-flight review/delivery before opening more development when Codex
    capacity is scarce; no silent reviewer downgrade or paid overage.
-4. Continue the existing release candidate/tag/run. Keep the configured action
+5. Continue the existing release candidate/tag/run. Keep the configured action
    and time limits; an unresolved or incomplete scan remains visible. Do not
    turn a limit into success or create a replacement CI run without reconciliation.
 

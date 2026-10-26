@@ -59,6 +59,18 @@
       "approved-provider-policy-v1": [
         "00000000-0000-4000-8000-000000000000"
       ]
+    },
+    "lifecycle": {
+      "workflowId": "00000000-0000-4000-8000-000000000000"
+    },
+    "reconciliation": {
+      "publicDiscovery": {
+        "enabled": false,
+        "pageSize": 100,
+        "maximumPages": 5,
+        "maximumCandidateReads": 20,
+        "overlapMinutes": 10
+      }
     }
   },
   "release": {
@@ -72,7 +84,8 @@
     "timezone": "Asia/Shanghai",
     "maximumAutomaticReplaysPerOriginal": 1,
     "maximumReplaysPerInvocation": 3,
-    "maximumMinutesPerInvocation": 10
+    "maximumMinutesPerInvocation": 10,
+    "maximumActionsPerInvocation": 3
   },
   "feedback": {
     "receiverTarget": "feedback-host",
