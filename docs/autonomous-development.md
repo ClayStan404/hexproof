@@ -255,6 +255,32 @@ merge. Multica `done` establishes neither a public source update nor a released
 fix. Concurrent merge handling and server-enforced reviewer independence must not be
 inferred from single-writer evidence; retain the limits in the handoff.
 
+## AI-owned native completion
+
+The configured Hexproof projects use the project-scoped native workflow in
+`native.lifecycle.workflowId`, not the workspace Default's member-acceptance
+exit. Its `todo`/`in_progress` delivery target is `done`; `in_review` hands
+completion reconciliation to Mika with `done` as its exit and `in_progress` for
+real remaining work. Retain blocked/deferred states and all existing statuses;
+applying the workflow must not remap or start unrelated issues.
+
+These moves do not replace acceptance or independent review. The current role
+finishes only its own scope: a reviewer child after its actual verdict; a source
+task after verified review/checks/merge and required published source delivery;
+a release task after its separately authorized qualification and publication.
+Mika delegates missing independent review instead of self-approving code, and
+reuses valid approval rather than adding a second full review. Pending external
+information stays blocked and unaccepted work stays backlog. A finished source
+task does not wait for a later package release or recurring human acceptance;
+active receiver cases remain eligible for follow-up and release delivery.
+
+Read back the actual native workflow and its injected brief; changing repository
+prose alone does not override runtime status rules. Validate the transition on
+real already-delivered work without manually setting done as substitute evidence.
+Keep the global Default and unrelated projects unchanged. Historical completion
+cleanup needs an owner-scoped intent, fresh evidence and verified readback; it
+must not fabricate past PR closure intent or override deliberate reopenings.
+
 ## Current handoff
 
 Keep one compact current summary on the canonical native issue/task, using this
