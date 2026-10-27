@@ -41,6 +41,38 @@ TestCase {
         testWindow.height = 800
     }
 
+    function test_keywordReferenceBlocksShortcutsAndRestoresFocus() {
+        const table = createTemporaryObject(tableComponent, tableHost, {
+            width: testWindow.width, height: testWindow.height
+        })
+        verify(table !== null)
+        testWindow.requestActivate()
+        tryCompare(testWindow, "active", true)
+        const button = findChild(table, "tableKeywordReferenceButton")
+        verify(button !== null)
+        mouseClick(button)
+        const popup = table.keywordReference
+        tryCompare(popup, "opened", true)
+        verify(table.tableModalOpen)
+        verify(table.sessionUi.counterShortcutBlocked())
+        const search = findChild(popup.contentItem, "keywordSearch")
+        tryCompare(search, "activeFocus", true)
+        const commands = [mockWs.drawCount, mockWs.phaseCount, mockWs.nextTurnCount,
+                          mockWs.setTappedCount, mockWs.leaveRoomCount]
+        for (const letter of "FLYING") keyClick(letter.charCodeAt(0))
+        keyClick(Qt.Key_Space)
+        keyClick(Qt.Key_Return)
+        keyClick(Qt.Key_D, Qt.ControlModifier)
+        keyClick(Qt.Key_F1)
+        verify(!table.shortcutHelp.visible)
+        compare([mockWs.drawCount, mockWs.phaseCount, mockWs.nextTurnCount,
+                 mockWs.setTappedCount, mockWs.leaveRoomCount], commands)
+        keyClick(Qt.Key_Escape)
+        tryCompare(popup, "visible", false)
+        verify(!table.sessionUi.counterShortcutBlocked())
+        tryCompare(button, "activeFocus", true)
+    }
+
     function test_feedbackGateBlocksManualShortcutsWithoutLeavingRoom() {
         const table = createTemporaryObject(tableComponent, tableHost, {
             width: testWindow.width, height: testWindow.height

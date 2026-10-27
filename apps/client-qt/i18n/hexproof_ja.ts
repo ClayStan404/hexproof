@@ -17473,4 +17473,47 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>カードを確認</translation>
     </message>
 </context>
+<context>
+    <name>KeywordReferencePopup</name>
+    <message>
+        <source>Keyword reference</source>
+        <translation>キーワード参照</translation>
+    </message>
+    <message>
+        <source>Read-only reference · search English or Chinese names</source>
+        <translation>読み取り専用 · 英語名・中国語名で検索</translation>
+    </message>
+    <message>
+        <source>Search keywords…</source>
+        <translation>キーワードを検索…</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>リセット</translation>
+    </message>
+    <message>
+        <source>%1 of %2 keywords</source>
+        <translation>%2 件中 %1 件のキーワード</translation>
+    </message>
+    <message>
+        <source>Keyword action</source>
+        <translation>キーワード処理</translation>
+    </message>
+    <message>
+        <source>Keyword ability</source>
+        <translation>キーワード能力</translation>
+    </message>
+    <message>
+        <source>No keywords found. Try another name or reset.</source>
+        <translation>キーワードが見つかりません。別の名前を試すかリセットしてください。</translation>
+    </message>
+    <message>
+        <source>Keyword reference is unavailable.</source>
+        <translation>キーワード参照を利用できません。</translation>
+    </message>
+    <message>
+        <source>Official rules source</source>
+        <translation>公式ルールの出典</translation>
+    </message>
+</context>
 </TS>

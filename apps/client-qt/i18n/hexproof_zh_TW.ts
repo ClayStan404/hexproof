@@ -17473,4 +17473,47 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>檢視卡牌</translation>
     </message>
 </context>
+<context>
+    <name>KeywordReferencePopup</name>
+    <message>
+        <source>Keyword reference</source>
+        <translation>關鍵字參考</translation>
+    </message>
+    <message>
+        <source>Read-only reference · search English or Chinese names</source>
+        <translation>唯讀參考 · 可搜尋中文或英文名稱</translation>
+    </message>
+    <message>
+        <source>Search keywords…</source>
+        <translation>搜尋關鍵字…</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>重設</translation>
+    </message>
+    <message>
+        <source>%1 of %2 keywords</source>
+        <translation>%1 / %2 個關鍵字</translation>
+    </message>
+    <message>
+        <source>Keyword action</source>
+        <translation>關鍵字動作</translation>
+    </message>
+    <message>
+        <source>Keyword ability</source>
+        <translation>關鍵字異能</translation>
+    </message>
+    <message>
+        <source>No keywords found. Try another name or reset.</source>
+        <translation>找不到關鍵字。請嘗試其他名稱或重設。</translation>
+    </message>
+    <message>
+        <source>Keyword reference is unavailable.</source>
+        <translation>關鍵字參考暫時無法使用。</translation>
+    </message>
+    <message>
+        <source>Official rules source</source>
+        <translation>官方規則來源</translation>
+    </message>
+</context>
 </TS>

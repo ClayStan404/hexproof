@@ -17493,4 +17493,47 @@ Les images téléchargées et personnalisées seront copiées et vérifiées ava
         <translation>Examiner la carte</translation>
     </message>
 </context>
+<context>
+    <name>KeywordReferencePopup</name>
+    <message>
+        <source>Keyword reference</source>
+        <translation>Référence des mots-clés</translation>
+    </message>
+    <message>
+        <source>Read-only reference · search English or Chinese names</source>
+        <translation>Consultation seule · recherche par nom anglais ou chinois</translation>
+    </message>
+    <message>
+        <source>Search keywords…</source>
+        <translation>Rechercher des mots-clés…</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Réinitialiser</translation>
+    </message>
+    <message>
+        <source>%1 of %2 keywords</source>
+        <translation>%1 mots-clés sur %2</translation>
+    </message>
+    <message>
+        <source>Keyword action</source>
+        <translation>Action mot-clé</translation>
+    </message>
+    <message>
+        <source>Keyword ability</source>
+        <translation>Capacité mot-clé</translation>
+    </message>
+    <message>
+        <source>No keywords found. Try another name or reset.</source>
+        <translation>Aucun mot-clé trouvé. Essayez un autre nom ou réinitialisez.</translation>
+    </message>
+    <message>
+        <source>Keyword reference is unavailable.</source>
+        <translation>La référence des mots-clés est indisponible.</translation>
+    </message>
+    <message>
+        <source>Official rules source</source>
+        <translation>Source des règles officielles</translation>
+    </message>
+</context>
 </TS>

@@ -112,3 +112,4 @@ TableDialogs 1.0 TableDialogs.qml
 TableSelectionController 1.0 TableSelectionController.qml
 RulesPriorityMode 1.0 RulesPriorityMode.qml
 RulesPhaseStops 1.0 RulesPhaseStops.qml
+KeywordReferencePopup 1.0 KeywordReferencePopup.qml
