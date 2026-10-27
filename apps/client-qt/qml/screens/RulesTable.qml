@@ -66,7 +66,7 @@ Page {
     readonly property var feedbackWindow: ApplicationWindow.window
     readonly property bool feedbackInteractionOpen: feedbackWindow && feedbackWindow.feedbackInteractionOpen === true
     readonly property bool priorityInputBlocked: hostingPaused || backgroundPopup.opened
-        || feedbackInteractionOpen
+        || feedbackInteractionOpen || keywordReferencePopup.visible
         || rulesConcedeConfirmation.opened || matchUi.modalOpen === true
         || (presentation && presentation.modalOpen === true)
     property bool showGameLogRail: false
@@ -451,7 +451,7 @@ Page {
     }
 
     Keys.onEscapePressed: event => {
-        if (feedbackInteractionOpen) {
+        if (feedbackInteractionOpen || keywordReferencePopup.visible) {
             event.accepted = true
             return
         }
@@ -486,6 +486,9 @@ Page {
         if (rulesConcedeConfirmation.validForCurrentGame())
             rulesConcedeConfirmation.open()
     }
+
+    readonly property var keywordReference: keywordReferencePopup
+    KeywordReferencePopup { id: keywordReferencePopup }
 
     function openBackgroundPicker() {
         backgroundPopup.open()

@@ -4,6 +4,20 @@ Hexproof preserves the notices and license terms of the software and data it
 uses. Runtime packages may contain additional notices beside the relevant
 component.
 
+## Keyword reference
+
+The bundled keyword reference uses original English and Chinese explanations of
+rules facts, checked against Wizards of the Coast's Magic: The Gathering
+Comprehensive Rules effective September 25, 2026. Its heading-only index and
+rule references identify coverage; the complete rules text is not bundled.
+Magic: The Gathering and its underlying rules remain property of Wizards of the
+Coast LLC. ©2026 Wizards of the Coast LLC. This reference is unofficial and is
+not approved or endorsed by Wizards. The project license does not relicense
+Wizards' material. Source, scope and update details: `docs/keyword-reference.md`.
+
+Source: <https://magic.wizards.com/en/rules>,
+<https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt>.
+
 ## Linux account credential storage
 
 The Linux client dynamically links GNOME libsecret and its GLib dependencies

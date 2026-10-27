@@ -23,6 +23,7 @@ Rectangle {
     readonly property bool modalOpen: gameMenu.opened || zonePopup.opened || hostingOptions.opened || phaseOverview.opened
         || cardChoiceDialog.visible || damageDialog.visible
         || tableController.feedbackInteractionOpen === true
+        || (tableController.keywordReference && tableController.keywordReference.visible === true)
     readonly property real unit: Math.min(width / 1600, height / 1000)
     property var playerSeats: []
     readonly property bool multiplayer: playerSeats.length > 2
@@ -634,6 +635,10 @@ Rectangle {
             compactChrome: true
             hostingDialog: hostingOptions
             onAudioSettingsRequested: gameMenu.close()
+            onKeywordReferenceRequested: {
+                gameMenu.close()
+                root.tableController.keywordReference.showFor(root.tableController)
+            }
         }
     }
     ForgeHostingDialog {

@@ -17474,4 +17474,47 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>查看卡牌</translation>
     </message>
 </context>
+<context>
+    <name>KeywordReferencePopup</name>
+    <message>
+        <source>Keyword reference</source>
+        <translation>关键词参考</translation>
+    </message>
+    <message>
+        <source>Read-only reference · search English or Chinese names</source>
+        <translation>只读参考 · 可搜索中文或英文名称</translation>
+    </message>
+    <message>
+        <source>Search keywords…</source>
+        <translation>搜索关键词…</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>重置</translation>
+    </message>
+    <message>
+        <source>%1 of %2 keywords</source>
+        <translation>%1 / %2 个关键词</translation>
+    </message>
+    <message>
+        <source>Keyword action</source>
+        <translation>关键词动作</translation>
+    </message>
+    <message>
+        <source>Keyword ability</source>
+        <translation>关键词异能</translation>
+    </message>
+    <message>
+        <source>No keywords found. Try another name or reset.</source>
+        <translation>未找到关键词。请尝试其他名称或重置。</translation>
+    </message>
+    <message>
+        <source>Keyword reference is unavailable.</source>
+        <translation>关键词参考暂不可用。</translation>
+    </message>
+    <message>
+        <source>Official rules source</source>
+        <translation>官方规则来源</translation>
+    </message>
+</context>
 </TS>

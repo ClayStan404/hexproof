@@ -225,7 +225,10 @@ Page {
     readonly property var handCardMenu: sceneShell.handCardMenu
     readonly property var cardToolsMenu: sceneShell.cardToolsMenu
     readonly property bool feedbackInteractionOpen: appWindow && appWindow.feedbackInteractionOpen === true
+    readonly property var keywordReference: keywordReferencePopup
+    KeywordReferencePopup { id: keywordReferencePopup }
     readonly property bool tableModalOpen: sceneShell.modalOpen || feedbackInteractionOpen
+        || keywordReferencePopup.visible
     readonly property bool selectedSharedOwned:
         sharedZoneController.selectedOwned
     readonly property bool isActivePlayer: root.canAct

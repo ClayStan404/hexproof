@@ -1,0 +1,3250 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "title": "Magic: The Gathering Comprehensive Rules",
+    "version": "2026-09-25",
+    "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+    "landingUrl": "https://magic.wizards.com/en/rules",
+    "sha256": "8d860e451f20f38865b725b42d82feb714c725373dd8f3b32b8652b3eeb070ca"
+  },
+  "coverage": {
+    "actions": 70,
+    "abilities": 194,
+    "notesEn": "All 70 keyword-action and 194 keyword-ability headings in rules 701 and 702 of the pinned rules version. Variants are indexed as aliases. Ability words and non-keyword mechanics are outside this index; Assemble is a named exception whose full rules are outside this source. Chinese labels are lookup aids, including unofficial descriptive translations.",
+    "notesZh": "收录指定版本规则701与702的全部70项关键词动作及194项关键词异能标题，变体可通过别名查询。异能提示及非关键词机制不在此索引内；组装虽有标题，但本来源未定义其完整规则。中文名称用于查询，包含非官方的说明性译名。"
+  },
+  "noticeEn": "Original summaries, not official rules text. Unofficial; not approved or endorsed by Wizards. Magic: The Gathering and the underlying rules are property of Wizards of the Coast LLC. ©2026 Wizards of the Coast LLC. Consult the source and current card text for details.",
+  "noticeZh": "以下为原创摘要，并非官方规则原文，未经威世智认可或背书。Magic: The Gathering及其原规则的权利属于Wizards of the Coast LLC。©2026 Wizards of the Coast LLC。详细规则请查阅所列来源及当前牌张内文。",
+  "entries": [
+    {
+      "id": "action-activate",
+      "english": "Activate",
+      "chinese": "起动",
+      "aliases": [
+        "Activate an ability",
+        "啟動",
+        "起動"
+      ],
+      "category": "action",
+      "rule": "701.2",
+      "summaryEn": "Announce an activated ability and pay its costs. Observe its timing restrictions; mana abilities usually resolve immediately instead of using the stack.",
+      "summaryZh": "宣告起动式异能并支付费用，遵守其时机限制。法术力异能通常立即结算而不使用堆叠。"
+    },
+    {
+      "id": "action-attach",
+      "english": "Attach",
+      "chinese": "贴附",
+      "aliases": [
+        "貼附"
+      ],
+      "category": "action",
+      "rule": "701.3",
+      "summaryEn": "Move an Aura, Equipment or Fortification onto a legal object or player. An illegal attachment instruction leaves it where it is.",
+      "summaryZh": "将灵气、武具或工事移至其可合法贴附的物件或牌手上；若贴附不合法，它留在原处。"
+    },
+    {
+      "id": "action-behold",
+      "english": "Behold",
+      "chinese": "展示",
+      "aliases": [
+        "Beheld",
+        "瞻仰"
+      ],
+      "category": "action",
+      "rule": "701.4",
+      "summaryEn": "Reveal a card with the required quality from your hand, or choose a permanent you control with that quality.",
+      "summaryZh": "展示手中具有指定特征的一张牌，或选择你操控的一个具有该特征的永久物。"
+    },
+    {
+      "id": "action-cast",
+      "english": "Cast",
+      "chinese": "施放",
+      "aliases": [
+        "施放咒语",
+        "施放咒語"
+      ],
+      "category": "action",
+      "rule": "701.5",
+      "summaryEn": "Put a spell onto the stack, make the required choices and pay its costs. It takes effect when it resolves, not when you announce it.",
+      "summaryZh": "将咒语放上堆叠，作出所需选择并支付费用。咒语的效果在结算时才发生。"
+    },
+    {
+      "id": "action-counter",
+      "english": "Counter",
+      "chinese": "反击",
+      "aliases": [
+        "反擊"
+      ],
+      "category": "action",
+      "rule": "701.6",
+      "summaryEn": "Remove a spell or ability from the stack without resolving it. A countered spell normally goes to its owner's graveyard; paid costs are not refunded.",
+      "summaryZh": "将咒语或异能移出堆叠，使其不结算。被反击的咒语通常进入拥有者的坟墓场，已付费用不会退还。"
+    },
+    {
+      "id": "action-create",
+      "english": "Create",
+      "chinese": "派出",
+      "aliases": [
+        "Create a token",
+        "派出衍生物"
+      ],
+      "category": "action",
+      "rule": "701.7",
+      "summaryEn": "Put the instructed number of tokens onto the battlefield with the specified characteristics.",
+      "summaryZh": "将指定数量、具有指定特征的衍生物放进战场。"
+    },
+    {
+      "id": "action-destroy",
+      "english": "Destroy",
+      "chinese": "消灭",
+      "aliases": [
+        "Destroy a permanent",
+        "消滅"
+      ],
+      "category": "action",
+      "rule": "701.8",
+      "summaryEn": "Move a permanent to its owner's graveyard because of destruction. Indestructible and regeneration can stop destruction, but do not stop every way of leaving the battlefield.",
+      "summaryZh": "因消灭将永久物放入其拥有者的坟墓场。不灭及重生可阻止消灭，但不能阻止所有离开战场的方式。"
+    },
+    {
+      "id": "action-discard",
+      "english": "Discard",
+      "chinese": "弃牌",
+      "aliases": [
+        "Discard a card",
+        "棄牌"
+      ],
+      "category": "action",
+      "rule": "701.9",
+      "summaryEn": "Move a card from your hand to your graveyard. You choose the card unless the instruction specifies another method.",
+      "summaryZh": "将手上的牌置入自己的坟墓场。除非指示另有说明，否则由你选择弃哪张牌。"
+    },
+    {
+      "id": "action-double",
+      "english": "Double",
+      "chinese": "加倍",
+      "aliases": [
+        "Double counters",
+        "Double life",
+        "加倍指示物"
+      ],
+      "category": "action",
+      "rule": "701.10",
+      "summaryEn": "Doubling power/toughness adds its current value, including making a negative value more negative. Doubling life, counters, mana or damage follows the particular instruction; consult the rule for the different operations.",
+      "summaryZh": "加倍力量或防御力会增加其当前数值，负数会变得更负。生命、指示物、法术力及伤害的加倍各依具体指示执行，详见对应规则。"
+    },
+    {
+      "id": "action-triple",
+      "english": "Triple",
+      "chinese": "变为三倍",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.11",
+      "summaryEn": "Apply the specified tripling. For power/toughness, add twice the current value rather than setting a fixed base value.",
+      "summaryZh": "按指示变为三倍。对力量或防御力而言，增加其当前数值的两倍，而不是设定基础数值。"
+    },
+    {
+      "id": "action-exchange",
+      "english": "Exchange",
+      "chinese": "交换",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.12",
+      "summaryEn": "Exchange everything specified only if the whole exchange can happen. If any required part is impossible, none of the exchange happens.",
+      "summaryZh": "仅在整个交换都能完成时交换所指定的事物；若其中必要部分无法完成，则整个交换都不发生。"
+    },
+    {
+      "id": "action-exile",
+      "english": "Exile",
+      "chinese": "放逐",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.13",
+      "summaryEn": "Move the object to the exile zone. Exile is a separate zone, not the graveyard; further use requires permission from a rule or effect.",
+      "summaryZh": "将物件移到放逐区。放逐区与坟墓场不同；之后要使用该牌须有规则或效应许可。"
+    },
+    {
+      "id": "action-fight",
+      "english": "Fight",
+      "chinese": "互斗",
+      "aliases": [
+        "互鬥"
+      ],
+      "category": "action",
+      "rule": "701.14",
+      "summaryEn": "Each of the two creatures deals damage equal to its power to the other. This is not combat damage; if either cannot legally fight, neither deals fight damage.",
+      "summaryZh": "两个生物各对另一个造成等同自身力量的伤害。这不是战斗伤害；若其中一个无法合法互斗，则都不造成互斗伤害。"
+    },
+    {
+      "id": "action-goad",
+      "english": "Goad",
+      "chinese": "煽惑",
+      "aliases": [
+        "Goaded"
+      ],
+      "category": "action",
+      "rule": "701.15",
+      "summaryEn": "Until your next turn, the creature must attack each combat if able and attack someone other than you if able. Other attack requirements and restrictions still apply.",
+      "summaryZh": "直到你的下个回合，该生物每次战斗须尽可能攻击，且须尽可能攻击你以外的牌手。其他攻击要求及限制仍然适用。"
+    },
+    {
+      "id": "action-investigate",
+      "english": "Investigate",
+      "chinese": "探查",
+      "aliases": [
+        "Clue",
+        "线索",
+        "線索"
+      ],
+      "category": "action",
+      "rule": "701.16",
+      "summaryEn": "Create a Clue artifact token. Its ability costs {2} and sacrificing it to draw a card.",
+      "summaryZh": "派出一个线索神器衍生物。支付{2}并牺牲该线索，可起动其抓一张牌的异能。"
+    },
+    {
+      "id": "action-mill",
+      "english": "Mill",
+      "chinese": "磨牌",
+      "aliases": [
+        "Mill cards"
+      ],
+      "category": "action",
+      "rule": "701.17",
+      "summaryEn": "Put the specified number of cards from the top of your library into your graveyard, or as many as remain if an effect instructs more.",
+      "summaryZh": "将指定数量的牌从牌库顶置入自己的坟墓场；若效应要求的数量不足，则尽量执行。"
+    },
+    {
+      "id": "action-play",
+      "english": "Play",
+      "chinese": "使用",
+      "aliases": [
+        "使用牌"
+      ],
+      "category": "action",
+      "rule": "701.18",
+      "summaryEn": "Play a card by playing it as a land or casting it as a spell. A normal land play is a special action during your main phase with an empty stack, subject to your land-play allowance.",
+      "summaryZh": "使用一张牌，即将其作为地使用或作为咒语施放。通常使用地是自己行动阶段、堆叠为空时的特殊动作，并受每回合可使用地的数量限制。"
+    },
+    {
+      "id": "action-regenerate",
+      "english": "Regenerate",
+      "chinese": "重生",
+      "aliases": [
+        "Regeneration",
+        "再生"
+      ],
+      "category": "action",
+      "rule": "701.19",
+      "summaryEn": "Replace the next applicable destruction this turn: remove marked damage, tap the permanent and remove it from combat. This does not return a card from the graveyard.",
+      "summaryZh": "替代本回合接下来适用的一次消灭：移去所标记伤害，横置该永久物并将其移出战斗。重生不会从坟墓场带回牌。"
+    },
+    {
+      "id": "action-reveal",
+      "english": "Reveal",
+      "chinese": "展示牌",
+      "aliases": [
+        "顯示",
+        "展示"
+      ],
+      "category": "action",
+      "rule": "701.20",
+      "summaryEn": "Show the card to all players for the required time without changing its zone.",
+      "summaryZh": "在所需时间内让所有牌手看清该牌；展示本身不会改变它所在的区域。"
+    },
+    {
+      "id": "action-sacrifice",
+      "english": "Sacrifice",
+      "chinese": "牺牲",
+      "aliases": [
+        "犧牲"
+      ],
+      "category": "action",
+      "rule": "701.21",
+      "summaryEn": "Move a permanent you control from the battlefield to its owner's graveyard. Sacrifice is not destruction and cannot be prevented by indestructible or regeneration.",
+      "summaryZh": "将你操控的永久物从战场置入其拥有者的坟墓场。牺牲不是消灭，不能由不灭或重生阻止。"
+    },
+    {
+      "id": "action-scry",
+      "english": "Scry",
+      "chinese": "占卜",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.22",
+      "summaryEn": "For scry N, look at your library's top N cards. Put any number on the bottom and the rest on top, ordering each group as you choose.",
+      "summaryZh": "占卜N：检视牌库顶的N张牌，将任意数量以任意顺序放到牌库底，其余以任意顺序放回牌库顶。"
+    },
+    {
+      "id": "action-search",
+      "english": "Search",
+      "chinese": "搜寻",
+      "aliases": [
+        "Search a library",
+        "搜索",
+        "搜尋"
+      ],
+      "category": "action",
+      "rule": "701.23",
+      "summaryEn": "Look through the instructed zone for matching cards. In a hidden zone, a search for specified qualities may fail to find a match even if one exists.",
+      "summaryZh": "在指定区域中寻找符合条件的牌。若在隐藏区域搜寻具有指定特征的牌，即使存在符合条件的牌也可选择找不到。"
+    },
+    {
+      "id": "action-shuffle",
+      "english": "Shuffle",
+      "chinese": "洗牌",
+      "aliases": [
+        "Shuffle a library",
+        "洗牌庫"
+      ],
+      "category": "action",
+      "rule": "701.24",
+      "summaryEn": "Randomize the instructed library or face-down pile so no player knows its order.",
+      "summaryZh": "将指定牌库或牌面朝下牌堆随机排列，使所有牌手都不知道其顺序。"
+    },
+    {
+      "id": "action-surveil",
+      "english": "Surveil",
+      "chinese": "刺探",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.25",
+      "summaryEn": "For surveil N, look at your library's top N cards. Put any number into your graveyard and the rest back on top in your chosen order.",
+      "summaryZh": "刺探N：检视牌库顶的N张牌，将任意数量置入坟墓场，其余以任意顺序放回牌库顶。"
+    },
+    {
+      "id": "action-tap-and-untap",
+      "english": "Tap and Untap",
+      "chinese": "横置与重置",
+      "aliases": [
+        "Tap",
+        "Untap",
+        "横置",
+        "重置",
+        "橫置"
+      ],
+      "category": "action",
+      "rule": "701.26",
+      "summaryEn": "Tap turns an untapped permanent sideways; untap returns a tapped permanent upright. Neither action alone changes whether a creature may attack.",
+      "summaryZh": "横置将未横置永久物横放；重置将已横置永久物转正。单是横置或重置并不决定生物是否能攻击。"
+    },
+    {
+      "id": "action-transform",
+      "english": "Transform",
+      "chinese": "转化",
+      "aliases": [
+        "Transformed",
+        "轉化"
+      ],
+      "category": "action",
+      "rule": "701.27",
+      "summaryEn": "Turn an eligible double-faced permanent to its other face. This is different from turning a face-down creature face up.",
+      "summaryZh": "将可转化的双面永久物翻至另一面。这与将牌面朝下生物翻回正面是不同的动作。"
+    },
+    {
+      "id": "action-convert",
+      "english": "Convert",
+      "chinese": "转换",
+      "aliases": [
+        "Converted",
+        "轉換"
+      ],
+      "category": "action",
+      "rule": "701.28",
+      "summaryEn": "Turn a converting double-faced permanent to its other face. Transform restrictions and transforms-into triggers also cover converting; it is not turning a face-down creature face up.",
+      "summaryZh": "将可转换的双面永久物翻至另一面。不能转化的限制及「转化成」触发也涵盖转换；这与将牌面朝下生物翻回正面不同。"
+    },
+    {
+      "id": "action-fateseal",
+      "english": "Fateseal",
+      "chinese": "命运封印",
+      "aliases": [
+        "Fatesealing",
+        "命運封印"
+      ],
+      "category": "action",
+      "rule": "701.29",
+      "summaryEn": "Like scry, but inspect the top N cards of an opponent's library, choosing which go to its bottom and ordering the rest on top.",
+      "summaryZh": "检视对手牌库顶的N张牌，将任意数量以任意顺序置于其牌库底，其余以任意顺序放回牌库顶。"
+    },
+    {
+      "id": "action-clash",
+      "english": "Clash",
+      "chinese": "比点",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.30",
+      "summaryEn": "You and the chosen opponent reveal your libraries' top cards and may each move yours to the bottom. You win only if your revealed card has the greater mana value.",
+      "summaryZh": "你和所选对手各展示牌库顶牌，并可各将自己的牌放到牌库底。仅当你展示的牌的法术力值较大时，你才赢得比点。"
+    },
+    {
+      "id": "action-planeswalk",
+      "english": "Planeswalk",
+      "chinese": "时空旅行",
+      "aliases": [
+        "時空旅行"
+      ],
+      "category": "action",
+      "rule": "701.31",
+      "summaryEn": "In Planechase, move the face-up planes and phenomena to their owners' planar-deck bottoms and reveal the next card of your planar deck.",
+      "summaryZh": "在竞逐时空游戏中，将正面的时空及异象牌置于各自时空牌库底，再翻开你的时空牌库下一张牌。"
+    },
+    {
+      "id": "action-set-in-motion",
+      "english": "Set in Motion",
+      "chinese": "实施阴谋",
+      "aliases": [
+        "Scheme",
+        "实施",
+        "實施陰謀"
+      ],
+      "category": "action",
+      "rule": "701.32",
+      "summaryEn": "In Archenemy, the archenemy moves the designated scheme off the scheme deck if necessary and turns it face up; its set-in-motion abilities can trigger.",
+      "summaryZh": "在魔王游戏中，魔王按需要将指定阴谋牌移出阴谋牌库并翻至正面，其实施时触发的异能可因此触发。"
+    },
+    {
+      "id": "action-abandon",
+      "english": "Abandon",
+      "chinese": "放弃阴谋",
+      "aliases": [
+        "Abandon a scheme",
+        "放棄陰謀"
+      ],
+      "category": "action",
+      "rule": "701.33",
+      "summaryEn": "Turn a face-up ongoing scheme face down and put it on the bottom of its owner's scheme deck.",
+      "summaryZh": "将正面的持续阴谋牌翻至背面，置于其拥有者的阴谋牌库底。"
+    },
+    {
+      "id": "action-proliferate",
+      "english": "Proliferate",
+      "chinese": "增殖",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.34",
+      "summaryEn": "Choose any number of permanents and players that already have counters. Give each one more counter of every kind it already has.",
+      "summaryZh": "选择任意数量已有指示物的永久物及牌手，让每个所选对象得到其已有的每一种指示物各一个。"
+    },
+    {
+      "id": "action-detain",
+      "english": "Detain",
+      "chinese": "拘留",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.35",
+      "summaryEn": "Until your next turn, the permanent cannot attack or block, and none of its activated abilities can be activated.",
+      "summaryZh": "直到你的下个回合，该永久物不能攻击或阻挡，也不能起动其起动式异能。"
+    },
+    {
+      "id": "action-populate",
+      "english": "Populate",
+      "chinese": "殖民",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.36",
+      "summaryEn": "Choose a creature token you control and create a copy of it. Nothing is created if you control no creature tokens.",
+      "summaryZh": "选择一个你操控的生物衍生物，并派出其复制品。若你没有生物衍生物，则不派出任何东西。"
+    },
+    {
+      "id": "action-monstrosity",
+      "english": "Monstrosity",
+      "chinese": "蛮化",
+      "aliases": [
+        "Monstrous",
+        "蠻化"
+      ],
+      "category": "action",
+      "rule": "701.37",
+      "summaryEn": "If the permanent is not already monstrous, put N +1/+1 counters on it and mark it monstrous. Removing those counters does not remove that designation.",
+      "summaryZh": "若该永久物尚未蛮化，则在其上放N个+1/+1指示物，并将其标记为已蛮化。移去这些指示物不会移除该标记。"
+    },
+    {
+      "id": "action-vote",
+      "english": "Vote",
+      "chinese": "投票",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.38",
+      "summaryEn": "Starting with the specified player and continuing in turn order, each player chooses an offered option. Apply the card's instructions to the resulting votes.",
+      "summaryZh": "从指定牌手开始，依回合顺序各选一个列出的选项，再按牌张指示处理投票结果。"
+    },
+    {
+      "id": "action-bolster",
+      "english": "Bolster",
+      "chinese": "振励",
+      "aliases": [
+        "振勵"
+      ],
+      "category": "action",
+      "rule": "701.39",
+      "summaryEn": "Choose a creature you control with the lowest toughness, including ties, and put N +1/+1 counters on it. This choice does not target.",
+      "summaryZh": "选择你操控的防御力最小的生物之一，在其上放N个+1/+1指示物。此选择不指定目标。"
+    },
+    {
+      "id": "action-manifest",
+      "english": "Manifest",
+      "chinese": "显化",
+      "aliases": [
+        "Manifested",
+        "顯化"
+      ],
+      "category": "action",
+      "rule": "701.40",
+      "summaryEn": "Put the card onto the battlefield face down as a nameless 2/2 creature. If it is a creature card with a mana cost, you may pay that cost to turn it face up when you have priority.",
+      "summaryZh": "将该牌以牌面朝下、没有名称的2/2生物放进战场。若它是有法术力费用的生物牌，可在有优先权时支付该费用将其翻回正面。"
+    },
+    {
+      "id": "action-support",
+      "english": "Support",
+      "chinese": "支援",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.41",
+      "summaryEn": "Put a +1/+1 counter on each of up to N target creatures. A support ability of a permanent cannot choose that permanent itself.",
+      "summaryZh": "在至多N个目标生物上各放一个+1/+1指示物。永久物上的支援异能不能选择该永久物本身。"
+    },
+    {
+      "id": "action-meld",
+      "english": "Meld",
+      "chinese": "融合",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.42",
+      "summaryEn": "Combine the two matching meld cards on their back faces as one battlefield permanent. Tokens and mismatched cards cannot meld.",
+      "summaryZh": "将一对匹配的融合牌以背面合并，作为一个永久物放进战场。衍生物及不匹配的牌不能融合。"
+    },
+    {
+      "id": "action-exert",
+      "english": "Exert",
+      "chinese": "耗竭",
+      "aliases": [
+        "Exerted"
+      ],
+      "category": "action",
+      "rule": "701.43",
+      "summaryEn": "Choose that the permanent will not untap during your next untap step. Exerting does not itself tap it.",
+      "summaryZh": "选择让该永久物在你的下个重置步骤中不重置。耗竭本身不会横置它。"
+    },
+    {
+      "id": "action-explore",
+      "english": "Explore",
+      "chinese": "勘察",
+      "aliases": [
+        "Explore a creature"
+      ],
+      "category": "action",
+      "rule": "701.44",
+      "summaryEn": "Reveal your library's top card. Put a revealed land into your hand; otherwise put a +1/+1 counter on the exploring permanent and optionally put the card in your graveyard.",
+      "summaryZh": "展示牌库顶牌。若为地牌则置入手中；否则在勘察的永久物上放一个+1/+1指示物，并可将展示的牌置入坟墓场。"
+    },
+    {
+      "id": "action-assemble",
+      "english": "Assemble",
+      "chinese": "组装",
+      "aliases": [
+        "Assemble a Contraption",
+        "Contraption",
+        "機巧"
+      ],
+      "category": "action",
+      "rule": "701.45",
+      "summaryEn": "A Contraption action from Unstable. This source names it but deliberately does not define the silver-bordered mechanic; consult the official Unstable FAQ for that variant.",
+      "summaryZh": "Unstable系列中关于机巧的动作。本规则来源列出此用语，但刻意未定义该银边机制；该变体须参阅官方Unstable常见问题。"
+    },
+    {
+      "id": "action-adapt",
+      "english": "Adapt",
+      "chinese": "演化",
+      "aliases": [
+        "適應"
+      ],
+      "category": "action",
+      "rule": "701.46",
+      "summaryEn": "If the permanent has no +1/+1 counters, put N +1/+1 counters on it. Without that condition being met, adapt adds none.",
+      "summaryZh": "若该永久物上没有+1/+1指示物，则在其上放N个+1/+1指示物。未满足此条件时不会增加指示物。"
+    },
+    {
+      "id": "action-amass",
+      "english": "Amass",
+      "chinese": "囤兵",
+      "aliases": [
+        "Amass Zombies",
+        "Amass Orcs",
+        "囤兵灵俑",
+        "囤兵半兽人",
+        "囤兵靈俑",
+        "囤兵半獸人"
+      ],
+      "category": "action",
+      "rule": "701.47",
+      "summaryEn": "Create a 0/0 black Army of the stated subtype if you have no Army creature. Choose an Army creature you control, add N +1/+1 counters and give it that subtype as well.",
+      "summaryZh": "若你没有军队生物，派出一个具有指定副类别的0/0黑色军队。选择你操控的一个军队生物，在其上放N个+1/+1指示物，并令其额外具有指定副类别。"
+    },
+    {
+      "id": "action-learn",
+      "english": "Learn",
+      "chinese": "温习",
+      "aliases": [
+        "溫習"
+      ],
+      "category": "action",
+      "rule": "701.48",
+      "summaryEn": "You may discard a card to draw a card. If you do not discard, you may instead reveal a Lesson you own outside the game and put it into your hand; event rules govern outside-game access.",
+      "summaryZh": "你可弃一张牌来抓一张牌；若未弃牌，则可改为展示一张你拥有的游戏外课程牌并置入手中。赛事规则会限制游戏外牌的范围。"
+    },
+    {
+      "id": "action-venture-into-the-dungeon",
+      "english": "Venture into the Dungeon",
+      "chinese": "深入地城",
+      "aliases": [
+        "Venture",
+        "Venture into Undercity",
+        "深入幽暗地域"
+      ],
+      "category": "action",
+      "rule": "701.49",
+      "summaryEn": "Enter the first room of a dungeon, or advance along an arrow in your current dungeon. A room ability triggers when your marker enters it; follow the dungeon rules for completion and the Undercity variant.",
+      "summaryZh": "进入地城首个房间，或沿箭头前进至当前地城下个房间。标记进入房间时触发该房间异能；完成地城及幽暗地域变体另依地城规则。"
+    },
+    {
+      "id": "action-connive",
+      "english": "Connive",
+      "chinese": "筹谋",
+      "aliases": [
+        "Connive N",
+        "籌謀"
+      ],
+      "category": "action",
+      "rule": "701.50",
+      "summaryEn": "Draw, then discard. If you discard a nonland card, put a +1/+1 counter on the conniving permanent. Connive N draws and discards N, adding one counter for each nonland discarded.",
+      "summaryZh": "抓一张牌再弃一张牌；若弃掉非地牌，在筹谋的永久物上放一个+1/+1指示物。筹谋N则抓N张、弃N张，并依弃掉的非地牌数放置指示物。"
+    },
+    {
+      "id": "action-open-an-attraction",
+      "english": "Open an Attraction",
+      "chinese": "开启景点",
+      "aliases": [
+        "Attraction",
+        "開啟景點"
+      ],
+      "category": "action",
+      "rule": "701.51",
+      "summaryEn": "With an Attraction deck, put its top card face up onto the battlefield under your control.",
+      "summaryZh": "使用景点牌库时，将该牌库顶牌以正面朝上放进战场，由你操控。"
+    },
+    {
+      "id": "action-roll-to-visit-your-attractions",
+      "english": "Roll to Visit Your Attractions",
+      "chinese": "掷骰造访景点",
+      "aliases": [
+        "Roll to visit",
+        "擲骰造訪景點"
+      ],
+      "category": "action",
+      "rule": "701.52",
+      "summaryEn": "Roll a six-sided die. Each Attraction you control with that result lit up is visited and triggers its visit ability.",
+      "summaryZh": "掷一颗六面骰。你操控的各景点若亮起的数字包含掷骰结果，便被造访并触发其造访异能。"
+    },
+    {
+      "id": "action-incubate",
+      "english": "Incubate",
+      "chinese": "孵化",
+      "aliases": [
+        "Incubator",
+        "孵化器"
+      ],
+      "category": "action",
+      "rule": "701.53",
+      "summaryEn": "Create an Incubator artifact token with N +1/+1 counters. Paying {2} for its ability transforms it into a 0/0 Phyrexian artifact creature; the counters remain.",
+      "summaryZh": "派出一个其上有N个+1/+1指示物的孵化器神器衍生物。支付{2}起动其异能，可转化为0/0非瑞人神器生物，指示物仍保留。"
+    },
+    {
+      "id": "action-the-ring-tempts-you",
+      "english": "The Ring Tempts You",
+      "chinese": "魔戒引诱你",
+      "aliases": [
+        "Ring-bearer",
+        "The Ring",
+        "持戒人",
+        "魔戒引誘你"
+      ],
+      "category": "action",
+      "rule": "701.54",
+      "summaryEn": "Choose your Ring-bearer and gain The Ring emblem if needed. Each of the first four temptations adds a benefit: your bearer is legendary and evades larger creatures; its attacks let you draw then discard; its blockers are sacrificed at combat’s end; its combat damage to a player makes every opponent lose 3 life. Earlier benefits remain.",
+      "summaryZh": "选择你的持戒人，并在需要时得到魔戒徽记。前四次引诱依次增加效果：持戒人成为传奇且不能被力量更大的生物阻挡；攻击时抓一张再弃一张；阻挡它的生物在战斗结束时被牺牲；对牌手造成战斗伤害时令每位对手失去3点生命。之前的效果会保留。"
+    },
+    {
+      "id": "action-face-a-villainous-choice",
+      "english": "Face a Villainous Choice",
+      "chinese": "面临反派抉择",
+      "aliases": [
+        "Villainous choice",
+        "面臨反派抉擇"
+      ],
+      "category": "action",
+      "rule": "701.55",
+      "summaryEn": "The specified player chooses one of the listed options, then performs as much of it as possible. Unlike ordinary choices, an impossible option may be chosen.",
+      "summaryZh": "指定牌手选择列出的一个选项，并尽量执行。与一般选择不同，此处可选择无法完全执行的选项。"
+    },
+    {
+      "id": "action-time-travel",
+      "english": "Time Travel",
+      "chinese": "时间旅行",
+      "aliases": [
+        "Time counters",
+        "時間旅行"
+      ],
+      "category": "action",
+      "rule": "701.56",
+      "summaryEn": "Choose any number of your permanents with time counters and your suspended cards in exile with time counters. For each, independently add or remove one time counter.",
+      "summaryZh": "选择任意数量的你操控且有计时指示物的永久物，以及你拥有且在放逐区延缓中并有计时指示物的牌。为每个所选物件各增加或移去一个计时指示物。"
+    },
+    {
+      "id": "action-discover",
+      "english": "Discover",
+      "chinese": "倾探",
+      "aliases": [
+        "傾探"
+      ],
+      "category": "action",
+      "rule": "701.57",
+      "summaryEn": "Exile from your library until a nonland of mana value N or less appears. Cast it free if the resulting spell also qualifies, or put it into your hand; randomly bottom the other exiled cards.",
+      "summaryZh": "从牌库顶放逐至出现法术力值至多N的非地牌。若产生的咒语也符合限制，可免费施放该牌，否则将其置入手中；其余放逐的牌随机置于牌库底。"
+    },
+    {
+      "id": "action-cloak",
+      "english": "Cloak",
+      "chinese": "匿伏",
+      "aliases": [
+        "Cloaked"
+      ],
+      "category": "action",
+      "rule": "701.58",
+      "summaryEn": "Put the card onto the battlefield face down as a nameless 2/2 creature with ward {2}. A creature card with a mana cost can be turned face up by paying that cost when you have priority.",
+      "summaryZh": "将该牌以牌面朝下、没有名称且具有守护{2}的2/2生物放进战场。若是有法术力费用的生物牌，可在有优先权时支付该费用翻回正面。"
+    },
+    {
+      "id": "action-collect-evidence",
+      "english": "Collect Evidence",
+      "chinese": "搜证",
+      "aliases": [
+        "蒐證"
+      ],
+      "category": "action",
+      "rule": "701.59",
+      "summaryEn": "Exile cards from your graveyard with combined mana value at least N. You cannot choose this payment unless the whole requirement can be met.",
+      "summaryZh": "从自己的坟墓场放逐法术力值合计至少为N的牌。仅当能完成整个要求时才可选择如此支付。"
+    },
+    {
+      "id": "action-suspect",
+      "english": "Suspect",
+      "chinese": "嫌犯",
+      "aliases": [
+        "Suspected",
+        "嫌疑",
+        "疑凶"
+      ],
+      "category": "action",
+      "rule": "701.60",
+      "summaryEn": "Mark the creature suspected: it has menace and cannot block. It stays suspected until it leaves the battlefield or an effect removes the designation.",
+      "summaryZh": "将该生物标记为嫌犯：它具有威慑且不能阻挡。直到它离开战场或有效应移除标记之前，一直是嫌犯。"
+    },
+    {
+      "id": "action-forage",
+      "english": "Forage",
+      "chinese": "觅食",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.61",
+      "summaryEn": "Either exile three cards from your graveyard or sacrifice a Food.",
+      "summaryZh": "从自己的坟墓场放逐三张牌，或牺牲一个食品。"
+    },
+    {
+      "id": "action-manifest-dread",
+      "english": "Manifest Dread",
+      "chinese": "显化惧象",
+      "aliases": [
+        "Manifesting dread",
+        "顯化懼象"
+      ],
+      "category": "action",
+      "rule": "701.62",
+      "summaryEn": "Look at your library's top two cards. Manifest one and put the other into your graveyard.",
+      "summaryZh": "检视牌库顶两张牌。显化其中一张，并将另一张置入自己的坟墓场。"
+    },
+    {
+      "id": "action-endure",
+      "english": "Endure",
+      "chinese": "忍耐",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.63",
+      "summaryEn": "For endure N, choose between putting N +1/+1 counters on that permanent and creating an N/N white Spirit creature token. Endure 0 does nothing.",
+      "summaryZh": "忍耐N：选择在该永久物上放N个+1/+1指示物，或派出一个N/N白色精怪生物衍生物。忍耐0不会发生任何事。"
+    },
+    {
+      "id": "action-harness",
+      "english": "Harness",
+      "chinese": "驾驭",
+      "aliases": [
+        "Harnessed",
+        "駕馭"
+      ],
+      "category": "action",
+      "rule": "701.64",
+      "summaryEn": "Mark the permanent harnessed if it is not already. This marker lasts until it leaves the battlefield and enables effects such as infinity abilities.",
+      "summaryZh": "若该永久物尚未被驾驭，将其标记为已驾驭。此标记保留至它离开战场，并可启用无限等异能。"
+    },
+    {
+      "id": "action-airbend",
+      "english": "Airbend",
+      "chinese": "御气",
+      "aliases": [
+        "御氣"
+      ],
+      "category": "action",
+      "rule": "701.65",
+      "summaryEn": "Exile the instructed spells or permanents. Each card's owner may cast it for {2} instead of its mana cost while it remains exiled, observing normal timing.",
+      "summaryZh": "放逐指定的咒语或永久物。只要该牌仍被放逐，其拥有者可支付{2}而非法术力费用来施放之，仍须遵守通常的时机限制。"
+    },
+    {
+      "id": "action-earthbend",
+      "english": "Earthbend",
+      "chinese": "御土",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.66",
+      "summaryEn": "Make a target land you control a 0/0 creature with haste while keeping its other types, and add N +1/+1 counters. If it dies or is exiled, return it tapped under your control.",
+      "summaryZh": "令目标由你操控的地额外成为具敏捷的0/0生物，在其上放N个+1/+1指示物。当它死去或被放逐时，将其横置移回战场且由你操控。"
+    },
+    {
+      "id": "action-waterbend",
+      "english": "Waterbend",
+      "chinese": "御水",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.67",
+      "summaryEn": "Pay the stated waterbend cost. For each generic mana in that cost, you may tap an untapped artifact or creature you control instead; this permission does not pay unrelated costs.",
+      "summaryZh": "支付指定御水费用时，每点一般法术力可改为横置一个你操控且未横置的神器或生物。这种支付方式不能用于其他无关费用。"
+    },
+    {
+      "id": "action-blight",
+      "english": "Blight",
+      "chinese": "枯败",
+      "aliases": [
+        "枯萎动作",
+        "枯敗"
+      ],
+      "category": "action",
+      "rule": "701.68",
+      "summaryEn": "Put N -1/-1 counters on a creature you control. If you are offered this as a choice, you need a creature on which you can put all N counters.",
+      "summaryZh": "在一个你操控的生物上放N个-1/-1指示物。若作为可选择的动作，须能在该生物上放足N个指示物才可选择。"
+    },
+    {
+      "id": "action-heal",
+      "english": "Heal",
+      "chinese": "治疗",
+      "aliases": [
+        "Heal damage",
+        "治療"
+      ],
+      "category": "action",
+      "rule": "701.69",
+      "summaryEn": "Remove marked damage from the permanent as instructed. Healing damage does not itself increase toughness or restore life.",
+      "summaryZh": "按指示移去永久物上标记的伤害。治疗伤害本身不会增加防御力或回复生命。"
+    },
+    {
+      "id": "action-recruit",
+      "english": "Recruit",
+      "chinese": "招募",
+      "aliases": [],
+      "category": "action",
+      "rule": "701.70",
+      "summaryEn": "Draw a card, then discard one. Discarding a nonland this way also creates a 1/1 white Human Soldier creature token.",
+      "summaryZh": "抓一张牌，然后弃一张牌。若如此弃掉非地牌，再派出一个1/1白色人类／士兵生物衍生物。"
+    },
+    {
+      "id": "action-empower-jace",
+      "english": "Empower Jace",
+      "chinese": "强化杰斯",
+      "aliases": [
+        "Jace token",
+        "強化傑斯"
+      ],
+      "category": "action",
+      "rule": "701.71",
+      "summaryEn": "If you have no Jace planeswalker token, create a blue one with zero loyalty, a −1 ability to surveil 1 and a −3 ability to draw a card. Choose a Jace planeswalker token you control and add N loyalty counters.",
+      "summaryZh": "若你没有杰斯鹏洛客衍生物，派出一个蓝色、零忠诚且有「−1：刺探1」及「−3：抓一张牌」异能的杰斯鹏洛客衍生物。选择一个己方杰斯鹏洛客衍生物，在其上放N个忠诚指示物。"
+    },
+    {
+      "id": "ability-deathtouch",
+      "english": "Deathtouch",
+      "chinese": "死触",
+      "aliases": [
+        "死觸"
+      ],
+      "category": "ability",
+      "rule": "702.2",
+      "summaryEn": "Any positive damage from this source is lethal to a creature. It does not bypass indestructible or destroy players, planeswalkers or battles.",
+      "summaryZh": "此来源对生物造成任意正数伤害即为致命伤害。它不能绕过不灭，也不会消灭牌手、鹏洛客或战役。"
+    },
+    {
+      "id": "ability-defender",
+      "english": "Defender",
+      "chinese": "守军",
+      "aliases": [
+        "Defender ability",
+        "守軍"
+      ],
+      "category": "ability",
+      "rule": "702.3",
+      "summaryEn": "A creature with defender cannot attack.",
+      "summaryZh": "具有守军的生物不能攻击。"
+    },
+    {
+      "id": "ability-double-strike",
+      "english": "Double Strike",
+      "chinese": "连击",
+      "aliases": [
+        "連擊"
+      ],
+      "category": "ability",
+      "rule": "702.4",
+      "summaryEn": "The creature deals combat damage in both the first-strike and normal combat damage steps if still eligible. It does not automatically damage a player after its blocker dies.",
+      "summaryZh": "若仍符合造成伤害的条件，此生物在先攻及普通战斗伤害步骤都造成战斗伤害。阻挡者死去后，它并不会自动对牌手造成伤害。"
+    },
+    {
+      "id": "ability-enchant",
+      "english": "Enchant",
+      "chinese": "结附",
+      "aliases": [
+        "Enchant creature",
+        "结附于",
+        "結附"
+      ],
+      "category": "ability",
+      "rule": "702.5",
+      "summaryEn": "The listed quality limits what an Aura spell can target and what that Aura can remain attached to.",
+      "summaryZh": "所列特征限制灵气咒语可指定的目标，以及该灵气可持续贴附的对象。"
+    },
+    {
+      "id": "ability-equip",
+      "english": "Equip",
+      "chinese": "佩带",
+      "aliases": [
+        "Equip creature",
+        "佩帶"
+      ],
+      "category": "ability",
+      "rule": "702.6",
+      "summaryEn": "Pay the equip cost to attach this Equipment to a target creature you control. Activate only during your main phase with an empty stack, unless another effect changes the timing.",
+      "summaryZh": "支付佩带费用，将此武具贴附于目标由你操控的生物。除非有效应改变时机，否则只能在自己行动阶段且堆叠为空时起动。"
+    },
+    {
+      "id": "ability-first-strike",
+      "english": "First Strike",
+      "chinese": "先攻",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.7",
+      "summaryEn": "The creature deals combat damage in the earlier combat damage step instead of the normal one. Double strike creatures can deal damage in both.",
+      "summaryZh": "此生物在较早的战斗伤害步骤造成伤害，而非普通步骤。具有连击的生物则可在两个步骤都造成伤害。"
+    },
+    {
+      "id": "ability-flash",
+      "english": "Flash",
+      "chinese": "闪现",
+      "aliases": [
+        "閃現"
+      ],
+      "category": "ability",
+      "rule": "702.8",
+      "summaryEn": "You may play this card whenever you could cast an instant, while respecting other restrictions on playing it.",
+      "summaryZh": "你可在能够施放瞬间的时机使用此牌，仍须遵守使用该牌的其他限制。"
+    },
+    {
+      "id": "ability-flying",
+      "english": "Flying",
+      "chinese": "飞行",
+      "aliases": [
+        "飛行"
+      ],
+      "category": "ability",
+      "rule": "702.9",
+      "summaryEn": "Only creatures with flying or reach can block this creature. Flying does not restrict what it can block.",
+      "summaryZh": "此生物只能被具飞行或延势的生物阻挡。飞行不会限制它能阻挡哪些生物。"
+    },
+    {
+      "id": "ability-haste",
+      "english": "Haste",
+      "chinese": "敏捷",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.10",
+      "summaryEn": "The creature can attack and use abilities with the tap or untap symbol without waiting to be controlled since your turn began. It still must satisfy other restrictions.",
+      "summaryZh": "此生物不必等到从你的回合开始就持续受你操控，便可攻击及起动费用含横置或重置符号的异能。其他限制仍适用。"
+    },
+    {
+      "id": "ability-hexproof",
+      "english": "Hexproof",
+      "chinese": "辟邪",
+      "aliases": [
+        "Hexproof from",
+        "反色辟邪"
+      ],
+      "category": "ability",
+      "rule": "702.11",
+      "summaryEn": "Opponents' spells and abilities cannot target this permanent or player. A qualified version, such as hexproof from blue, restricts only matching sources.",
+      "summaryZh": "对手操控的咒语及异能不能以此永久物或牌手为目标。附有特征的辟邪，例如反蓝辟邪，只限制符合该特征的来源。"
+    },
+    {
+      "id": "ability-indestructible",
+      "english": "Indestructible",
+      "chinese": "不灭",
+      "aliases": [
+        "不滅"
+      ],
+      "category": "ability",
+      "rule": "702.12",
+      "summaryEn": "Destruction and lethal damage do not destroy this permanent. Sacrifice, exile and a creature having toughness 0 or less can still remove it.",
+      "summaryZh": "消灭及致命伤害不会消灭此永久物。牺牲、放逐或生物防御力为0或更小等仍能令其离开战场。"
+    },
+    {
+      "id": "ability-intimidate",
+      "english": "Intimidate",
+      "chinese": "威吓",
+      "aliases": [
+        "威嚇"
+      ],
+      "category": "ability",
+      "rule": "702.13",
+      "summaryEn": "Only artifact creatures or creatures sharing a color with this creature can block it.",
+      "summaryZh": "此生物只能被神器生物或与其有共同颜色的生物阻挡。"
+    },
+    {
+      "id": "ability-landwalk",
+      "english": "Landwalk",
+      "chinese": "地行者",
+      "aliases": [
+        "Islandwalk",
+        "Swampwalk",
+        "Forestwalk",
+        "Mountainwalk",
+        "Plainswalk",
+        "Nonbasic landwalk",
+        "海岛行者",
+        "沼泽行者",
+        "树林行者",
+        "山脉行者",
+        "平原行者",
+        "非基本地行者",
+        "海島行者",
+        "沼澤行者",
+        "樹林行者",
+        "山脈行者"
+      ],
+      "category": "ability",
+      "rule": "702.14",
+      "summaryEn": "A creature with the specified landwalk cannot be blocked if the defending player controls a land matching that quality, such as islandwalk against an Island.",
+      "summaryZh": "若防御牌手操控符合指定特征的地，具有该地行者异能的生物就不能被阻挡，例如防御方有海岛时的海岛行者。"
+    },
+    {
+      "id": "ability-lifelink",
+      "english": "Lifelink",
+      "chinese": "系命",
+      "aliases": [
+        "繫命"
+      ],
+      "category": "ability",
+      "rule": "702.15",
+      "summaryEn": "Damage from this source also makes its controller gain that much life at the same time; if it has no controller, its owner gains the life.",
+      "summaryZh": "此来源造成伤害时，其操控者同时获得等量生命；若没有操控者则由拥有者获得。"
+    },
+    {
+      "id": "ability-protection",
+      "english": "Protection",
+      "chinese": "保护",
+      "aliases": [
+        "Protection from",
+        "Protection from everything",
+        "反白保护",
+        "反蓝保护",
+        "反黑保护",
+        "反红保护",
+        "反绿保护",
+        "反白保護",
+        "反藍保護",
+        "反黑保護",
+        "反紅保護",
+        "反綠保護",
+        "保護"
+      ],
+      "category": "ability",
+      "rule": "702.16",
+      "summaryEn": "Against the stated quality, prevent damage, prohibit targeting and matching Auras/Equipment/Fortifications, and prohibit matching creatures from blocking. Protection does not stop untargeted destruction or sacrifice.",
+      "summaryZh": "针对指定特征：防止伤害、不能成为目标、不能被符合特征的灵气／武具／工事贴附，且不能被符合特征的生物阻挡。保护不能阻止不指定目标的消灭或牺牲。"
+    },
+    {
+      "id": "ability-reach",
+      "english": "Reach",
+      "chinese": "延势",
+      "aliases": [
+        "延勢"
+      ],
+      "category": "ability",
+      "rule": "702.17",
+      "summaryEn": "This creature can block creatures with flying. Reach does not itself grant flying or restrict ground creatures from blocking it.",
+      "summaryZh": "此生物可以阻挡具飞行的生物。延势本身不会赋予飞行，也不会阻止地面生物阻挡它。"
+    },
+    {
+      "id": "ability-shroud",
+      "english": "Shroud",
+      "chinese": "帷幕",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.18",
+      "summaryEn": "No player's spells or abilities can target this permanent or player, including its controller's own spells and abilities.",
+      "summaryZh": "任何牌手的咒语及异能都不能以此永久物或牌手为目标，包括其操控者自己的咒语及异能。"
+    },
+    {
+      "id": "ability-trample",
+      "english": "Trample",
+      "chinese": "践踏",
+      "aliases": [
+        "Trample over planeswalkers",
+        "践踏鹏洛客",
+        "踐踏",
+        "踐踏鵬洛客"
+      ],
+      "category": "ability",
+      "rule": "702.19",
+      "summaryEn": "When attacking, after assigning lethal damage to every blocker, you may assign excess combat damage to the attacked player, planeswalker or battle. Deathtouch changes what counts as lethal.",
+      "summaryZh": "攻击时，向每个阻挡者分配致命伤害后，可将过量战斗伤害分配给所攻击的牌手、鹏洛客或战役。死触会影响何谓致命伤害。"
+    },
+    {
+      "id": "ability-vigilance",
+      "english": "Vigilance",
+      "chinese": "警戒",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.20",
+      "summaryEn": "Declaring this creature as an attacker does not tap it. Vigilance does not allow a tapped creature to attack.",
+      "summaryZh": "宣告此生物攻击时不会横置它。警戒不会让已横置生物能够攻击。"
+    },
+    {
+      "id": "ability-ward",
+      "english": "Ward",
+      "chinese": "守护",
+      "aliases": [
+        "守護"
+      ],
+      "category": "ability",
+      "rule": "702.21",
+      "summaryEn": "When an opponent's spell or ability targets this permanent, a trigger counters that spell or ability unless that opponent pays the ward cost. This is a triggered ability, not a targeting prohibition.",
+      "summaryZh": "当对手的咒语或异能以此永久物为目标时，触发异能会反击该咒语或异能，除非该对手支付守护费用。这是触发式异能，并非禁止指定目标。"
+    },
+    {
+      "id": "ability-banding",
+      "english": "Banding",
+      "chinese": "结合",
+      "aliases": [
+        "Bands with other",
+        "与其他结合",
+        "結合",
+        "與其他結合"
+      ],
+      "category": "ability",
+      "rule": "702.22",
+      "summaryEn": "Attack in a band with any number of banding creatures and up to one other creature; blocking one blocks the band. In combats involving banding, its controller can choose how the opposing creatures assign damage. Bands with other has additional grouping conditions.",
+      "summaryZh": "可将任意数量具结合的生物与至多一个其他生物编成攻击结合团；阻挡其中一个即阻挡整团。在涉及结合的战斗中，其操控者可决定对方生物如何分配伤害。「与其他结合」另有编团条件。"
+    },
+    {
+      "id": "ability-rampage",
+      "english": "Rampage",
+      "chinese": "狂暴",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.23",
+      "summaryEn": "When this creature becomes blocked, it gets +N/+N until end of turn for each blocker beyond the first. The number is determined when the trigger resolves.",
+      "summaryZh": "此生物成为被阻挡时，每有一个超过第一个的阻挡者，它便得+N/+N直到回合结束。数量在触发异能结算时确定。"
+    },
+    {
+      "id": "ability-cumulative-upkeep",
+      "english": "Cumulative Upkeep",
+      "chinese": "累积维持",
+      "aliases": [
+        "累積維持"
+      ],
+      "category": "ability",
+      "rule": "702.24",
+      "summaryEn": "Each upkeep, add an age counter, then pay the stated cost once for every age counter or sacrifice the permanent. You must pay the entire accumulated cost.",
+      "summaryZh": "每个维持开始时加一个岁月指示物，然后为每个岁月指示物各支付一次所列费用，否则牺牲该永久物。必须支付全部累积费用。"
+    },
+    {
+      "id": "ability-flanking",
+      "english": "Flanking",
+      "chinese": "侧面攻击",
+      "aliases": [
+        "側面攻擊"
+      ],
+      "category": "ability",
+      "rule": "702.25",
+      "summaryEn": "Whenever a creature without flanking blocks this creature, that blocker gets -1/-1 until end of turn.",
+      "summaryZh": "每当不具侧面攻击的生物阻挡此生物时，该阻挡生物得-1/-1直到回合结束。"
+    },
+    {
+      "id": "ability-phasing",
+      "english": "Phasing",
+      "chinese": "时间跳跃",
+      "aliases": [
+        "Phase out",
+        "Phase in",
+        "跃离",
+        "跃回",
+        "躍離",
+        "躍回",
+        "時間跳躍"
+      ],
+      "category": "ability",
+      "rule": "702.26",
+      "summaryEn": "Before your untap, this permanent phases out and previously phased-out permanents under your control phase in. Phased-out objects are generally treated as nonexistent; phasing does not leave or enter the battlefield.",
+      "summaryZh": "在你的重置动作之前，此永久物跃离，之前在你操控下跃离的永久物跃回。跃离的物件通常视为不存在；跃离与跃回不算离开或进入战场。"
+    },
+    {
+      "id": "ability-buyback",
+      "english": "Buyback",
+      "chinese": "购回",
+      "aliases": [
+        "購回"
+      ],
+      "category": "ability",
+      "rule": "702.27",
+      "summaryEn": "You may pay an additional cost when casting the spell. If paid, return it to its owner's hand instead of the graveyard as it resolves; being countered does not return it.",
+      "summaryZh": "施放时可额外支付购回费用。若已支付，咒语结算时改为回到拥有者手中而非坟墓场；被反击则不会因此回手。"
+    },
+    {
+      "id": "ability-shadow",
+      "english": "Shadow",
+      "chinese": "次元幽影",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.28",
+      "summaryEn": "Creatures with shadow can block only creatures with shadow and can be blocked only by creatures with shadow.",
+      "summaryZh": "具有次元幽影的生物只能阻挡具有次元幽影的生物，也只能被具有次元幽影的生物阻挡。"
+    },
+    {
+      "id": "ability-cycling",
+      "english": "Cycling",
+      "chinese": "循环",
+      "aliases": [
+        "Typecycling",
+        "Basic landcycling",
+        "Landcycling",
+        "Plainscycling",
+        "Islandcycling",
+        "Swampcycling",
+        "Mountaincycling",
+        "Forestcycling",
+        "类别循环",
+        "基本地循环",
+        "地循环",
+        "平原循环",
+        "海岛循环",
+        "沼泽循环",
+        "山脉循环",
+        "树林循环",
+        "循環",
+        "類別循環",
+        "基本地循環"
+      ],
+      "category": "ability",
+      "rule": "702.29",
+      "summaryEn": "Pay the cycling cost and discard this card from your hand to draw a card. Typecycling instead searches for a card with the stated type, reveals it, puts it into your hand and shuffles.",
+      "summaryZh": "支付循环费用并从手上弃掉此牌，抓一张牌。类别循环则改为搜寻指定类别的牌，展示、置入手中并洗牌。"
+    },
+    {
+      "id": "ability-echo",
+      "english": "Echo",
+      "chinese": "返响",
+      "aliases": [
+        "返響"
+      ],
+      "category": "ability",
+      "rule": "702.30",
+      "summaryEn": "At your upkeep, if this permanent came under your control since your last upkeep began, pay its echo cost or sacrifice it.",
+      "summaryZh": "在你的维持开始时，若此永久物是在你的上个维持开始后才归你操控，则支付返响费用，否则牺牲之。"
+    },
+    {
+      "id": "ability-horsemanship",
+      "english": "Horsemanship",
+      "chinese": "马术",
+      "aliases": [
+        "馬術"
+      ],
+      "category": "ability",
+      "rule": "702.31",
+      "summaryEn": "Only a creature with horsemanship can block this creature. Horsemanship does not restrict what it can block.",
+      "summaryZh": "此生物只能被具马术的生物阻挡。马术不会限制它能阻挡哪些生物。"
+    },
+    {
+      "id": "ability-fading",
+      "english": "Fading",
+      "chinese": "消退",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.32",
+      "summaryEn": "Enter with N fade counters. Each upkeep, remove one; sacrifice this permanent if you cannot remove one, rather than immediately when the last counter is removed.",
+      "summaryZh": "进战场时有N个消退指示物。每个维持移去一个；当无法移去时才牺牲此永久物，并非移去最后一个时立即牺牲。"
+    },
+    {
+      "id": "ability-kicker",
+      "english": "Kicker",
+      "chinese": "增幅",
+      "aliases": [
+        "Kicked",
+        "Multikicker",
+        "多重增幅"
+      ],
+      "category": "ability",
+      "rule": "702.33",
+      "summaryEn": "An optional additional casting cost enables the spell's stated kicked effects. Multikicker lets you pay that additional cost repeatedly; the card states how each payment matters.",
+      "summaryZh": "可选择额外支付施放费用来启用牌上注明的增幅效果。多重增幅允许反复支付该额外费用；每次支付的作用依牌张内文。"
+    },
+    {
+      "id": "ability-flashback",
+      "english": "Flashback",
+      "chinese": "返照",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.34",
+      "summaryEn": "Cast the card from your graveyard for its flashback cost as an instant or sorcery. After using flashback, exile it whenever it would leave the stack, including if countered.",
+      "summaryZh": "可从坟墓场支付返照费用，将该牌作为瞬间或法术施放。如此施放后，它每当将离开堆叠时都会被放逐，包括被反击时。"
+    },
+    {
+      "id": "ability-madness",
+      "english": "Madness",
+      "chinese": "疯魔",
+      "aliases": [
+        "瘋魔"
+      ],
+      "category": "ability",
+      "rule": "702.35",
+      "summaryEn": "When discarded, exile this card instead of putting it in the graveyard. A trigger then lets you cast it for its madness cost; if you do not, put it in your graveyard.",
+      "summaryZh": "弃掉此牌时改为将其放逐。随后触发异能让你支付疯魔费用施放；若不施放，则将它置入坟墓场。"
+    },
+    {
+      "id": "ability-fear",
+      "english": "Fear",
+      "chinese": "恐惧",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.36",
+      "summaryEn": "Only artifact creatures or black creatures can block this creature.",
+      "summaryZh": "此生物只能被神器生物或黑色生物阻挡。"
+    },
+    {
+      "id": "ability-morph",
+      "english": "Morph",
+      "chinese": "变身",
+      "aliases": [
+        "Megamorph",
+        "威力变身",
+        "變身",
+        "威力變身"
+      ],
+      "category": "ability",
+      "rule": "702.37",
+      "summaryEn": "Cast this card face down for {3} as a nameless 2/2 creature. When you have priority, pay its morph cost to turn it face up without the stack. Megamorph also adds a +1/+1 counter when turned up this way.",
+      "summaryZh": "可支付{3}将此牌作为没有名称的2/2生物以牌面朝下施放。有优先权时可支付变身费用翻回正面，不使用堆叠。威力变身如此翻回时还放一个+1/+1指示物。"
+    },
+    {
+      "id": "ability-amplify",
+      "english": "Amplify",
+      "chinese": "增强",
+      "aliases": [
+        "增強"
+      ],
+      "category": "ability",
+      "rule": "702.38",
+      "summaryEn": "As this permanent enters, reveal cards in your hand sharing a creature type with it. It enters with N +1/+1 counters for each card revealed, excluding cards entering at the same time.",
+      "summaryZh": "此永久物进战场时，可展示手中任意数量与其有共同生物类别的牌。每展示一张，它进场时便多有N个+1/+1指示物；不能展示同时进场的牌。"
+    },
+    {
+      "id": "ability-provoke",
+      "english": "Provoke",
+      "chinese": "挑拨",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.39",
+      "summaryEn": "When attacking, you may untap a target creature the defending player controls and require it to block this creature if able.",
+      "summaryZh": "攻击时，可重置目标由防御牌手操控的生物，并要求它在能够阻挡时阻挡此生物。"
+    },
+    {
+      "id": "ability-storm",
+      "english": "Storm",
+      "chinese": "风暴",
+      "aliases": [
+        "風暴"
+      ],
+      "category": "ability",
+      "rule": "702.40",
+      "summaryEn": "Casting the spell triggers a copy for each spell cast before it this turn, including opponents' spells. You may choose new targets for the copies; the copies are not cast.",
+      "summaryZh": "施放此咒语时，每有一个本回合在它之前施放的咒语，就复制此咒语一次，也计算对手的咒语。可为复制品选择新目标；复制品并未被施放。"
+    },
+    {
+      "id": "ability-affinity",
+      "english": "Affinity",
+      "chinese": "共鸣",
+      "aliases": [
+        "Affinity for artifacts",
+        "神器共鸣",
+        "神器共鳴"
+      ],
+      "category": "ability",
+      "rule": "702.41",
+      "summaryEn": "The spell costs {1} less for each matching permanent you control. This reduces generic mana, not colored requirements.",
+      "summaryZh": "你每操控一个符合指定条件的永久物，此咒语便少支付{1}。这减少一般法术力费用，不减少有色需求。"
+    },
+    {
+      "id": "ability-entwine",
+      "english": "Entwine",
+      "chinese": "打包",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.42",
+      "summaryEn": "Pay the additional entwine cost to choose every mode of the spell. Resolve the chosen modes in their printed order.",
+      "summaryZh": "额外支付打包费用，即可选择此咒语的所有模式。各模式依牌上印刷顺序结算。"
+    },
+    {
+      "id": "ability-modular",
+      "english": "Modular",
+      "chinese": "套件",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.43",
+      "summaryEn": "Enter with N +1/+1 counters. When this permanent goes from battlefield to graveyard, you may put that many of its +1/+1 counters on a target artifact creature.",
+      "summaryZh": "进战场时有N个+1/+1指示物。从战场进入坟墓场时，可在目标神器生物上放等同此永久物最后所具有数量的+1/+1指示物。"
+    },
+    {
+      "id": "ability-sunburst",
+      "english": "Sunburst",
+      "chinese": "辉映",
+      "aliases": [
+        "輝映"
+      ],
+      "category": "ability",
+      "rule": "702.44",
+      "summaryEn": "For each color of mana spent to cast it, this permanent enters with a counter: +1/+1 if it is entering as a creature before type-changing effects, otherwise charge.",
+      "summaryZh": "施放时每使用一种颜色的法术力，进场时便多有一个指示物：在考虑类别改变效应之前若是以生物进场，则为+1/+1；否则为充电指示物。"
+    },
+    {
+      "id": "ability-bushido",
+      "english": "Bushido",
+      "chinese": "武士道",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.45",
+      "summaryEn": "When this creature blocks or becomes blocked, it gets +N/+N until end of turn.",
+      "summaryZh": "此生物阻挡或成为被阻挡时，得+N/+N直到回合结束。"
+    },
+    {
+      "id": "ability-soulshift",
+      "english": "Soulshift",
+      "chinese": "转生",
+      "aliases": [
+        "轉生"
+      ],
+      "category": "ability",
+      "rule": "702.46",
+      "summaryEn": "When this permanent goes from battlefield to graveyard, you may return a target Spirit card of mana value N or less from your graveyard to your hand.",
+      "summaryZh": "此永久物从战场进入坟墓场时，可将坟墓场中一张法术力值至多N的目标精怪牌移回手中。"
+    },
+    {
+      "id": "ability-splice",
+      "english": "Splice",
+      "chinese": "通联",
+      "aliases": [
+        "Splice onto Arcane",
+        "Splice onto instant or sorcery",
+        "通联古咒",
+        "通聯"
+      ],
+      "category": "ability",
+      "rule": "702.47",
+      "summaryEn": "While casting a spell of the stated quality, reveal this card from your hand and pay the splice cost to add its rules text to that spell. The spliced card stays in your hand.",
+      "summaryZh": "施放符合指定特征的咒语时，可展示手中此牌并支付通联费用，将此牌的规则内文加到该咒语。通联的牌仍留在手中。"
+    },
+    {
+      "id": "ability-offering",
+      "english": "Offering",
+      "chinese": "献祭",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.48",
+      "summaryEn": "You may sacrifice a permanent of the stated quality while casting this spell. Doing so allows instant timing and reduces the spell's cost by the sacrificed permanent's mana cost.",
+      "summaryZh": "施放时可牺牲符合指定特征的永久物。如此作便可在瞬间时机施放，且咒语费用减去所牺牲永久物的法术力费用。"
+    },
+    {
+      "id": "ability-ninjutsu",
+      "english": "Ninjutsu",
+      "chinese": "忍术",
+      "aliases": [
+        "Commander ninjutsu",
+        "指挥官忍术",
+        "忍術",
+        "指揮官忍術"
+      ],
+      "category": "ability",
+      "rule": "702.49",
+      "summaryEn": "Pay the cost, reveal this card and return an unblocked attacker you control to hand to put this card from your hand onto the battlefield tapped and attacking the same defender. Commander ninjutsu also works from the command zone.",
+      "summaryZh": "支付费用、展示此牌，并将一个未被阻挡的己方攻击生物移回手中，即可将此牌从手上横置放进战场，攻击同一防御对象。指挥官忍术也可从统帅区起动。"
+    },
+    {
+      "id": "ability-epic",
+      "english": "Epic",
+      "chinese": "历传",
+      "aliases": [
+        "歷傳"
+      ],
+      "category": "ability",
+      "rule": "702.50",
+      "summaryEn": "Once this spell resolves, you cannot cast spells for the rest of the game. Each of your later upkeeps copies it without its epic ability; you may choose new targets.",
+      "summaryZh": "此咒语结算后，本盘游戏余下时间你不能施放咒语。之后每个己方维持复制它一次，但不复制历传异能；可选择新目标。"
+    },
+    {
+      "id": "ability-convoke",
+      "english": "Convoke",
+      "chinese": "召集",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.51",
+      "summaryEn": "Tap untapped creatures you control to pay for the spell: each pays one generic mana or one mana of its color. This is a payment method, not an activated tap ability.",
+      "summaryZh": "可横置你操控的未横置生物来支付咒语费用：每个支付一点一般法术力或与该生物同色的一点法术力。这是支付方式，而非横置起动式异能。"
+    },
+    {
+      "id": "ability-dredge",
+      "english": "Dredge",
+      "chinese": "发掘",
+      "aliases": [
+        "發掘"
+      ],
+      "category": "ability",
+      "rule": "702.52",
+      "summaryEn": "Instead of drawing a card, you may mill exactly N cards and return this card from your graveyard to hand. You need at least N cards in your library.",
+      "summaryZh": "若牌库至少有N张牌，可将一次抓牌改为磨N张牌，并将坟墓场中的此牌移回手中。"
+    },
+    {
+      "id": "ability-transmute",
+      "english": "Transmute",
+      "chinese": "易质",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.53",
+      "summaryEn": "At sorcery timing, pay the cost and discard this card to search your library for a card with the same mana value, reveal it, put it into your hand, then shuffle.",
+      "summaryZh": "在法术时机支付费用并弃掉此牌，从牌库搜寻一张法术力值相同的牌，展示并置入手中，然后洗牌。"
+    },
+    {
+      "id": "ability-bloodthirst",
+      "english": "Bloodthirst",
+      "chinese": "嗜血",
+      "aliases": [
+        "Bloodthirst X"
+      ],
+      "category": "ability",
+      "rule": "702.54",
+      "summaryEn": "If an opponent has been dealt damage this turn, this permanent enters with N +1/+1 counters. Bloodthirst X uses the total damage dealt to your opponents this turn.",
+      "summaryZh": "若本回合有对手受过伤害，此永久物进场时多有N个+1/+1指示物。嗜血X则以本回合对手受到的伤害总数决定数量。"
+    },
+    {
+      "id": "ability-haunt",
+      "english": "Haunt",
+      "chinese": "缠身",
+      "aliases": [
+        "纏身"
+      ],
+      "category": "ability",
+      "rule": "702.55",
+      "summaryEn": "When the permanent dies, or the instant/sorcery finishes resolving into a graveyard, exile it haunting a target creature. Its other text defines what happens when that creature dies.",
+      "summaryZh": "永久物死去，或瞬间／法术结算后进入坟墓场时，将它放逐并缠身于目标生物。该牌的其他内文决定被缠身生物死去时的效果。"
+    },
+    {
+      "id": "ability-replicate",
+      "english": "Replicate",
+      "chinese": "覆诵",
+      "aliases": [
+        "覆誦"
+      ],
+      "category": "ability",
+      "rule": "702.56",
+      "summaryEn": "You may pay the replicate cost any number of times as an additional casting cost. Casting then creates one copy per payment, with optional new targets.",
+      "summaryZh": "施放时可将覆诵费用作为额外费用支付任意次。施放触发后，每次支付产生一个复制品，并可选择新目标。"
+    },
+    {
+      "id": "ability-forecast",
+      "english": "Forecast",
+      "chinese": "预报",
+      "aliases": [
+        "預報"
+      ],
+      "category": "ability",
+      "rule": "702.57",
+      "summaryEn": "Activate the printed forecast ability from your hand only during your upkeep, at most once each turn. Reveal the card and keep it revealed for the required upkeep duration.",
+      "summaryZh": "只能在自己的维持从手上起动所列预报异能，且每回合至多一次。须展示该牌，并在规定的维持期间保持展示。"
+    },
+    {
+      "id": "ability-graft",
+      "english": "Graft",
+      "chinese": "接殖",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.58",
+      "summaryEn": "Enter with N +1/+1 counters. When another creature enters, you may move one +1/+1 counter from this permanent onto that creature.",
+      "summaryZh": "进场时有N个+1/+1指示物。每当另一个生物进场，可将此永久物上的一个+1/+1指示物移到该生物上。"
+    },
+    {
+      "id": "ability-recover",
+      "english": "Recover",
+      "chinese": "复还",
+      "aliases": [
+        "復還"
+      ],
+      "category": "ability",
+      "rule": "702.59",
+      "summaryEn": "While this card is in your graveyard, a creature entering your graveyard from the battlefield triggers recover. Pay its cost to return this card to hand; otherwise exile it.",
+      "summaryZh": "此牌在坟墓场时，每当生物从战场进入你的坟墓场，复还便触发。支付费用可将此牌移回手中，否则将此牌放逐。"
+    },
+    {
+      "id": "ability-ripple",
+      "english": "Ripple",
+      "chinese": "涟动",
+      "aliases": [
+        "漣動"
+      ],
+      "category": "ability",
+      "rule": "702.60",
+      "summaryEn": "When casting, you may reveal the top N library cards and cast any with this spell's name without paying mana costs. Put the uncast revealed cards on the bottom in any order.",
+      "summaryZh": "施放时，可展示牌库顶N张牌，并免费施放其中与此咒语同名的牌。未如此施放的展示牌以任意顺序置于牌库底。"
+    },
+    {
+      "id": "ability-split-second",
+      "english": "Split Second",
+      "chinese": "转瞬",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.61",
+      "summaryEn": "While this spell is on the stack, players cannot cast other spells or activate nonmana abilities. Mana abilities, special actions and triggered abilities still work.",
+      "summaryZh": "此咒语在堆叠上时，牌手不能施放其他咒语，也不能起动非法术力异能。法术力异能、特殊动作及触发式异能仍可正常运作。"
+    },
+    {
+      "id": "ability-suspend",
+      "english": "Suspend",
+      "chinese": "延缓",
+      "aliases": [
+        "Suspended",
+        "延緩"
+      ],
+      "category": "ability",
+      "rule": "702.62",
+      "summaryEn": "Pay the suspend cost to exile this card from hand with N time counters when you could begin casting it. Remove one each upkeep; removing the last lets you play it free, giving a resulting creature haste.",
+      "summaryZh": "在能开始施放此牌的时机，可支付延缓费用将其从手上放逐，其上有N个计时指示物。每个维持移去一个；移去最后一个时可免费使用它，产生的生物具有敏捷。"
+    },
+    {
+      "id": "ability-vanishing",
+      "english": "Vanishing",
+      "chinese": "消逝",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.63",
+      "summaryEn": "Enter with N time counters, removing one each upkeep. Sacrifice this permanent when its last time counter is removed. A version without N supplies no starting counters.",
+      "summaryZh": "进场时有N个计时指示物，每个维持移去一个。最后一个计时指示物被移去时牺牲此永久物。未注明N的版本不会提供初始指示物。"
+    },
+    {
+      "id": "ability-absorb",
+      "english": "Absorb",
+      "chinese": "吸收",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.64",
+      "summaryEn": "Each time a source would damage this creature, prevent N of that damage. Each source and each separate damage event is considered separately.",
+      "summaryZh": "每当一个来源将对该生物造成伤害时，防止其中N点。不同来源及不同次伤害事件分别计算。"
+    },
+    {
+      "id": "ability-aura-swap",
+      "english": "Aura Swap",
+      "chinese": "灵气转换",
+      "aliases": [
+        "靈氣轉換"
+      ],
+      "category": "ability",
+      "rule": "702.65",
+      "summaryEn": "Pay the cost to exchange this battlefield Aura with an Aura card in your hand. If either half of the exchange is impossible, neither moves.",
+      "summaryZh": "支付费用，将战场上的此灵气与手中一张灵气牌交换。若交换任一部分无法完成，两者都不移动。"
+    },
+    {
+      "id": "ability-delve",
+      "english": "Delve",
+      "chinese": "掘穴",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.66",
+      "summaryEn": "Each card you exile from your graveyard while paying for this spell pays one generic mana of its cost. It cannot pay colored or specifically colorless requirements.",
+      "summaryZh": "支付此咒语费用时，每从自己的坟墓场放逐一张牌便可支付一点一般法术力。不能用来支付有色或特定无色需求。"
+    },
+    {
+      "id": "ability-fortify",
+      "english": "Fortify",
+      "chinese": "构工",
+      "aliases": [
+        "構工"
+      ],
+      "category": "ability",
+      "rule": "702.67",
+      "summaryEn": "Pay the cost to attach this Fortification to a target land you control, only at sorcery timing.",
+      "summaryZh": "只能在法术时机支付费用，将此工事贴附于目标由你操控的地。"
+    },
+    {
+      "id": "ability-frenzy",
+      "english": "Frenzy",
+      "chinese": "狂热",
+      "aliases": [
+        "狂熱"
+      ],
+      "category": "ability",
+      "rule": "702.68",
+      "summaryEn": "When this creature attacks and is not blocked, it gets +N/+0 until end of turn.",
+      "summaryZh": "此生物攻击且未被阻挡时，得+N/+0直到回合结束。"
+    },
+    {
+      "id": "ability-gravestorm",
+      "english": "Gravestorm",
+      "chinese": "坟场风暴",
+      "aliases": [
+        "墳場風暴"
+      ],
+      "category": "ability",
+      "rule": "702.69",
+      "summaryEn": "Casting creates a copy for every permanent put from the battlefield into a graveyard this turn. You may choose new targets for each copy.",
+      "summaryZh": "施放时，本回合每有一个永久物从战场进入坟墓场，就复制此咒语一次。可为每个复制品选择新目标。"
+    },
+    {
+      "id": "ability-poisonous",
+      "english": "Poisonous",
+      "chinese": "剧毒",
+      "aliases": [
+        "劇毒"
+      ],
+      "category": "ability",
+      "rule": "702.70",
+      "summaryEn": "When this creature deals combat damage to a player, a trigger gives that player N poison counters in addition to the damage's normal results.",
+      "summaryZh": "此生物对牌手造成战斗伤害时，触发异能使该牌手额外得到N个中毒指示物，伤害的通常结果仍然发生。"
+    },
+    {
+      "id": "ability-transfigure",
+      "english": "Transfigure",
+      "chinese": "易形",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.71",
+      "summaryEn": "At sorcery timing, pay the cost and sacrifice this permanent to put a creature card of the same mana value from your library onto the battlefield, then shuffle.",
+      "summaryZh": "在法术时机支付费用并牺牲此永久物，将牌库中一张法术力值相同的生物牌放进战场，然后洗牌。"
+    },
+    {
+      "id": "ability-champion",
+      "english": "Champion",
+      "chinese": "夺冠",
+      "aliases": [
+        "Champion a creature",
+        "Champion an Elf",
+        "奪冠"
+      ],
+      "category": "ability",
+      "rule": "702.72",
+      "summaryEn": "On entering, sacrifice this permanent unless you exile another permanent you control of the stated kind. When this permanent leaves, return the exiled card under its owner's control.",
+      "summaryZh": "进场时须放逐另一个你操控且符合指定类别的永久物，否则牺牲此永久物。此永久物离场时，将所放逐的牌移回战场且由其拥有者操控。"
+    },
+    {
+      "id": "ability-changeling",
+      "english": "Changeling",
+      "chinese": "化形",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.73",
+      "summaryEn": "This object has every creature type in all zones, including outside the game. It does not gain other card types, such as artifact, just from changeling.",
+      "summaryZh": "此物件在所有区域、甚至游戏外都具有所有生物类别。化形本身不会赋予神器等其他牌张类别。"
+    },
+    {
+      "id": "ability-evoke",
+      "english": "Evoke",
+      "chinese": "呼魂",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.74",
+      "summaryEn": "Cast for the alternative evoke cost. When the resulting permanent enters, a trigger makes you sacrifice it; its other enter-the-battlefield abilities can still trigger.",
+      "summaryZh": "可支付呼魂替代费用施放。产生的永久物进场时，触发异能要求你牺牲它；其他进场异能仍可触发。"
+    },
+    {
+      "id": "ability-hideaway",
+      "english": "Hideaway",
+      "chinese": "秘匿",
+      "aliases": [
+        "Hideaway 4",
+        "秘匿4"
+      ],
+      "category": "ability",
+      "rule": "702.75",
+      "summaryEn": "On entering, look at the top N library cards, exile one face down and randomly bottom the rest. The permanent's controller may look at the hidden card; other text governs playing it.",
+      "summaryZh": "进场时检视牌库顶N张牌，将其中一张牌面朝下放逐，其余随机置于牌库底。该永久物的操控者可检视所放逐的牌；使用许可由其他内文决定。"
+    },
+    {
+      "id": "ability-prowl",
+      "english": "Prowl",
+      "chinese": "伺机",
+      "aliases": [
+        "伺機"
+      ],
+      "category": "ability",
+      "rule": "702.76",
+      "summaryEn": "You may pay the alternative prowl cost if a source you controlled dealt combat damage to a player this turn and shared a creature type with this spell at that time.",
+      "summaryZh": "若本回合你操控的来源对牌手造成过战斗伤害，且当时与此咒语有共同生物类别，则可支付伺机替代费用施放。"
+    },
+    {
+      "id": "ability-reinforce",
+      "english": "Reinforce",
+      "chinese": "补强",
+      "aliases": [
+        "補強"
+      ],
+      "category": "ability",
+      "rule": "702.77",
+      "summaryEn": "Pay the cost and discard this card from your hand to put N +1/+1 counters on a target creature.",
+      "summaryZh": "支付费用并从手中弃掉此牌，在目标生物上放N个+1/+1指示物。"
+    },
+    {
+      "id": "ability-conspire",
+      "english": "Conspire",
+      "chinese": "协力",
+      "aliases": [
+        "協力"
+      ],
+      "category": "ability",
+      "rule": "702.78",
+      "summaryEn": "While casting, you may tap two untapped creatures you control that each share a color with the spell. If you do, its cast trigger copies it with optional new targets.",
+      "summaryZh": "施放时可横置两个你操控且未横置的生物，两者须各与此咒语有共同颜色。若如此作，施放触发异能复制此咒语，并可选择新目标。"
+    },
+    {
+      "id": "ability-persist",
+      "english": "Persist",
+      "chinese": "留存",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.79",
+      "summaryEn": "If this permanent dies without a -1/-1 counter on it, return it to the battlefield under its owner's control with a -1/-1 counter.",
+      "summaryZh": "若此永久物死去前没有-1/-1指示物，将其移回战场且由拥有者操控，其上有一个-1/-1指示物。"
+    },
+    {
+      "id": "ability-wither",
+      "english": "Wither",
+      "chinese": "枯萎",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.80",
+      "summaryEn": "This source deals damage to creatures as -1/-1 counters instead of marking damage. Damage to players, planeswalkers and battles follows the normal rules.",
+      "summaryZh": "此来源对生物造成伤害时，改为放置等量-1/-1指示物而非标记伤害。对牌手、鹏洛客及战役的伤害仍依通常规则。"
+    },
+    {
+      "id": "ability-retrace",
+      "english": "Retrace",
+      "chinese": "追溯",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.81",
+      "summaryEn": "You may cast this card from your graveyard by discarding a land in addition to paying its other costs. Retrace does not itself exile the spell afterward.",
+      "summaryZh": "可额外弃一张地牌并支付其他费用，从坟墓场施放此牌。追溯本身不会在之后放逐该咒语。"
+    },
+    {
+      "id": "ability-devour",
+      "english": "Devour",
+      "chinese": "吞噬",
+      "aliases": [
+        "Devour artifact",
+        "吞噬神器"
+      ],
+      "category": "ability",
+      "rule": "702.82",
+      "summaryEn": "As this permanent enters, you may sacrifice creatures; it enters with N +1/+1 counters per creature sacrificed. A qualified devour variant uses the stated kind of permanent instead.",
+      "summaryZh": "此永久物进场时可牺牲任意数量生物；每牺牲一个，便多有N个+1/+1指示物。附有特征的吞噬变体改为牺牲指定类别的永久物。"
+    },
+    {
+      "id": "ability-exalted",
+      "english": "Exalted",
+      "chinese": "颂威",
+      "aliases": [
+        "頌威"
+      ],
+      "category": "ability",
+      "rule": "702.83",
+      "summaryEn": "Whenever you declare exactly one creature as an attacker, that creature gets +1/+1 until end of turn for each exalted ability that triggers.",
+      "summaryZh": "每当你仅宣告一个生物攻击，每个触发的颂威异能各令该生物得+1/+1直到回合结束。"
+    },
+    {
+      "id": "ability-unearth",
+      "english": "Unearth",
+      "chinese": "破坟",
+      "aliases": [
+        "破墳"
+      ],
+      "category": "ability",
+      "rule": "702.84",
+      "summaryEn": "At sorcery timing, pay to return this card from your graveyard with haste. Exile it at the next end step or instead of moving it anywhere other than exile when it leaves.",
+      "summaryZh": "在法术时机支付费用，将此牌从坟墓场移回战场并获得敏捷。在下个结束步骤将其放逐；它将移往放逐区以外区域时也改为放逐。"
+    },
+    {
+      "id": "ability-cascade",
+      "english": "Cascade",
+      "chinese": "倾曳",
+      "aliases": [
+        "傾曳"
+      ],
+      "category": "ability",
+      "rule": "702.85",
+      "summaryEn": "Casting exiles cards from your library until a nonland with lower mana value appears. You may cast it free if the resulting spell also has lower mana value; randomly bottom all exiled cards not cast this way.",
+      "summaryZh": "施放时从牌库顶放逐，直到出现法术力值较小的非地牌。若产生的咒语法术力值也较小，可免费施放；其余牌随机置于牌库底。"
+    },
+    {
+      "id": "ability-annihilator",
+      "english": "Annihilator",
+      "chinese": "歼灭",
+      "aliases": [
+        "殲滅"
+      ],
+      "category": "ability",
+      "rule": "702.86",
+      "summaryEn": "Whenever this creature attacks, the defending player sacrifices N permanents. This happens before blockers are declared.",
+      "summaryZh": "此生物每当攻击，防御牌手便牺牲N个永久物。此事在宣告阻挡者之前发生。"
+    },
+    {
+      "id": "ability-level-up",
+      "english": "Level Up",
+      "chinese": "升级",
+      "aliases": [
+        "Level symbols",
+        "等级符号",
+        "升級",
+        "等級符號"
+      ],
+      "category": "ability",
+      "rule": "702.87",
+      "summaryEn": "At sorcery timing, pay to add a level counter. The card's level symbols define its power/toughness and abilities at each counter range.",
+      "summaryZh": "在法术时机支付费用，放一个等级指示物。牌上的等级符号依指示物数量区间决定力量、防御力及异能。"
+    },
+    {
+      "id": "ability-rebound",
+      "english": "Rebound",
+      "chinese": "弹回",
+      "aliases": [
+        "彈回"
+      ],
+      "category": "ability",
+      "rule": "702.88",
+      "summaryEn": "If cast from hand and it resolves, exile this spell instead of putting it in the graveyard. At your next upkeep, you may cast that exiled card free.",
+      "summaryZh": "若此咒语是从手上施放并结算，则改为将其放逐而非置入坟墓场。在你的下个维持，可从放逐区免费施放它。"
+    },
+    {
+      "id": "ability-umbra-armor",
+      "english": "Umbra Armor",
+      "chinese": "遮蔽护甲",
+      "aliases": [
+        "Totem armor",
+        "替身甲",
+        "圖騰甲",
+        "遮蔽護甲"
+      ],
+      "category": "ability",
+      "rule": "702.89",
+      "summaryEn": "If the enchanted permanent would be destroyed, instead remove its marked damage and destroy this Aura. This does not protect against sacrifice, exile or toughness 0.",
+      "summaryZh": "若所结附的永久物将被消灭，改为移去其所标记伤害并消灭此灵气。不能防护牺牲、放逐或防御力为0等情况。"
+    },
+    {
+      "id": "ability-infect",
+      "english": "Infect",
+      "chinese": "侵染",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.90",
+      "summaryEn": "Damage to creatures becomes -1/-1 counters; damage to players becomes poison counters instead of life loss. It remains damage, and damage to planeswalkers or battles works normally.",
+      "summaryZh": "对生物的伤害成为-1/-1指示物；对牌手的伤害成为中毒指示物而非失去生命。这仍是伤害，对鹏洛客或战役则依通常方式处理。"
+    },
+    {
+      "id": "ability-battle-cry",
+      "english": "Battle Cry",
+      "chinese": "战嚎",
+      "aliases": [
+        "戰嚎"
+      ],
+      "category": "ability",
+      "rule": "702.91",
+      "summaryEn": "When this creature attacks, every other attacking creature gets +1/+0 until end of turn.",
+      "summaryZh": "此生物攻击时，每个其他攻击生物得+1/+0直到回合结束。"
+    },
+    {
+      "id": "ability-living-weapon",
+      "english": "Living Weapon",
+      "chinese": "活化武器",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.92",
+      "summaryEn": "When this Equipment enters, create a 0/0 black Phyrexian Germ creature token and attach this Equipment to it.",
+      "summaryZh": "此武具进场时，派出一个0/0黑色非瑞人／病菌生物衍生物，再将此武具贴附于它。"
+    },
+    {
+      "id": "ability-undying",
+      "english": "Undying",
+      "chinese": "不息",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.93",
+      "summaryEn": "If this permanent dies without a +1/+1 counter on it, return it under its owner's control with a +1/+1 counter.",
+      "summaryZh": "若此永久物死去前没有+1/+1指示物，将其移回战场且由拥有者操控，其上有一个+1/+1指示物。"
+    },
+    {
+      "id": "ability-miracle",
+      "english": "Miracle",
+      "chinese": "奇迹",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.94",
+      "summaryEn": "As you draw this card as your first draw of the turn, you may reveal it. Its trigger lets you cast it for its miracle cost, even outside normal sorcery timing.",
+      "summaryZh": "若此牌是你本回合抓的第一张牌，可在抓到时展示。其触发异能允许你支付奇迹费用施放，即使当时不是通常的法术时机。"
+    },
+    {
+      "id": "ability-soulbond",
+      "english": "Soulbond",
+      "chinese": "魂系",
+      "aliases": [
+        "魂繫"
+      ],
+      "category": "ability",
+      "rule": "702.95",
+      "summaryEn": "When this or another creature you control enters, you may pair them if both are unpaired. The pair lasts while both remain creatures on the battlefield under your control; other text grants the paired benefits.",
+      "summaryZh": "此生物或另一个己方生物进场时，若两者都未配对，可将其配对。只要两者都在战场上、仍是生物且仍由你操控，配对便持续；配对收益依其他内文。"
+    },
+    {
+      "id": "ability-overload",
+      "english": "Overload",
+      "chinese": "超载",
+      "aliases": [
+        "超載"
+      ],
+      "category": "ability",
+      "rule": "702.96",
+      "summaryEn": "Pay the alternative overload cost to replace every instance of target in the spell's text with each. The overloaded spell has no targets.",
+      "summaryZh": "支付超载替代费用，将咒语内文中每个指定目标的字词改为每个。超载施放的咒语没有目标。"
+    },
+    {
+      "id": "ability-scavenge",
+      "english": "Scavenge",
+      "chinese": "食腐",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.97",
+      "summaryEn": "At sorcery timing, pay the cost and exile this card from your graveyard. Put +1/+1 counters equal to its power on a target creature.",
+      "summaryZh": "在法术时机支付费用并从坟墓场放逐此牌，在目标生物上放等同所放逐牌力量数量的+1/+1指示物。"
+    },
+    {
+      "id": "ability-unleash",
+      "english": "Unleash",
+      "chinese": "脱缰",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.98",
+      "summaryEn": "You may have this permanent enter with an extra +1/+1 counter. It cannot block while it has any +1/+1 counter, regardless of how that counter was placed.",
+      "summaryZh": "可令此永久物进场时多有一个+1/+1指示物。只要其上有任意+1/+1指示物便不能阻挡，不论指示物来自何处。"
+    },
+    {
+      "id": "ability-cipher",
+      "english": "Cipher",
+      "chinese": "赋码",
+      "aliases": [
+        "Encoded",
+        "賦碼"
+      ],
+      "category": "ability",
+      "rule": "702.99",
+      "summaryEn": "As the spell resolves, you may exile its card encoded on a creature you control. Whenever that creature deals combat damage to a player, you may copy the encoded card and cast the copy free.",
+      "summaryZh": "咒语结算时可将此牌放逐，赋码于你操控的一个生物。每当该生物对牌手造成战斗伤害，可复制所赋码的牌并免费施放该复制品。"
+    },
+    {
+      "id": "ability-evolve",
+      "english": "Evolve",
+      "chinese": "进化",
+      "aliases": [
+        "進化"
+      ],
+      "category": "ability",
+      "rule": "702.100",
+      "summaryEn": "When another creature you control enters with greater power or greater toughness, this creature gets a +1/+1 counter if that comparison is still true when the trigger resolves.",
+      "summaryZh": "另一个己方生物进场时，若其力量或防御力较大，且触发异能结算时仍满足其中一个比较条件，便在此生物上放一个+1/+1指示物。"
+    },
+    {
+      "id": "ability-extort",
+      "english": "Extort",
+      "chinese": "敲诈",
+      "aliases": [
+        "敲詐"
+      ],
+      "category": "ability",
+      "rule": "702.101",
+      "summaryEn": "Whenever you cast a spell, you may pay {W/B}. If paid, each opponent loses 1 life and you gain the total life actually lost this way.",
+      "summaryZh": "每当施放咒语，可支付{W/B}。若支付，每位对手失去1点生命，你获得等同如此实际失去生命总数的生命。"
+    },
+    {
+      "id": "ability-fuse",
+      "english": "Fuse",
+      "chinese": "融咒",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.102",
+      "summaryEn": "When casting this split card from your hand, you may cast both halves together, paying their combined costs. Resolve the left half before the right.",
+      "summaryZh": "从手上施放此连体牌时，可一起施放两半，并支付合并后的费用。先结算左半，再结算右半。"
+    },
+    {
+      "id": "ability-bestow",
+      "english": "Bestow",
+      "chinese": "神授",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.103",
+      "summaryEn": "Pay the bestow cost to cast this creature as an Aura with enchant creature. If its target is illegal on resolution, or it later becomes unattached, it becomes a creature instead.",
+      "summaryZh": "可支付神授费用，将此生物作为具有结附于生物的灵气施放。若结算时目标不合法，或之后不再贴附，它改为成为生物。"
+    },
+    {
+      "id": "ability-tribute",
+      "english": "Tribute",
+      "chinese": "贡赋",
+      "aliases": [
+        "貢賦"
+      ],
+      "category": "ability",
+      "rule": "702.104",
+      "summaryEn": "As this creature enters, a chosen opponent may give it N additional +1/+1 counters. Its other text describes the effect if that opponent declines to pay tribute.",
+      "summaryZh": "此生物进场时，所选对手可让它额外具有N个+1/+1指示物。若该对手不支付贡赋，其效果依牌上的其他内文。"
+    },
+    {
+      "id": "ability-dethrone",
+      "english": "Dethrone",
+      "chinese": "褫位",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.105",
+      "summaryEn": "When this creature attacks a player with the most life, including a tie, put a +1/+1 counter on it.",
+      "summaryZh": "此生物攻击生命最多或并列最多的牌手时，在其上放一个+1/+1指示物。"
+    },
+    {
+      "id": "ability-hidden-agenda",
+      "english": "Hidden Agenda",
+      "chinese": "秘密议定",
+      "aliases": [
+        "Double agenda",
+        "双重议定",
+        "秘密議定",
+        "雙重議定"
+      ],
+      "category": "ability",
+      "rule": "702.106",
+      "summaryEn": "Start this conspiracy face down in the command zone and secretly name a card. You may reveal it when you have priority; double agenda secretly names two cards instead.",
+      "summaryZh": "此密谋以牌面朝下置于统帅区，并秘密选择一个牌名。有优先权时可将其翻回正面；双重议定改为秘密选择两个牌名。"
+    },
+    {
+      "id": "ability-outlast",
+      "english": "Outlast",
+      "chinese": "坚忍",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.107",
+      "summaryEn": "At sorcery timing, pay the cost and tap this creature to put a +1/+1 counter on it.",
+      "summaryZh": "在法术时机支付费用并横置此生物，在其上放一个+1/+1指示物。"
+    },
+    {
+      "id": "ability-prowess",
+      "english": "Prowess",
+      "chinese": "灵技",
+      "aliases": [
+        "靈技"
+      ],
+      "category": "ability",
+      "rule": "702.108",
+      "summaryEn": "Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.",
+      "summaryZh": "每当你施放非生物咒语，此生物得+1/+1直到回合结束。"
+    },
+    {
+      "id": "ability-dash",
+      "english": "Dash",
+      "chinese": "掩袭",
+      "aliases": [
+        "掩襲"
+      ],
+      "category": "ability",
+      "rule": "702.109",
+      "summaryEn": "Cast for the alternative dash cost to give the permanent haste and return it to its owner's hand at the next end step.",
+      "summaryZh": "支付掩袭替代费用施放，使产生的永久物具有敏捷，并在下个结束步骤移回拥有者手中。"
+    },
+    {
+      "id": "ability-exploit",
+      "english": "Exploit",
+      "chinese": "榨取",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.110",
+      "summaryEn": "When this creature enters, you may sacrifice a creature, including itself. Its other abilities define the reward for exploiting a creature.",
+      "summaryZh": "此生物进场时，可牺牲一个生物，也可牺牲它自己。榨取生物的收益由牌上的其他异能决定。"
+    },
+    {
+      "id": "ability-menace",
+      "english": "Menace",
+      "chinese": "威慑",
+      "aliases": [
+        "威懾"
+      ],
+      "category": "ability",
+      "rule": "702.111",
+      "summaryEn": "This creature can be blocked only by two or more creatures.",
+      "summaryZh": "此生物只能被两个或更多生物阻挡。"
+    },
+    {
+      "id": "ability-renown",
+      "english": "Renown",
+      "chinese": "铭勇",
+      "aliases": [
+        "Renowned",
+        "銘勇"
+      ],
+      "category": "ability",
+      "rule": "702.112",
+      "summaryEn": "The first time this creature deals combat damage to a player while not renowned, put N +1/+1 counters on it and mark it renowned. Losing counters does not remove the designation.",
+      "summaryZh": "此生物在尚未铭勇时对牌手造成战斗伤害，在其上放N个+1/+1指示物并标记为已铭勇。失去指示物不会移除该标记。"
+    },
+    {
+      "id": "ability-awaken",
+      "english": "Awaken",
+      "chinese": "觉醒",
+      "aliases": [
+        "覺醒"
+      ],
+      "category": "ability",
+      "rule": "702.113",
+      "summaryEn": "Pay the alternative awaken cost to also put N +1/+1 counters on a target land you control and make it a 0/0 Elemental creature with haste that remains a land.",
+      "summaryZh": "支付觉醒替代费用，可额外在目标由你操控的地上放N个+1/+1指示物，并使它成为具有敏捷的0/0元素生物，仍然是地。"
+    },
+    {
+      "id": "ability-devoid",
+      "english": "Devoid",
+      "chinese": "虚色",
+      "aliases": [
+        "虛色"
+      ],
+      "category": "ability",
+      "rule": "702.114",
+      "summaryEn": "This object is colorless in every zone, regardless of colored mana symbols in its mana cost.",
+      "summaryZh": "此物件在所有区域都是无色，不论其法术力费用中是否有有色符号。"
+    },
+    {
+      "id": "ability-ingest",
+      "english": "Ingest",
+      "chinese": "摄食",
+      "aliases": [
+        "攝食"
+      ],
+      "category": "ability",
+      "rule": "702.115",
+      "summaryEn": "When this creature deals combat damage to a player, that player exiles their library's top card.",
+      "summaryZh": "此生物对牌手造成战斗伤害时，该牌手放逐其牌库顶牌。"
+    },
+    {
+      "id": "ability-myriad",
+      "english": "Myriad",
+      "chinese": "聚群",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.116",
+      "summaryEn": "When attacking, you may create a tapped attacking copy for each opponent other than the defending player, attacking that opponent or their planeswalker. Exile these tokens at end of combat.",
+      "summaryZh": "攻击时，可为防御牌手以外的每位对手各派出一个横置且正进行攻击的复制品，攻击该对手或其鹏洛客。战斗结束时放逐这些衍生物。"
+    },
+    {
+      "id": "ability-surge",
+      "english": "Surge",
+      "chinese": "怒涌",
+      "aliases": [
+        "怒湧"
+      ],
+      "category": "ability",
+      "rule": "702.117",
+      "summaryEn": "You may pay the alternative surge cost if you or a teammate has cast another spell this turn. Normal timing restrictions still apply.",
+      "summaryZh": "若本回合你或队友施放过另一个咒语，可支付怒涌替代费用施放。通常的时机限制仍适用。"
+    },
+    {
+      "id": "ability-skulk",
+      "english": "Skulk",
+      "chinese": "潜匿",
+      "aliases": [
+        "潛匿"
+      ],
+      "category": "ability",
+      "rule": "702.118",
+      "summaryEn": "Creatures with greater power cannot block this creature.",
+      "summaryZh": "力量比此生物大的生物不能阻挡它。"
+    },
+    {
+      "id": "ability-emerge",
+      "english": "Emerge",
+      "chinese": "化生",
+      "aliases": [
+        "Emerge from",
+        "化生自"
+      ],
+      "category": "ability",
+      "rule": "702.119",
+      "summaryEn": "Pay the emerge cost and sacrifice a creature instead of the mana cost, reducing generic mana by the sacrificed creature's mana value. Emerge from a quality permits the stated permanent type instead.",
+      "summaryZh": "支付化生费用并牺牲一个生物来代替法术力费用，再按所牺牲生物的法术力值减少一般费用。指定特征的化生变体改为牺牲所述类别永久物。"
+    },
+    {
+      "id": "ability-escalate",
+      "english": "Escalate",
+      "chinese": "增效",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.120",
+      "summaryEn": "Pay the listed additional cost for every chosen mode beyond the first.",
+      "summaryZh": "每选择一个超过第一个的模式，都须额外支付一次所列增效费用。"
+    },
+    {
+      "id": "ability-melee",
+      "english": "Melee",
+      "chinese": "混战",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.121",
+      "summaryEn": "When this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked with a creature in that combat.",
+      "summaryZh": "此生物攻击时，本次战斗中你每以生物攻击一位对手，它便得+1/+1直到回合结束。"
+    },
+    {
+      "id": "ability-crew",
+      "english": "Crew",
+      "chinese": "搭载",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.122",
+      "summaryEn": "Tap other untapped creatures you control with total power at least N to make this Vehicle an artifact creature until end of turn. This does not itself give haste.",
+      "summaryZh": "横置任意数量其他你操控且未横置、力量总和至少N的生物，使此载具成为神器生物直到回合结束。这本身不会赋予敏捷。"
+    },
+    {
+      "id": "ability-fabricate",
+      "english": "Fabricate",
+      "chinese": "组构",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.123",
+      "summaryEn": "When this permanent enters, choose between N +1/+1 counters on it and N 1/1 colorless Servo artifact creature tokens.",
+      "summaryZh": "此永久物进场时，选择在其上放N个+1/+1指示物，或派出N个1/1无色自动机神器生物衍生物。"
+    },
+    {
+      "id": "ability-partner",
+      "english": "Partner",
+      "chinese": "拍档",
+      "aliases": [
+        "Partner with",
+        "Partner—Character select",
+        "Partner—Father & son",
+        "Partner—Friends forever",
+        "Partner—Survivors",
+        "Character select",
+        "Father & son",
+        "Friends forever",
+        "Survivors",
+        "Choose a Background",
+        "Doctor’s companion",
+        "Doctor's companion",
+        "永远的朋友",
+        "选择身世",
+        "博士旅伴",
+        "與指定牌拍檔",
+        "選擇身世",
+        "永遠的朋友"
+      ],
+      "category": "ability",
+      "rule": "702.124",
+      "summaryEn": "These Commander deck-building abilities allow two commanders in a 100-card deck, combining their color identities. Plain partner requires both to have partner; qualified partner requires matching text, and partner with requires the named pair. Choose a Background pairs this commander with a legendary Background. Doctor’s companion pairs with a legendary Time Lord Doctor having no other creature types. Different variants cannot be mixed.",
+      "summaryZh": "这些指挥官构组异能允许100张套牌使用两个指挥官，并合并两者标识色。普通拍档要求两者都有拍档；附条件拍档须文字相同；与指定牌拍档须为相互注明的配对。「选择身世」搭配传奇身世；「博士旅伴」搭配仅具时间领主／博士生物类别的传奇生物。不同变体不能混搭。"
+    },
+    {
+      "id": "ability-undaunted",
+      "english": "Undaunted",
+      "chinese": "无畏",
+      "aliases": [
+        "無畏"
+      ],
+      "category": "ability",
+      "rule": "702.125",
+      "summaryEn": "This spell costs {1} less to cast for each opponent you currently have.",
+      "summaryZh": "你当前每有一位对手，此咒语便少支付{1}。"
+    },
+    {
+      "id": "ability-improvise",
+      "english": "Improvise",
+      "chinese": "拼造",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.126",
+      "summaryEn": "When paying for this spell, each untapped artifact you control may be tapped to pay one generic mana. It does not pay colored requirements.",
+      "summaryZh": "支付此咒语费用时，可横置你操控的未横置神器，每个支付一点一般法术力。不能支付有色需求。"
+    },
+    {
+      "id": "ability-aftermath",
+      "english": "Aftermath",
+      "chinese": "余响",
+      "aliases": [
+        "餘響"
+      ],
+      "category": "ability",
+      "rule": "702.127",
+      "summaryEn": "This half of a split card can be cast only from a graveyard. If cast from there, exile it whenever it would leave the stack.",
+      "summaryZh": "连体牌的这一半只能从坟墓场施放。若如此施放，它每当将离开堆叠时都会被放逐。"
+    },
+    {
+      "id": "ability-embalm",
+      "english": "Embalm",
+      "chinese": "遗存",
+      "aliases": [
+        "Embalmed",
+        "遺存"
+      ],
+      "category": "ability",
+      "rule": "702.128",
+      "summaryEn": "At sorcery timing, pay and exile this graveyard card to create a copy token that is white, has no mana cost, and is also a Zombie.",
+      "summaryZh": "在法术时机支付费用并从坟墓场放逐此牌，派出一个复制品衍生物，但其为白色、没有法术力费用，且额外具有灵俑类别。"
+    },
+    {
+      "id": "ability-eternalize",
+      "english": "Eternalize",
+      "chinese": "永生",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.129",
+      "summaryEn": "At sorcery timing, pay and exile this graveyard card to create a copy token that is black, 4/4, has no mana cost, and is also a Zombie.",
+      "summaryZh": "在法术时机支付费用并从坟墓场放逐此牌，派出一个复制品衍生物，但其为黑色4/4、没有法术力费用，且额外具有灵俑类别。"
+    },
+    {
+      "id": "ability-afflict",
+      "english": "Afflict",
+      "chinese": "祸害",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.130",
+      "summaryEn": "When this creature becomes blocked, the defending player loses N life, once per afflict ability rather than once per blocker.",
+      "summaryZh": "此生物成为被阻挡时，防御牌手失去N点生命。每个祸害异能触发一次，而非每个阻挡者各触发一次。"
+    },
+    {
+      "id": "ability-ascend",
+      "english": "Ascend",
+      "chinese": "登殿",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.131",
+      "summaryEn": "With ten or more permanents, ascend gives you the city's blessing permanently. On a permanent it checks continuously; on an instant or sorcery it checks as that spell resolves.",
+      "summaryZh": "操控至少十个永久物时，登殿使你在本盘余下时间获得黄金城祝福。永久物上的登殿持续检查；瞬间或法术上的则在结算时检查。"
+    },
+    {
+      "id": "ability-assist",
+      "english": "Assist",
+      "chinese": "助力",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.132",
+      "summaryEn": "Choose another player who may help pay any amount of the spell's generic mana cost. They may activate mana abilities first; you remain responsible for the rest of the cost.",
+      "summaryZh": "可选择另一位牌手协助支付此咒语任意数量的一般法术力费用。该牌手可先起动法术力异能；其余费用仍由你负责。"
+    },
+    {
+      "id": "ability-jump-start",
+      "english": "Jump-Start",
+      "chinese": "再起",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.133",
+      "summaryEn": "Cast this card from your graveyard as an instant or sorcery by also discarding a card. Exile it whenever it would leave the stack after being cast this way.",
+      "summaryZh": "额外弃一张牌，可将此牌从坟墓场作为瞬间或法术施放。如此施放后，它每当将离开堆叠时都会被放逐。"
+    },
+    {
+      "id": "ability-mentor",
+      "english": "Mentor",
+      "chinese": "训导",
+      "aliases": [
+        "訓導"
+      ],
+      "category": "ability",
+      "rule": "702.134",
+      "summaryEn": "When this creature attacks, put a +1/+1 counter on a target attacking creature with lower power. Its power must still be lower when the trigger resolves.",
+      "summaryZh": "此生物攻击时，在目标力量较小的攻击生物上放一个+1/+1指示物。触发异能结算时，该生物力量仍须较小。"
+    },
+    {
+      "id": "ability-afterlife",
+      "english": "Afterlife",
+      "chinese": "往生",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.135",
+      "summaryEn": "When this permanent dies, create N 1/1 white and black Spirit creature tokens with flying.",
+      "summaryZh": "此永久物死去时，派出N个1/1白黑双色、具飞行的精怪生物衍生物。"
+    },
+    {
+      "id": "ability-riot",
+      "english": "Riot",
+      "chinese": "起事",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.136",
+      "summaryEn": "As this permanent enters, choose an extra +1/+1 counter or haste.",
+      "summaryZh": "此永久物进场时，选择额外获得一个+1/+1指示物，或获得敏捷。"
+    },
+    {
+      "id": "ability-spectacle",
+      "english": "Spectacle",
+      "chinese": "揭幕",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.137",
+      "summaryEn": "You may pay the alternative spectacle cost if an opponent lost life this turn. The life loss need not be damage; normal casting timing still applies.",
+      "summaryZh": "若本回合有对手失去过生命，可支付揭幕替代费用。失去生命不一定来自伤害；通常的施放时机仍适用。"
+    },
+    {
+      "id": "ability-escape",
+      "english": "Escape",
+      "chinese": "逸脱",
+      "aliases": [
+        "Escaped",
+        "逸脫"
+      ],
+      "category": "ability",
+      "rule": "702.138",
+      "summaryEn": "You may cast this card from your graveyard by paying its escape cost instead of its mana cost. That cost commonly includes exiling other graveyard cards; escape itself does not exile the spell afterward.",
+      "summaryZh": "可从坟墓场支付逸脱费用而非法术力费用来施放此牌。该费用通常包括放逐坟墓场中的其他牌；逸脱本身不会在之后放逐该咒语。"
+    },
+    {
+      "id": "ability-companion",
+      "english": "Companion",
+      "chinese": "行侣",
+      "aliases": [
+        "行侶"
+      ],
+      "category": "ability",
+      "rule": "702.139",
+      "summaryEn": "If your starting deck meets the condition, reveal one outside-game companion before play. Once per game, at sorcery timing pay {3} as a special action to put it into your hand; casting it is separate.",
+      "summaryZh": "若起始套牌符合条件，可在开局前展示一张游戏外行侣。每盘一次，可在法术时机支付{3}作为特殊动作将其置入手中；施放它是另一回事。"
+    },
+    {
+      "id": "ability-mutate",
+      "english": "Mutate",
+      "chinese": "合变",
+      "aliases": [
+        "Mutating",
+        "合變"
+      ],
+      "category": "ability",
+      "rule": "702.140",
+      "summaryEn": "Pay the mutate cost to target a non-Human creature with the same owner. Merge above or below it, keeping the top object's characteristics and all components' abilities. An illegal target makes the spell resolve as a separate creature.",
+      "summaryZh": "支付合变费用，以同一拥有者的非人类生物为目标。可合并于其上方或下方，保留最上层物件的特征及所有组件的异能。若目标不合法，咒语改为作为独立生物结算。"
+    },
+    {
+      "id": "ability-encore",
+      "english": "Encore",
+      "chinese": "再演",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.141",
+      "summaryEn": "At sorcery timing, pay and exile this graveyard card. Create a copy token for each opponent, with haste and a requirement to attack that opponent if able; sacrifice the tokens at the next end step.",
+      "summaryZh": "在法术时机支付费用并放逐坟墓场中的此牌。为每位对手各派出一个具敏捷的复制品衍生物，且须尽可能攻击对应对手；下个结束步骤牺牲这些衍生物。"
+    },
+    {
+      "id": "ability-boast",
+      "english": "Boast",
+      "chinese": "夸耀",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.142",
+      "summaryEn": "Activate the following ability only if this creature attacked this turn, and only once each turn.",
+      "summaryZh": "只有此生物本回合攻击过，才能起动接下来的异能，且每回合限一次。"
+    },
+    {
+      "id": "ability-foretell",
+      "english": "Foretell",
+      "chinese": "预示",
+      "aliases": [
+        "Foretold",
+        "預示"
+      ],
+      "category": "ability",
+      "rule": "702.143",
+      "summaryEn": "During your turn, pay {2} as a special action to exile this card from your hand face down. On a later turn, cast it for its foretell cost while respecting normal timing.",
+      "summaryZh": "在自己的回合中，可支付{2}作为特殊动作，将手中此牌牌面朝下放逐。在之后的回合可支付预示费用施放，仍须遵守通常的时机限制。"
+    },
+    {
+      "id": "ability-demonstrate",
+      "english": "Demonstrate",
+      "chinese": "示范",
+      "aliases": [
+        "示範"
+      ],
+      "category": "ability",
+      "rule": "702.144",
+      "summaryEn": "When casting, you may copy the spell with new targets. If you do, choose an opponent who also copies it and may choose new targets.",
+      "summaryZh": "施放时，可复制此咒语并选择新目标。若如此作，选择一位对手，该牌手也复制此咒语，并可选择新目标。"
+    },
+    {
+      "id": "ability-daybound-and-nightbound",
+      "english": "Daybound and Nightbound",
+      "chinese": "昼形与夜形",
+      "aliases": [
+        "Daybound",
+        "Nightbound",
+        "Day and night",
+        "昼形",
+        "夜形",
+        "晝形",
+        "晝夜"
+      ],
+      "category": "ability",
+      "rule": "702.145",
+      "summaryEn": "These faces track day and night, entering on the appropriate face and transforming only with that cycle. Once established, day becomes night after an active player casts no spells on their turn; night becomes day after they cast at least two.",
+      "summaryZh": "这两面随昼夜变化，以对应面进场，且只能随昼夜循环转化。昼夜确立后，若主动牌手在其回合未施放咒语，下回合变为黑夜；若黑夜中主动牌手施放至少两个咒语，下回合变为白昼。"
+    },
+    {
+      "id": "ability-disturb",
+      "english": "Disturb",
+      "chinese": "惊扰",
+      "aliases": [
+        "驚擾"
+      ],
+      "category": "ability",
+      "rule": "702.146",
+      "summaryEn": "Cast this double-faced card from your graveyard with its back face up by paying the disturb cost instead of its mana cost.",
+      "summaryZh": "可支付惊扰费用而非法术力费用，将坟墓场中的此双面牌以背面朝上施放。"
+    },
+    {
+      "id": "ability-decayed",
+      "english": "Decayed",
+      "chinese": "败朽",
+      "aliases": [
+        "敗朽"
+      ],
+      "category": "ability",
+      "rule": "702.147",
+      "summaryEn": "This creature cannot block. When it attacks, a delayed trigger makes you sacrifice it at end of combat.",
+      "summaryZh": "此生物不能阻挡。它攻击时，延迟触发异能会要求在战斗结束时牺牲它。"
+    },
+    {
+      "id": "ability-cleave",
+      "english": "Cleave",
+      "chinese": "切除",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.148",
+      "summaryEn": "Pay the alternative cleave cost to remove all square-bracketed text from this spell's rules text.",
+      "summaryZh": "支付切除替代费用，将此咒语规则内文中所有方括号内的文字移除。"
+    },
+    {
+      "id": "ability-training",
+      "english": "Training",
+      "chinese": "训练",
+      "aliases": [
+        "訓練"
+      ],
+      "category": "ability",
+      "rule": "702.149",
+      "summaryEn": "When this creature attacks alongside at least one creature with greater power, put a +1/+1 counter on this creature.",
+      "summaryZh": "此生物与至少一个力量更大的生物一同攻击时，在此生物上放一个+1/+1指示物。"
+    },
+    {
+      "id": "ability-compleated",
+      "english": "Compleated",
+      "chinese": "完化",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.150",
+      "summaryEn": "For each Phyrexian mana symbol in this planeswalker's casting cost paid with life, it enters with two fewer loyalty counters.",
+      "summaryZh": "施放此鹏洛客时，每有一个非瑞克西亚法术力符号以生命支付，它进场时便少两个忠诚指示物。"
+    },
+    {
+      "id": "ability-reconfigure",
+      "english": "Reconfigure",
+      "chinese": "重构",
+      "aliases": [
+        "重構",
+        "重配"
+      ],
+      "category": "ability",
+      "rule": "702.151",
+      "summaryEn": "At sorcery timing, pay to attach this Equipment to another creature you control or to unattach it. While attached by reconfigure, the Equipment stops being a creature.",
+      "summaryZh": "在法术时机支付费用，可将此武具贴附于另一个己方生物，或使其不再贴附。因重配贴附于生物期间，此武具不再是生物。"
+    },
+    {
+      "id": "ability-blitz",
+      "english": "Blitz",
+      "chinese": "迅袭",
+      "aliases": [
+        "急襲",
+        "迅襲",
+        "闪击",
+        "閃擊",
+        "急袭"
+      ],
+      "category": "ability",
+      "rule": "702.152",
+      "summaryEn": "Cast for the alternative blitz cost to give haste and a death trigger that draws a card. Sacrifice the permanent at the next end step.",
+      "summaryZh": "支付急袭替代费用施放，获得敏捷及死去时抓一张牌的触发异能。在下个结束步骤牺牲该永久物。"
+    },
+    {
+      "id": "ability-casualty",
+      "english": "Casualty",
+      "chinese": "伤亡",
+      "aliases": [
+        "傷亡"
+      ],
+      "category": "ability",
+      "rule": "702.153",
+      "summaryEn": "While casting, you may sacrifice a creature with power at least N as an additional cost. If paid, the casting trigger copies the spell with optional new targets.",
+      "summaryZh": "施放时可额外牺牲一个力量至少N的生物。若支付，施放触发异能便复制此咒语，并可选择新目标。"
+    },
+    {
+      "id": "ability-enlist",
+      "english": "Enlist",
+      "chinese": "征召",
+      "aliases": [
+        "征兵"
+      ],
+      "category": "ability",
+      "rule": "702.154",
+      "summaryEn": "As attacking, you may tap one untapped nonattacking creature you control that has haste or was yours since the turn began. A trigger gives this attacker +X/+0 for that creature's power until end of turn.",
+      "summaryZh": "攻击时可横置一个你操控、未横置且未宣告攻击的生物，其须具敏捷或从本回合开始就持续由你操控。触发异能令攻击者得+X/+0直到回合结束，X为被横置生物的力量。"
+    },
+    {
+      "id": "ability-read-ahead",
+      "english": "Read Ahead",
+      "chinese": "跳读",
+      "aliases": [
+        "Read-ahead",
+        "跳讀"
+      ],
+      "category": "ability",
+      "rule": "702.155",
+      "summaryEn": "Choose a chapter number as this Saga enters and start with that many lore counters. On that turn, a chapter can trigger only when the Saga has exactly that chapter’s counter number; skipped earlier chapters do not trigger.",
+      "summaryZh": "此传纪进场时选择章节编号，并带有相应数量的学问指示物。在该回合，只有指示物数恰好等于某章节编号时，该章节才能触发；跳过的早期章节不会触发。"
+    },
+    {
+      "id": "ability-ravenous",
+      "english": "Ravenous",
+      "chinese": "贪食",
+      "aliases": [
+        "貪食"
+      ],
+      "category": "ability",
+      "rule": "702.156",
+      "summaryEn": "This permanent enters with X +1/+1 counters, using the spell's chosen X. If X was at least 5, its entering also triggers a card draw.",
+      "summaryZh": "此永久物进场时有X个+1/+1指示物，X依施放时所选数值。若X至少为5，进场时还会触发抓一张牌。"
+    },
+    {
+      "id": "ability-squad",
+      "english": "Squad",
+      "chinese": "小队",
+      "aliases": [
+        "小隊"
+      ],
+      "category": "ability",
+      "rule": "702.157",
+      "summaryEn": "You may repeatedly pay the squad cost as an additional casting cost. When this creature enters, create a copy token for each payment.",
+      "summaryZh": "施放时可将小队费用作为额外费用支付任意次。此生物进场时，每支付一次便派出一个复制品衍生物。"
+    },
+    {
+      "id": "ability-space-sculptor",
+      "english": "Space Sculptor",
+      "chinese": "空间塑形师",
+      "aliases": [
+        "Space Beleren",
+        "Sectors",
+        "区域",
+        "空間塑形師"
+      ],
+      "category": "ability",
+      "rule": "702.158",
+      "summaryEn": "Assign creatures to alpha, beta or gamma sectors under the space sculptor rules. Sector markers have no inherent combat effect; Space Beleren's other abilities use them. See the rule for assignment order and newly entering creatures.",
+      "summaryZh": "依空间塑形师规则将生物分到阿尔法、贝塔或伽马区域。区域标记本身没有固有战斗效果；Space Beleren的其他异能会使用这些标记。分配顺序及新生物的处理详见规则。"
+    },
+    {
+      "id": "ability-visit",
+      "english": "Visit",
+      "chinese": "造访",
+      "aliases": [
+        "Claim the prize",
+        "Prize",
+        "领取奖品",
+        "領取獎品"
+      ],
+      "category": "ability",
+      "rule": "702.159",
+      "summaryEn": "When a roll to visit Attractions matches a lit-up number on this Attraction, its visit effect triggers. Prize instructions, if present, are part of that ability.",
+      "summaryZh": "掷骰造访景点的结果符合此景点亮起的数字时，触发其造访效果。若有奖品指示，也属于该异能的一部分。"
+    },
+    {
+      "id": "ability-prototype",
+      "english": "Prototype",
+      "chinese": "试作",
+      "aliases": [
+        "Prototyped",
+        "試作"
+      ],
+      "category": "ability",
+      "rule": "702.160",
+      "summaryEn": "Cast using the card's smaller prototype characteristics: its alternative mana cost, power and toughness. Those characteristics persist on the permanent, unlike an ordinary temporary size bonus.",
+      "summaryZh": "可使用牌上较小的试作特征施放，包括替代的法术力费用、力量及防御力。这些特征会保留在产生的永久物上，并非暂时的数值加成。"
+    },
+    {
+      "id": "ability-living-metal",
+      "english": "Living Metal",
+      "chinese": "活体金属",
+      "aliases": [
+        "活體金屬"
+      ],
+      "category": "ability",
+      "rule": "702.161",
+      "summaryEn": "During your turn, this permanent is an artifact creature in addition to its other types. It is not made a creature by this ability during other turns.",
+      "summaryZh": "在你的回合，此永久物额外是神器生物。此异能在其他回合不会令其成为生物。"
+    },
+    {
+      "id": "ability-more-than-meets-the-eye",
+      "english": "More Than Meets the Eye",
+      "chinese": "眼见非实",
+      "aliases": [
+        "眼見非實"
+      ],
+      "category": "ability",
+      "rule": "702.162",
+      "summaryEn": "Cast this converting double-faced card on its converted face by paying the stated alternative cost.",
+      "summaryZh": "支付所列替代费用，将此可转换的双面牌以转换后的那面施放。"
+    },
+    {
+      "id": "ability-for-mirrodin",
+      "english": "For Mirrodin!",
+      "chinese": "为了秘罗地！",
+      "aliases": [
+        "For Mirrodin",
+        "為了秘羅地！"
+      ],
+      "category": "ability",
+      "rule": "702.163",
+      "summaryEn": "When this Equipment enters, create a 2/2 red Rebel creature token, then attach this Equipment to it.",
+      "summaryZh": "此武具进场时，派出一个2/2红色反抗军生物衍生物，再将此武具贴附于它。"
+    },
+    {
+      "id": "ability-toxic",
+      "english": "Toxic",
+      "chinese": "下毒",
+      "aliases": [
+        "Total toxic value",
+        "总中毒值",
+        "中毒"
+      ],
+      "category": "ability",
+      "rule": "702.164",
+      "summaryEn": "Combat damage to a player also gives that player poison counters equal to this creature's total toxic value. Damage still causes its normal results; multiple toxic values add together.",
+      "summaryZh": "对牌手造成战斗伤害时，该牌手还得到等同此生物中毒总值的中毒指示物。伤害的通常结果仍发生；多个中毒数值相加。"
+    },
+    {
+      "id": "ability-backup",
+      "english": "Backup",
+      "chinese": "后援",
+      "aliases": [
+        "後援"
+      ],
+      "category": "ability",
+      "rule": "702.165",
+      "summaryEn": "On entering, put N +1/+1 counters on a target creature. If it is another creature, it also gains this card's non-backup abilities printed below that backup ability until end of turn.",
+      "summaryZh": "进场时，在目标生物上放N个+1/+1指示物。若目标是另一个生物，它还获得此后援异能下方印出的非后援异能，直到回合结束。"
+    },
+    {
+      "id": "ability-bargain",
+      "english": "Bargain",
+      "chinese": "协商",
+      "aliases": [
+        "Bargained",
+        "協商"
+      ],
+      "category": "ability",
+      "rule": "702.166",
+      "summaryEn": "As an additional casting cost, you may sacrifice an artifact, enchantment or token. Other text states what improves if the spell was bargained.",
+      "summaryZh": "施放时可额外牺牲一个神器、结界或衍生物。协商后的增益由牌上的其他内文说明。"
+    },
+    {
+      "id": "ability-craft",
+      "english": "Craft",
+      "chinese": "合炼",
+      "aliases": [
+        "Craft with",
+        "製作",
+        "合煉",
+        "制作"
+      ],
+      "category": "ability",
+      "rule": "702.167",
+      "summaryEn": "At sorcery timing, pay the cost and exile this permanent plus the required materials from your battlefield and/or graveyard. Return this card transformed under its owner's control.",
+      "summaryZh": "在法术时机支付费用，放逐此永久物及从己方战场与／或坟墓场取得的指定材料。将此牌以转化后的那面移回战场，由其拥有者操控。"
+    },
+    {
+      "id": "ability-disguise",
+      "english": "Disguise",
+      "chinese": "伪装",
+      "aliases": [
+        "偽裝"
+      ],
+      "category": "ability",
+      "rule": "702.168",
+      "summaryEn": "Cast this card face down for {3} as a nameless 2/2 creature with ward {2}. When you have priority, pay its disguise cost to turn it face up as a special action.",
+      "summaryZh": "可支付{3}将此牌作为没有名称、具守护{2}的2/2生物以牌面朝下施放。有优先权时，可支付伪装费用作为特殊动作将其翻回正面。"
+    },
+    {
+      "id": "ability-solved",
+      "english": "Solved",
+      "chinese": "已侦破",
+      "aliases": [
+        "已偵破"
+      ],
+      "category": "ability",
+      "rule": "702.169",
+      "summaryEn": "The following Case ability functions only while that Case is solved. Static, triggered and activated versions apply the solved condition in their respective ways.",
+      "summaryZh": "接下来的案件异能只在该案件已侦破时运作。静止式、触发式及起动式版本各依对应方式检查已侦破条件。"
+    },
+    {
+      "id": "ability-plot",
+      "english": "Plot",
+      "chinese": "计划",
+      "aliases": [
+        "Plotted",
+        "謀劃",
+        "計畫",
+        "谋划"
+      ],
+      "category": "ability",
+      "rule": "702.170",
+      "summaryEn": "At sorcery timing, pay the plot cost to exile this card from your hand as a special action. On a later turn you may cast it free from exile, also only at sorcery timing.",
+      "summaryZh": "在法术时机支付谋划费用，作为特殊动作将此牌从手上放逐。在之后的回合，可从放逐区免费施放，且也只能在法术时机施放。"
+    },
+    {
+      "id": "ability-saddle",
+      "english": "Saddle",
+      "chinese": "乘驾",
+      "aliases": [
+        "Saddled",
+        "乘駕"
+      ],
+      "category": "ability",
+      "rule": "702.171",
+      "summaryEn": "At sorcery timing, tap other untapped creatures you control with combined power at least N. This permanent becomes saddled until end of turn; its text defines the benefit.",
+      "summaryZh": "在法术时机，横置其他你操控且未横置、力量合计至少N的生物。此永久物成为已乘驾直到回合结束；收益依牌张内文。"
+    },
+    {
+      "id": "ability-spree",
+      "english": "Spree",
+      "chinese": "连欢",
+      "aliases": [
+        "連歡"
+      ],
+      "category": "ability",
+      "rule": "702.172",
+      "summaryEn": "Choose one or more modes, adding each chosen mode's listed cost to the spell's casting cost.",
+      "summaryZh": "选择一个或更多模式，并将每个所选模式的所列费用加到施放费用中。"
+    },
+    {
+      "id": "ability-freerunning",
+      "english": "Freerunning",
+      "chinese": "自由奔跑",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.173",
+      "summaryEn": "You may pay this alternative cost if a creature you controlled dealt combat damage to a player this turn while it was an Assassin or commander.",
+      "summaryZh": "若本回合你操控的生物在其为杀手或指挥官时对牌手造成过战斗伤害，可支付此替代费用施放。"
+    },
+    {
+      "id": "ability-gift",
+      "english": "Gift",
+      "chinese": "赠礼",
+      "aliases": [
+        "Gift a Food",
+        "Gift a card",
+        "Gift a tapped Fish",
+        "Gift an extra turn",
+        "Gift a Treasure",
+        "Gift an Octopus",
+        "贈禮"
+      ],
+      "category": "ability",
+      "rule": "702.174",
+      "summaryEn": "While casting, you may promise the stated gift to a chosen opponent. An instant or sorcery gives it before its other effects as it resolves; a permanent gives it through an entering trigger. Other text specifies your bonus.",
+      "summaryZh": "施放时可向所选对手承诺所列礼物。瞬间或法术结算时先赠礼再处理其他效果；永久物则通过进场触发异能赠礼。你的额外收益由其他内文说明。"
+    },
+    {
+      "id": "ability-offspring",
+      "english": "Offspring",
+      "chinese": "后代",
+      "aliases": [
+        "後代"
+      ],
+      "category": "ability",
+      "rule": "702.175",
+      "summaryEn": "Pay the additional offspring cost when casting. When the permanent enters, create a copy token that is 1/1 instead of its usual power/toughness.",
+      "summaryZh": "施放时可额外支付后代费用。该永久物进场时，派出一个复制品衍生物，但其力量及防御力改为1/1。"
+    },
+    {
+      "id": "ability-impending",
+      "english": "Impending",
+      "chinese": "将临",
+      "aliases": [
+        "將臨"
+      ],
+      "category": "ability",
+      "rule": "702.176",
+      "summaryEn": "Cast for the impending cost to enter with N time counters. While those counters remain, it is not a creature. Remove one at each of your end steps; once none remain this restriction ends.",
+      "summaryZh": "支付将临费用施放，使其进场时有N个计时指示物。只要仍有这些指示物，它就不是生物。每个己方结束步骤移去一个；全部移除后，此限制结束。"
+    },
+    {
+      "id": "ability-exhaust",
+      "english": "Exhaust",
+      "chinese": "耗竭",
+      "aliases": [
+        "竭力"
+      ],
+      "category": "ability",
+      "rule": "702.177",
+      "summaryEn": "The following activated ability may be activated only once for this permanent. Leaving and returning creates a new object with a fresh allowance.",
+      "summaryZh": "接下来的起动式异能对此永久物限起动一次。离开战场再回来会成为新物件，并重新获得起动机会。"
+    },
+    {
+      "id": "ability-max-speed",
+      "english": "Max Speed",
+      "chinese": "极速",
+      "aliases": [
+        "Max speed ability",
+        "極速"
+      ],
+      "category": "ability",
+      "rule": "702.178",
+      "summaryEn": "The following ability is available while your speed is 4. See Start Your Engines! for gaining and increasing speed.",
+      "summaryZh": "只要你的速度为4，就获得接下来的异能。如何获得及增加速度，请参阅「启动引擎！」。"
+    },
+    {
+      "id": "ability-start-your-engines",
+      "english": "Start Your Engines!",
+      "chinese": "启动引擎！",
+      "aliases": [
+        "Start your engines",
+        "Speed",
+        "速度",
+        "啟動引擎！"
+      ],
+      "category": "ability",
+      "rule": "702.179",
+      "summaryEn": "Controlling this permanent gives you speed 1 if you have no speed. Once per turn, an opponent losing life during your turn increases your speed by 1 if below 4; speed 4 is max speed.",
+      "summaryZh": "若你尚无速度，操控此永久物便令速度成为1。每回合一次，若对手在你的回合失去生命，且你的速度低于4，速度增加1；速度4即为极速。"
+    },
+    {
+      "id": "ability-harmonize",
+      "english": "Harmonize",
+      "chinese": "调和",
+      "aliases": [
+        "調和"
+      ],
+      "category": "ability",
+      "rule": "702.180",
+      "summaryEn": "Cast this card from your graveyard for its harmonize cost, optionally tapping one untapped creature you control to reduce generic mana by its power. Exile the card whenever it leaves the stack afterward.",
+      "summaryZh": "可支付调和费用从坟墓场施放此牌，并可横置一个己方未横置生物，按其力量减少一般法术力费用。如此施放后，此牌离开堆叠时改为放逐。"
+    },
+    {
+      "id": "ability-mobilize",
+      "english": "Mobilize",
+      "chinese": "动员",
+      "aliases": [
+        "動員"
+      ],
+      "category": "ability",
+      "rule": "702.181",
+      "summaryEn": "When this creature attacks, create N 1/1 red Warrior tokens tapped and attacking. Sacrifice them at the next end step.",
+      "summaryZh": "此生物攻击时，派出N个1/1红色战士衍生物，且横置并正进行攻击。在下个结束步骤牺牲这些衍生物。"
+    },
+    {
+      "id": "ability-job-select",
+      "english": "Job Select",
+      "chinese": "职业选择",
+      "aliases": [
+        "職業選擇"
+      ],
+      "category": "ability",
+      "rule": "702.182",
+      "summaryEn": "When this Equipment enters, create a 1/1 colorless Hero creature token and attach this Equipment to it.",
+      "summaryZh": "此武具进场时，派出一个1/1无色英雄生物衍生物，再将此武具贴附于它。"
+    },
+    {
+      "id": "ability-tiered",
+      "english": "Tiered",
+      "chinese": "分级",
+      "aliases": [
+        "分級"
+      ],
+      "category": "ability",
+      "rule": "702.183",
+      "summaryEn": "Choose exactly one mode and add that mode's listed cost as an additional casting cost.",
+      "summaryZh": "选择恰好一个模式，并将该模式所列费用作为额外施放费用支付。"
+    },
+    {
+      "id": "ability-station",
+      "english": "Station",
+      "chinese": "进驻",
+      "aliases": [
+        "Station symbols",
+        "Charge counters",
+        "进驻符号",
+        "進駐"
+      ],
+      "category": "ability",
+      "rule": "702.184",
+      "summaryEn": "At sorcery timing, tap another untapped creature you control to put charge counters on this permanent equal to that creature's power. The card's station symbols define unlocked characteristics and abilities.",
+      "summaryZh": "在法术时机，横置另一个己方未横置生物，在此永久物上放等同该生物力量数量的充电指示物。牌上的进驻符号决定解锁的特征及异能。"
+    },
+    {
+      "id": "ability-warp",
+      "english": "Warp",
+      "chinese": "跃迁",
+      "aliases": [
+        "Warped",
+        "躍遷"
+      ],
+      "category": "ability",
+      "rule": "702.185",
+      "summaryEn": "Cast from hand for the warp cost. Exile the resulting permanent at the next end step; after that turn ends, its owner may cast the card while it remains exiled, paying normal costs unless another effect changes them.",
+      "summaryZh": "可从手上支付跃迁费用施放。下个结束步骤放逐产生的永久物；该回合结束后，只要仍被放逐，其拥有者可施放它，并须支付通常费用，除非其他效应改变之。"
+    },
+    {
+      "id": "ability-infinity",
+      "english": "∞ (Infinity)",
+      "chinese": "无限",
+      "aliases": [
+        "Infinity",
+        "∞",
+        "無限"
+      ],
+      "category": "ability",
+      "rule": "702.186",
+      "summaryEn": "The ability after the infinity symbol is active while this permanent is harnessed. Harnessing is a separate designation defined in rule 701.64.",
+      "summaryZh": "此永久物被驾驭期间，无限符号之后的异能才有效。驾驭是规则701.64定义的另一种标记。"
+    },
+    {
+      "id": "ability-mayhem",
+      "english": "Mayhem",
+      "chinese": "狂乱",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.187",
+      "summaryEn": "If you discarded this card this turn, cast it from your graveyard for the stated mayhem cost. A version without a cost lets you play it from the graveyard, paying normal costs as applicable.",
+      "summaryZh": "若本回合你弃掉过此牌，可从坟墓场支付狂乱费用施放。未列费用的版本允许从坟墓场使用此牌，并依情况支付通常费用。"
+    },
+    {
+      "id": "ability-web-slinging",
+      "english": "Web-slinging",
+      "chinese": "蛛丝摆荡",
+      "aliases": [
+        "Web slinging",
+        "蛛絲擺盪"
+      ],
+      "category": "ability",
+      "rule": "702.188",
+      "summaryEn": "Cast for the web-slinging cost and return a tapped creature you control to its owner's hand instead of paying the spell's mana cost.",
+      "summaryZh": "可支付蛛丝摆荡费用，并将一个己方已横置生物移回其拥有者手中，来代替支付此咒语的法术力费用。"
+    },
+    {
+      "id": "ability-firebending",
+      "english": "Firebending",
+      "chinese": "御火",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.189",
+      "summaryEn": "Whenever this creature attacks, add N red mana. This mana lasts until end of combat rather than emptying at intervening steps.",
+      "summaryZh": "此生物每当攻击，产生N点红色法术力。这些法术力可保留到战斗结束，不会在其间各步骤结束时消失。"
+    },
+    {
+      "id": "ability-sneak",
+      "english": "Sneak",
+      "chinese": "潜袭",
+      "aliases": [
+        "潛襲"
+      ],
+      "category": "ability",
+      "rule": "702.190",
+      "summaryEn": "During your declare blockers step, cast for the sneak cost and return an unblocked creature you control to its owner’s hand. A resulting permanent enters tapped and attacking the same player, planeswalker or battle.",
+      "summaryZh": "在你的宣告阻挡者步骤，可支付潜袭费用并将一个未被阻挡的己方生物移回其拥有者手中来施放。产生的永久物横置进场，并攻击同一牌手、鹏洛客或战役。"
+    },
+    {
+      "id": "ability-increment",
+      "english": "Increment",
+      "chinese": "递增",
+      "aliases": [],
+      "category": "ability",
+      "rule": "702.191",
+      "summaryEn": "When you cast a spell, if this permanent is a creature and the mana spent exceeds its power or its toughness, put a +1/+1 counter on it. Check the condition again on resolution.",
+      "summaryZh": "每当你施放咒语，若此永久物为生物且实际支付的法术力多于其力量或防御力，在其上放一个+1/+1指示物。结算时再次检查条件。"
+    },
+    {
+      "id": "ability-paradigm",
+      "english": "Paradigm",
+      "chinese": "范式",
+      "aliases": [
+        "範式"
+      ],
+      "category": "ability",
+      "rule": "702.192",
+      "summaryEn": "The first resolution this game of your spell with this name establishes a free castable copy in exile at each later precombat main phase of yours. The original spell is exiled.",
+      "summaryZh": "你操控的该名称咒语在本盘首次结算时，建立持续效果：之后每个己方战斗前行动阶段在放逐区产生一个可免费施放的复制品。原咒语会被放逐。"
+    },
+    {
+      "id": "ability-power-up",
+      "english": "Power-up",
+      "chinese": "强化",
+      "aliases": [
+        "Power up",
+        "強化"
+      ],
+      "category": "ability",
+      "rule": "702.193",
+      "summaryEn": "The following activated ability may be used only once. If this permanent entered this turn, reduce the activation cost by its mana cost, applying the cost-reduction rules for matching colored/colorless mana and excess generic reduction.",
+      "summaryZh": "接下来的起动式异能限起动一次。若此永久物本回合进场，其起动费用减去本身的法术力费用；依费用减少规则处理相符的有色／无色法术力及剩余的一般费用减少。"
+    },
+    {
+      "id": "ability-teamwork",
+      "english": "Teamwork",
+      "chinese": "团队合作",
+      "aliases": [
+        "團隊合作"
+      ],
+      "category": "ability",
+      "rule": "702.194",
+      "summaryEn": "As an additional casting cost, you may tap untapped creatures you control with combined power at least N. The card's text states what changes when teamwork was used.",
+      "summaryZh": "施放时可额外横置任意数量己方未横置生物，其力量合计须至少N。使用团队合作后的变化依牌张内文。"
+    },
+    {
+      "id": "ability-storied",
+      "english": "Storied",
+      "chinese": "传颂",
+      "aliases": [
+        "Enduring story",
+        "不朽故事",
+        "傳頌"
+      ],
+      "category": "ability",
+      "rule": "702.195",
+      "summaryEn": "Once you control at least three permanents that are artifacts, Sagas or legendary, you gain the enduring story designation for the rest of the game. A permanent fitting several qualities counts once.",
+      "summaryZh": "一旦你操控至少三个属于神器、传纪或传奇的永久物，便在本盘余下时间获得不朽故事标记。一个永久物即使符合多种特征也只算一个。"
+    }
+  ]
+}

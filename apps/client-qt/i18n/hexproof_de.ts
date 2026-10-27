@@ -17493,4 +17493,47 @@ Heruntergeladene und eigene Bilder werden kopiert und geprüft, bevor die Einste
         <translation>Karte ansehen</translation>
     </message>
 </context>
+<context>
+    <name>KeywordReferencePopup</name>
+    <message>
+        <source>Keyword reference</source>
+        <translation>Schlüsselwortreferenz</translation>
+    </message>
+    <message>
+        <source>Read-only reference · search English or Chinese names</source>
+        <translation>Nur zum Nachschlagen · englische oder chinesische Namen suchen</translation>
+    </message>
+    <message>
+        <source>Search keywords…</source>
+        <translation>Schlüsselwörter suchen…</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Zurücksetzen</translation>
+    </message>
+    <message>
+        <source>%1 of %2 keywords</source>
+        <translation>%1 von %2 Schlüsselwörtern</translation>
+    </message>
+    <message>
+        <source>Keyword action</source>
+        <translation>Schlüsselwortaktion</translation>
+    </message>
+    <message>
+        <source>Keyword ability</source>
+        <translation>Schlüsselwortfähigkeit</translation>
+    </message>
+    <message>
+        <source>No keywords found. Try another name or reset.</source>
+        <translation>Keine Schlüsselwörter gefunden. Anderen Namen versuchen oder zurücksetzen.</translation>
+    </message>
+    <message>
+        <source>Keyword reference is unavailable.</source>
+        <translation>Die Schlüsselwortreferenz ist nicht verfügbar.</translation>
+    </message>
+    <message>
+        <source>Official rules source</source>
+        <translation>Offizielle Regelquelle</translation>
+    </message>
+</context>
 </TS>
