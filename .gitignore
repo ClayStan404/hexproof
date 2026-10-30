@@ -18,6 +18,10 @@ __pycache__/
 # Operator-provided SMTP credential
 /gmail
 
+# Private reinstall backup (contains SSH keys and service credentials)
+/hexproof-private-backup*.tar.gz
+/.hexproof-private-backup-*
+
 # Private operator configuration and owner-only material
 /.env
 /.env.*

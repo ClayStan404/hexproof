@@ -168,6 +168,31 @@ Ordinary closure retains history and does not await purge.
 
 ## Activation and host replacement
 
+For an owner workstation reinstall, `python3 tools/local-config-backup.py create`
+creates `hexproof-private-backup.tar.gz` in the repository root. It contains the
+owner's regular SSH files, current operator configuration, the current feedback
+connection and referenced local configuration/credential files, and any existing
+local server configuration and feedback tunnel unit. Agent sockets, historical
+logs, build/runtime archives, personal game data and tool login sessions are
+excluded. Keep the unencrypted, mode-0600 archive private and copy it to storage
+that will survive the reinstall; it is ignored by Git.
+
+After cloning the repository, put that archive in the clone root and run:
+
+```sh
+python3 tools/local-config-backup.py
+```
+
+Run as the normal user, without sudo. The script checks the complete archive,
+rebases recognized home/repository/runtime-socket paths, and restores private
+permissions. `restore --dry-run` validates without writing. Differing existing
+files stop the restore before changes; `restore --overwrite` first saves their
+previous bytes under `~/.local/state/hexproof-config-restore-backups/`. Individual
+writes are atomic, and rerunning the same restore is safe after interruption.
+This restores files, not software installations, SSH-agent unlock state, tool
+logins or native task/removal state. Install and authenticate tools as needed;
+services and schedules are not started or enabled by extraction.
+
 Activation is a separately authorized operation. Check the installed tools,
 GitHub permissions, actual team/provider policy, receiver readiness and current
 native configuration. Store webhook URLs/signing secrets privately. Enable only

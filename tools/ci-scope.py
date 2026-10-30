@@ -28,6 +28,7 @@ TOOL_ONLY_PATHS = frozenset({
     "tools/check-shell-scripts.sh",
     "tools/feedback-ai.py",
     "tools/git_evidence.py",
+    "tools/local-config-backup.py",
     "tools/module-size-policy.json",
     "tools/multica-removal.py",
     "tools/package-home-node.py",
