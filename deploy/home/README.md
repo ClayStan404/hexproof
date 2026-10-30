@@ -44,7 +44,9 @@ For a read-only verification, add `HEXPROOF_VERIFY_ONLY=1` to that command.
 An already matching installation receives inventory and public welcome checks
 without uploads, restarts or test rooms. A newer installed version is never
 silently downgraded. Ordinary upgrades preserve private configuration, retained
-match data, Forge, Java and the complete corresponding Forge sources.
+match data, Forge, Java and the corresponding Forge source identity. Complete
+source archives remain on the build/release host rather than being deployed to
+each game node.
 
 To install the optional local readiness/latency/error collector after a
 successful writable upgrade, add `HEXPROOF_INSTALL_MONITORING=1`. See the
@@ -64,7 +66,9 @@ The same command handles a host with no home-node installation. Supply
 `HEXPROOF_HOME_INPUTS=/absolute/private/inputs.json` alongside the explicit
 version. GitHub server archives contain the hub and connector; verified Forge,
 its complete corresponding source archive, Java 21 and private node settings
-are supplied separately. No previous server installation is required.
+are supplied separately. The deployment verifies the runtime/source pair on the
+workstation, but transfers only the runtime and its source name/checksum reference,
+not the complete source archive. No previous server installation is required.
 
 ```json
 {
@@ -90,6 +94,20 @@ before any upload. All paths are absolute workstation paths. Node JSON follows
 `ws://127.0.0.1:57323/ws` and health URL `http://127.0.0.1:57323/healthz`, and must
 have matching gateway registration. Keep credentials outside Git and bundles.
 The gateway and its registration must already be provisioned.
+
+Retain the verified complete source inputs centrally, including sources for older
+distributed runtimes, and maintain their availability through the release/source
+distribution process. Runtime `SOURCE.json` and the sealed node manifest record
+the matching archive name and SHA-256; this reference is not a replacement for
+retaining and providing corresponding sources. The source-publication pipeline
+and license/dependency notices are unchanged.
+
+Ordinary upgrades also accept legacy sealed nodes containing a local `sources/`
+archive. After verifying the complete baseline and its candidate copy, packaging
+removes only that matching archive from the new candidate and retains its source
+identity. The installed baseline and rollback tree are not edited; unrelated
+source-directory entries are preserved. No live-node cleanup or restart is needed
+just to adopt the new tooling; migration happens on the next requested upgrade.
 
 For an explicitly requested Forge/Java update, supply the same runtime inputs
 on an installed node; its live config and match data are preserved, and the

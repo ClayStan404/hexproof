@@ -80,7 +80,9 @@ Rules-enforced rooms optionally use official Forge and its card scripts under
 GPL-3.0-or-later. The exact source revision and reviewed native GUI hook are
 recorded in `third_party/forge-runtime/native-host/upstream.json`. The current
 runtime uses Hexproof's native-human input host; its package includes Forge's
-license, dependency notices and a hash-linked matching source archive.
+license, dependency notices and a hash-linked matching source reference. Complete
+corresponding sources are retained and provided through the release/source
+distribution process; game nodes do not require a local complete source archive.
 
 Upstream source: <https://github.com/Card-Forge/forge>
 
