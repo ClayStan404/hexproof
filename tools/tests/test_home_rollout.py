@@ -297,7 +297,11 @@ class GitHubHomeReleaseTests(unittest.TestCase):
         self.assertEqual((tree / "hexproof-home").read_bytes(), b"amd64 released hexproof-home")
         self.assertEqual((tree / "server/bin/hexproof-server").read_bytes(), b"amd64 released hexproof-server")
         self.assertEqual((tree / "forge-runtime/forge-harness.jar").read_bytes(), b"verified runtime")
-        self.assertEqual((tree / "sources/forge-source.tar.gz").read_bytes(), Path(source["path"]).read_bytes())
+        self.assertFalse((tree / "sources").exists())
+        self.assertNotIn("forgeSourceArchive", records["amd64"]["sources"])
+        self.assertEqual(records["amd64"]["sources"]["forgeSourceArchiveName"], "forge-source.tar.gz")
+        self.assertEqual(records["amd64"]["sources"]["forgeSourceArchiveSha256"], source["sha256"])
+        self.assertTrue(Path(source["path"]).is_file())
         Path(runtime["path"]).write_bytes(b"corrupted")
         with patch.object(RELEASE, "run") as validation:
             with self.assertRaisesRegex(ValueError, "checksum mismatch"):
@@ -408,7 +412,8 @@ class HomeReleaseTransactionTests(unittest.TestCase):
                 "hubSha256": "old hub", "connectorSha256": "old connector", "configSha256": "private config digest",
                 "unitHashes": {"hub": "unit digest"}, "pids": {"hub": "100"},
                 "manifest": {"treeSha256": "a" * 64, "sources": {"hubArchiveSha256": "old archive",
-                    "forgeArchiveSha256": "forge", "forgeSourceArchiveSha256": "source", "javaArchiveSha256": "java"}}}
+                    "forgeArchiveSha256": "forge", "forgeSourceArchiveSha256": "c" * 64,
+                    "forgeSourceArchive": "sources/forge-source.tar.gz", "javaArchiveSha256": "java"}}}
         self.originals = copy.deepcopy(self.states)
         self.events = []
         self.fail_stage = self.fail_activation = self.fail_public = self.change_baseline = None
@@ -466,6 +471,30 @@ class HomeReleaseTransactionTests(unittest.TestCase):
         self.assertEqual(self.cleanup.call_count, 2)
         for target in self.targets:
             self.assertTrue(RELEASE.matches(self.states[target["ssh"]], self.release["artifacts"][target["arch"]], "2.1.0"))
+
+    def test_post_install_accepts_legacy_source_migration_but_rejects_identity_loss(self):
+        target = self.targets[0]
+        before = copy.deepcopy(self.states[target["ssh"]])
+        self.install(target)
+        sources = self.states[target["ssh"]]["manifest"]["sources"]
+        sources.pop("forgeSourceArchive")
+        sources["forgeSourceArchiveName"] = "forge-source.tar.gz"
+        artifact = self.release["artifacts"][target["arch"]]
+        RELEASE.verify_installed(target, before, artifact, self.release, self.report)
+        verified = copy.deepcopy(sources)
+        for field, value in (("forgeSourceArchiveName", "different.tar.gz"),
+                             ("forgeSourceArchiveSha256", "d" * 64),
+                             ("forgeSourceArchiveName", None),
+                             ("forgeSourceArchiveSha256", None)):
+            with self.subTest(field=field, value=value):
+                sources.clear()
+                sources.update(verified)
+                if value is None:
+                    sources.pop(field)
+                else:
+                    sources[field] = value
+                with self.assertRaisesRegex(ValueError, "[Ff]orge source"):
+                    RELEASE.verify_installed(target, before, artifact, self.release, self.report)
 
     def test_already_installed_is_read_only_even_without_verify_only(self):
         for target in self.targets:

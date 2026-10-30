@@ -324,9 +324,11 @@ def verify_installed(target, before, artifact, release, report, payload=None, co
                 raise ValueError("Upgrade changed node configuration: " + key)
         if payload is None:
             old_sources, new_sources = before["manifest"]["sources"], after["manifest"]["sources"]
-            for key in ("forgeArchiveSha256", "forgeSourceArchiveSha256", "forgeSourceArchive", "javaArchiveSha256"):
+            for key in ("forgeArchiveSha256", "javaArchiveSha256"):
                 if new_sources.get(key) != old_sources.get(key):
                     raise ValueError("Upgrade changed preserved runtime: " + key)
+            if PACKAGE.forge_source_identity(new_sources) != PACKAGE.forge_source_identity(old_sources):
+                raise ValueError("Upgrade changed preserved Forge source identity")
     elif after["configSha256"] != config_sha:
         raise ValueError("Initial configuration changed during installation")
     if payload and after["manifest"]["treeSha256"] != payload["treeSha256"]:

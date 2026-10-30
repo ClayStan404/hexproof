@@ -70,7 +70,7 @@ class HomeDeploymentTests(unittest.TestCase):
             PACKAGE.checked_archive(archive, PACKAGE.digest(archive), self.root / "unpack")
         self.assertFalse((self.root / "escaped").exists())
 
-    def test_node_preserves_only_the_source_referenced_by_runtime(self):
+    def test_node_references_verified_central_sources_without_copying_archive(self):
         release = self.root / "release"
         runtime = release / "forge-runtime"
         runtime.mkdir(parents=True)
@@ -80,19 +80,22 @@ class HomeDeploymentTests(unittest.TestCase):
         reference = {"schemaVersion": 2, "archive": source.name, "sha256": checksum}
         (runtime / "SOURCE.json").write_text(json.dumps(reference))
         with self.assertRaisesRegex(ValueError, "requires forge-source"):
-            PACKAGE.preserve_forge_source(release, None, None)
+            PACKAGE.reference_forge_source(release, None, None)
         with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
-            PACKAGE.preserve_forge_source(release, source, "0" * 64)
+            PACKAGE.reference_forge_source(release, source, "0" * 64)
         reference["sha256"] = "f" * 64
         (runtime / "SOURCE.json").write_text(json.dumps(reference))
         with self.assertRaisesRegex(ValueError, "matching source archive"):
-            PACKAGE.preserve_forge_source(release, source, checksum)
+            PACKAGE.reference_forge_source(release, source, checksum)
         self.assertFalse((release / "sources").exists())
         reference["sha256"] = checksum
         (runtime / "SOURCE.json").write_text(json.dumps(reference))
-        record = PACKAGE.preserve_forge_source(release, source, checksum)
+        record = PACKAGE.reference_forge_source(release, source, checksum)
         self.assertEqual(record["forgeSourceArchiveSha256"], checksum)
-        self.assertEqual((release / record["forgeSourceArchive"]).read_bytes(), source.read_bytes())
+        self.assertEqual(record["forgeSourceArchiveName"], source.name)
+        self.assertNotIn("forgeSourceArchive", record)
+        self.assertFalse((release / "sources").exists())
+        self.assertEqual(source.read_bytes(), b"verified corresponding source archive fixture")
 
     def upgrade_fixture(self, connector=True):
         base = self.root / "base"
@@ -108,8 +111,12 @@ class HomeDeploymentTests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content)
         (base / "java/license-link").symlink_to("LICENSE")
+        checksum = PACKAGE.digest(base / "sources/forge-source.tar.gz")
+        (base / "forge-runtime/SOURCE.json").write_text(json.dumps(
+            {"schemaVersion": 2, "archive": "forge-source.tar.gz", "sha256": checksum}))
         sources = {"sourceCommit": "old-snapshot", "forgeArchiveSha256": "f" * 64,
-                   "javaArchiveSha256": "a" * 64, "forgeSourceArchiveSha256": "c" * 64}
+                   "javaArchiveSha256": "a" * 64, "forgeSourceArchiveSha256": checksum,
+                   "forgeSourceArchive": "sources/forge-source.tar.gz"}
         PACKAGE.seal_tree(base, "node", sources)
         archive = self.root / "server.tar.gz"
         with tarfile.open(archive, "w:gz") as stream:
@@ -122,7 +129,7 @@ class HomeDeploymentTests(unittest.TestCase):
             base_manifest_sha256=PACKAGE.digest(base / "manifest.json"), hub_archive=archive,
             hub_sha256=PACKAGE.digest(archive), source_commit="release-commit")
 
-    def test_release_upgrade_preserves_runtime_sources_links_and_previous_tree(self):
+    def test_release_upgrade_externalizes_sources_and_preserves_runtime_and_rollback(self):
         args = self.upgrade_fixture()
         before = {str(path.relative_to(args.upgrade_from)): path.read_bytes()
                   for path in args.upgrade_from.rglob("*") if path.is_file()}
@@ -133,13 +140,55 @@ class HomeDeploymentTests(unittest.TestCase):
         self.assertFalse((args.output / "server/obsolete").exists())
         for name, content in before.items():
             self.assertEqual((args.upgrade_from / name).read_bytes(), content)
-            if name.startswith(("java/", "forge-runtime/", "sources/", "deploy/")):
+            if name.startswith(("java/", "forge-runtime/", "deploy/")):
                 self.assertEqual((args.output / name).read_bytes(), content)
+        self.assertFalse((args.output / "sources").exists())
+        self.assertEqual(manifest["sources"]["forgeSourceArchiveName"], "forge-source.tar.gz")
+        self.assertEqual(manifest["sources"]["forgeSourceArchiveSha256"],
+                         PACKAGE.digest(args.upgrade_from / "sources/forge-source.tar.gz"))
+        self.assertNotIn("forgeSourceArchive", manifest["sources"])
         self.assertTrue((args.output / "java/license-link").is_symlink())
         self.assertEqual(manifest["sources"]["sourceCommit"], "release-commit")
         self.assertEqual(manifest["sources"]["forgeArchiveSha256"], "f" * 64)
         self.assertEqual(manifest["sources"]["hubArchiveSha256"], args.hub_sha256)
         self.assertEqual(manifest["sources"]["connectorSha256"], PACKAGE.digest(args.output / "hexproof-home"))
+
+        # The next ordinary upgrade needs no local archive or installation inputs.
+        args.upgrade_from, args.output = args.output, self.root / "upgraded-again"
+        args.base_manifest_sha256 = PACKAGE.digest(args.upgrade_from / "manifest.json")
+        second = PACKAGE.upgrade_node(args)
+        INSTALL.verify_tree(args.output, second["manifestSha256"])
+        self.assertFalse((args.output / "sources").exists())
+        self.assertEqual(PACKAGE.forge_source_identity(second["sources"]),
+                         PACKAGE.forge_source_identity(manifest["sources"]))
+
+    def test_source_migration_rejects_invalid_references_before_removing_any_archive(self):
+        args = self.upgrade_fixture()
+        sources = json.loads((args.upgrade_from / "manifest.json").read_text())["sources"]
+        invalid = [None, {}, {**sources, "forgeSourceArchiveSha256": "not-a-checksum"},
+                   {**sources, "forgeSourceArchive": None},
+                   {**sources, "forgeSourceArchive": "/outside/source.tar.gz"},
+                   {**sources, "forgeSourceArchive": "sources/../source.tar.gz"},
+                   {**sources, "forgeSourceArchiveName": "other.tar.gz"},
+                   {**sources, "forgeSourceArchiveName": None},
+                   {**sources, "forgeSourceArchiveSha256": "a" * 64}]
+        archive = args.upgrade_from / "sources/forge-source.tar.gz"
+        original = archive.read_bytes()
+        for record in invalid:
+            with self.subTest(record=record), self.assertRaises(ValueError):
+                PACKAGE.externalize_forge_source(args.upgrade_from, record)
+            self.assertEqual(archive.read_bytes(), original)
+
+    def test_source_migration_keeps_unrelated_source_entries(self):
+        args = self.upgrade_fixture()
+        other = args.upgrade_from / "sources/other.txt"
+        other.write_text("unrelated preserved data")
+        sources = json.loads((args.upgrade_from / "manifest.json").read_text())["sources"]
+        PACKAGE.seal_tree(args.upgrade_from, "node", sources)
+        args.base_manifest_sha256 = PACKAGE.digest(args.upgrade_from / "manifest.json")
+        PACKAGE.upgrade_node(args)
+        self.assertEqual((args.output / "sources/other.txt").read_text(), other.read_text())
+        self.assertFalse((args.output / "sources/forge-source.tar.gz").exists())
 
     def test_release_upgrade_rejects_modified_base_and_wrong_archive(self):
         args = self.upgrade_fixture()
