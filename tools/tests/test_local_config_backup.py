@@ -130,8 +130,9 @@ class LocalConfigBackupTests(unittest.TestCase):
             BACKUP.restore(self.archive, self.target_home, self.target_repo, overwrite=True)
         self.assertFalse((self.target_home / ".local").exists())
 
-    def crafted(self, files, *, extra=None, bad_checksum=False):
+    def crafted(self, files, *, extra=None, bad_checksum=False, pax=None):
         entries = [{"path": name, "mode": 0o600,
+                    "format": "opaque",
                     "sha256": "0" * 64 if bad_checksum else hashlib.sha256(data).hexdigest()}
                    for name, data in files.items()]
         manifest = {"version": 1, "home": str(self.home), "repository": str(self.repo),
@@ -140,6 +141,8 @@ class LocalConfigBackupTests(unittest.TestCase):
             for name, data in {"manifest.json": json.dumps(manifest).encode(), **files}.items():
                 member = tarfile.TarInfo(name)
                 member.size = len(data)
+                if pax:
+                    member.pax_headers = pax
                 stream.addfile(member, io.BytesIO(data))
             if extra:
                 stream.addfile(extra, io.BytesIO(b""))
@@ -198,11 +201,76 @@ class LocalConfigBackupTests(unittest.TestCase):
         manifest = {"home": str(self.home), "repository": str(self.repo), "uid": 1001}
         repo = self.home / "different-clone"
         text = f"IdentityFile {self.repo}/key\n".encode()
-        result = BACKUP.relocate(text, "home/.ssh/config", manifest, self.target_home, repo)
+        result = BACKUP.relocate(text, "home/.ssh/config", manifest, self.target_home, repo, "text")
         self.assertEqual(result, f"IdentityFile {repo}/key\n".encode())
         secret = f"SECRET_TOKEN={self.home}/opaque\n".encode()
         self.assertEqual(BACKUP.relocate(secret, "home/" + BACKUP.OPERATOR + "/token.env",
-                                         manifest, self.target_home, self.target_repo), secret)
+                                         manifest, self.target_home, self.target_repo, "text"), secret)
+
+    def test_opaque_json_credentials_and_smtp_dependencies_are_preserved(self):
+        inputs = self.home / BACKUP.FEEDBACK / "inputs.production.json"
+        opaque = self.home / BACKUP.FEEDBACK / "token.json"
+        smtp = self.home / BACKUP.FEEDBACK / "smtp-password"
+        self.write(opaque, b"credential that is not JSON")
+        self.write(smtp, b"smtp password fixture")
+        inputs.write_text(json.dumps({"githubTokenFile": str(opaque), "smtpPasswordFile": str(smtp)}))
+        self.create()
+        BACKUP.restore(self.archive, self.target_home, self.target_repo)
+        self.assertEqual((self.target_home / BACKUP.FEEDBACK / "token.json").read_bytes(), opaque.read_bytes())
+        self.assertEqual((self.target_home / BACKUP.FEEDBACK / "smtp-password").read_bytes(), smtp.read_bytes())
+        manifest = {"home": str(self.home), "repository": str(self.repo), "uid": 1001}
+        secret = json.dumps({"socket": str(self.home / "opaque-token")}).encode()
+        self.assertEqual(BACKUP.relocate(secret, "home/" + BACKUP.FEEDBACK + "/token.json",
+                                         manifest, self.target_home, self.target_repo, "opaque"), secret)
+
+    def test_runtime_uid_relocation_in_ssh_environment_and_unit_configuration(self):
+        manifest = {"home": str(self.home), "repository": str(self.repo), "uid": 1001}
+        for name, text in [("home/.ssh/config", "ControlPath /run/user/1001/ssh.sock\n"),
+                           ("home/" + BACKUP.OPERATOR + "/tunnel.env", "NATIVE_SOCKET=/run/user/1001/native.sock\n"),
+                           ("home/" + BACKUP.TUNNEL, "ExecStart=/usr/bin/ssh -L /run/user/1001/native.sock node\n")]:
+            with self.subTest(name=name), patch.object(BACKUP.os, "getuid", return_value=2002):
+                result = BACKUP.relocate(text.encode(), name, manifest, self.target_home, self.target_repo, "text")
+                self.assertEqual(result, text.replace("/run/user/1001/", "/run/user/2002/").encode())
+
+    def test_repo_smtp_credential_is_selected_only_when_actively_referenced(self):
+        gmail = self.repo / "gmail"
+        self.write(gmail, b"smtp fixture")
+        self.assertNotIn("repo/gmail", BACKUP.collect(self.home, self.repo))
+        inputs = self.home / BACKUP.FEEDBACK / "inputs.production.json"
+        inputs.write_text(json.dumps({"smtpPasswordFile": str(gmail)}))
+        self.create()
+        BACKUP.restore(self.archive, self.target_home, self.target_repo)
+        self.assertEqual((self.target_repo / "gmail").read_bytes(), gmail.read_bytes())
+
+    def test_unsupported_local_dependency_is_reported_instead_of_silently_omitted(self):
+        unknown = self.home / "other-credentials/token"
+        self.write(unknown, b"fixture")
+        inputs = self.home / BACKUP.FEEDBACK / "inputs.production.json"
+        inputs.write_text(json.dumps({"githubTokenFile": str(unknown)}))
+        with self.assertRaisesRegex(ValueError, "outside the backup allowlist"):
+            self.create()
+        self.assertFalse(self.archive.exists())
+
+    def test_unselected_private_directory_symlink_is_not_followed_or_modified(self):
+        self.crafted({"home/.ssh/id_ed25519": b"x"})
+        outside = self.root / "unrelated"
+        outside.mkdir(mode=0o755)
+        link = self.target_home / BACKUP.OPERATOR
+        link.parent.mkdir(parents=True)
+        link.symlink_to(outside, target_is_directory=True)
+        BACKUP.restore(self.archive, self.target_home, self.target_repo)
+        self.assertEqual(outside.stat().st_mode & 0o777, 0o755)
+        self.assertEqual(list(outside.iterdir()), [])
+
+    def test_tar_pax_metadata_is_included_in_expanded_size_limit(self):
+        self.crafted({"home/.ssh/id_ed25519": b"x"})
+        with patch.object(BACKUP, "MAX_TOTAL_BYTES", 12000):
+            BACKUP.read_archive(self.archive, self.target_home, self.target_repo)
+        self.crafted({"home/.ssh/id_ed25519": b"x"}, pax={"comment": "x" * 20000})
+        self.assertLess(self.archive.stat().st_size, 12000)
+        with patch.object(BACKUP, "MAX_TOTAL_BYTES", 12000), self.assertRaisesRegex(ValueError, "expanded size"):
+            BACKUP.restore(self.archive, self.target_home, self.target_repo)
+        self.assertFalse(self.target_home.exists())
 
     def test_default_invocation_restores_from_fresh_clone_root(self):
         self.target_repo.mkdir(parents=True)

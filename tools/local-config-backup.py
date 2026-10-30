@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import gzip
 import hashlib
 import io
 import json
@@ -26,12 +27,14 @@ FEEDBACK = ".local/state/hexproof-feedback-test"
 PREVIOUS = ".local/state/hexproof-config-restore-backups"
 TUNNEL = ".config/systemd/user/hexproof-feedback-test-tunnel.service"
 REPO_FILES = {"apps/client-qt/config/servers.json", "apps/client-qt/config/feedback.json"}
+REPO_CREDENTIAL_FILES = {"gmail"}
 OPERATOR_FILES = {"multica-operations.json", "deployment-targets.json", "nodes.json",
                   "feedback-deployment.json", "feedback-tunnel.env"}
 PATH_KEYS = {"repositoryRoot", "privateStateDirectory", "connectionFile", "inputsFile",
              "configFile", "githubTokenFile", "multicaWebhookFile", "socket", "keyFile",
-             "identityFile", "credentialFile"}
+             "identityFile", "credentialFile", "smtpPasswordFile", "passwordFile", "tokenFile", "webhookFile"}
 FILE_KEYS = PATH_KEYS - {"repositoryRoot", "privateStateDirectory", "socket"}
+CONFIG_KEYS = {"connectionFile", "inputsFile", "configFile"}
 MAX_FILES = 512
 MAX_FILE_BYTES = 8 * 1024 * 1024
 MAX_TOTAL_BYTES = 32 * 1024 * 1024
@@ -51,7 +54,7 @@ def destination(name: str, home: Path, repo: Path) -> Path:
             or any(p in (".", "..") or len(p.encode()) > 255 for p in parts)):
         raise ValueError("Invalid backup path")
     scope, relative = parts[0], "/".join(parts[1:])
-    allowed = (scope == "repo" and relative in REPO_FILES) or (
+    allowed = (scope == "repo" and relative in REPO_FILES | REPO_CREDENTIAL_FILES) or (
         scope == "home" and (relative == TUNNEL
         or any(relative.startswith(prefix + "/") for prefix in (OPERATOR, FEEDBACK))
         or (relative.startswith(".ssh/") and parts[2] not in ("agent", "known_hosts.old"))))
@@ -68,36 +71,39 @@ def check_path(path: Path) -> None:
         raise ValueError("Configuration must be a regular file: " + str(path))
 
 
-def collect(home: Path, repo: Path) -> dict[str, Path]:
-    result: dict[str, Path] = {}
+def collect(home: Path, repo: Path) -> dict[str, tuple[Path, str]]:
+    result: dict[str, tuple[Path, str]] = {}
 
-    def add(path: Path) -> None:
+    def add(path: Path, format: str) -> None:
         if path.is_relative_to(home):
             name = "home/" + path.relative_to(home).as_posix()
         else:
             name = "repo/" + path.relative_to(repo).as_posix()
         # Repository configuration may itself be beneath HOME.
-        if path in {repo / name for name in REPO_FILES}:
+        if path in {repo / name for name in REPO_FILES | REPO_CREDENTIAL_FILES}:
             name = "repo/" + path.relative_to(repo).as_posix()
         destination(name, home, repo)
         check_path(path)
         if not path.exists():
             return
         if name in result:
+            if result[name][1] != format:
+                raise ValueError("Conflicting configuration and credential roles")
             return
-        result[name] = path
-        if path.suffix == ".json":
+        result[name] = (path, format)
+        if format == "json":
             def references(value):
                 if isinstance(value, dict):
                     for key, item in value.items():
                         if key in PATH_KEYS and isinstance(item, str):
                             candidate = Path(item)
-                            if (key in FILE_KEYS and candidate.is_absolute()
-                                    and any(candidate.is_relative_to(home / prefix)
-                                            for prefix in (OPERATOR, FEEDBACK))):
+                            if key in FILE_KEYS and candidate.is_absolute() and candidate.is_relative_to(home):
+                                if not (any(candidate.is_relative_to(home / prefix) for prefix in (OPERATOR, FEEDBACK))
+                                        or candidate in {repo / name for name in REPO_FILES | REPO_CREDENTIAL_FILES}):
+                                    raise ValueError("Referenced local file is outside the backup allowlist: " + str(candidate))
                                 if not candidate.exists():
                                     raise ValueError("Referenced configuration is missing: " + str(candidate))
-                                add(candidate)
+                                add(candidate, "json" if key in CONFIG_KEYS else "opaque")
                         elif isinstance(item, (dict, list)):
                             references(item)
                 elif isinstance(value, list):
@@ -112,13 +118,13 @@ def collect(home: Path, repo: Path) -> dict[str, Path]:
             for name in files:
                 path = Path(directory) / name
                 if name != "known_hosts.old" and not stat.S_ISSOCK(path.lstat().st_mode):
-                    add(path)
+                    add(path, "text" if path == ssh / "config" or path.is_relative_to(ssh / "config.d") else "opaque")
     for name in OPERATOR_FILES:
-        add(home / OPERATOR / name)
-    for path in (home / FEEDBACK / "connection.json", home / TUNNEL):
-        add(path)
+        add(home / OPERATOR / name, "json" if name.endswith(".json") else "text")
+    add(home / FEEDBACK / "connection.json", "json")
+    add(home / TUNNEL, "text")
     for name in REPO_FILES:
-        add(repo / name)
+        add(repo / name, "json")
     return result
 
 
@@ -129,13 +135,13 @@ def create(archive: Path, home: Path, repo: Path) -> dict:
     if not selected or len(selected) > MAX_FILES:
         raise ValueError("No configuration found, or too many configuration files")
     payload, records = {}, []
-    for name, path in sorted(selected.items()):
+    for name, (path, format) in sorted(selected.items()):
         if path.stat().st_size > MAX_FILE_BYTES:
             raise ValueError("Configuration file exceeds backup size limit")
         data = path.read_bytes()
         mode = 0o700 if path.stat().st_mode & 0o100 else 0o600
         payload[name] = data
-        records.append({"path": name, "sha256": digest(data), "mode": mode})
+        records.append({"path": name, "sha256": digest(data), "mode": mode, "format": format})
     if sum(map(len, payload.values())) > MAX_TOTAL_BYTES:
         raise ValueError("Configuration backup exceeds total size limit")
     manifest = {"version": 1, "home": str(home), "repository": str(repo),
@@ -155,6 +161,7 @@ def create(archive: Path, home: Path, repo: Path) -> dict:
                     stream.addfile(member, io.BytesIO(data))
             output.flush()
             os.fsync(output.fileno())
+        archive_data(Path(temporary))
         # Publish atomically without replacing an existing archive.
         os.link(temporary, archive)
     finally:
@@ -163,8 +170,21 @@ def create(archive: Path, home: Path, repo: Path) -> dict:
             "sha256": digest(archive.read_bytes())}
 
 
+def archive_data(archive: Path) -> bytes:
+    """Bound compressed input and all expanded bytes, including hidden tar metadata."""
+    with archive.open("rb") as stream:
+        compressed = stream.read(MAX_TOTAL_BYTES + 1)
+    if len(compressed) > MAX_TOTAL_BYTES:
+        raise ValueError("Backup exceeds compressed size limit")
+    with gzip.GzipFile(fileobj=io.BytesIO(compressed)) as stream:
+        data = stream.read(MAX_TOTAL_BYTES + 1)
+    if len(data) > MAX_TOTAL_BYTES:
+        raise ValueError("Backup exceeds expanded size limit")
+    return data
+
+
 def read_archive(archive: Path, home: Path, repo: Path) -> tuple[dict, dict[str, bytes]]:
-    with tarfile.open(archive, "r:gz") as stream:
+    with tarfile.open(fileobj=io.BytesIO(archive_data(archive)), mode="r:") as stream:
         payload = {}
         total = 0
         for member in stream:
@@ -191,7 +211,8 @@ def read_archive(archive: Path, home: Path, repo: Path) -> tuple[dict, dict[str,
     names = set()
     for entry in manifest["files"]:
         if (not isinstance(entry, dict) or not isinstance(entry.get("path"), str)
-                or entry["path"] in names or entry.get("mode") not in (0o600, 0o700)):
+                or entry["path"] in names or entry.get("mode") not in (0o600, 0o700)
+                or entry.get("format") not in ("json", "text", "opaque")):
             raise ValueError("Invalid backup file record")
         name = entry["path"]
         names.add(name)
@@ -202,7 +223,7 @@ def read_archive(archive: Path, home: Path, repo: Path) -> tuple[dict, dict[str,
     return manifest, payload
 
 
-def relocate(data: bytes, name: str, manifest: dict, home: Path, repo: Path) -> bytes:
+def relocate(data: bytes, name: str, manifest: dict, home: Path, repo: Path, format: str) -> bytes:
     def path(value: str) -> str:
         pairs = [(manifest["repository"], str(repo)), (manifest["home"], str(home)),
                  (f"/run/user/{manifest['uid']}", f"/run/user/{os.getuid()}")]
@@ -211,7 +232,9 @@ def relocate(data: bytes, name: str, manifest: dict, home: Path, repo: Path) -> 
                 return new + value[len(old):]
         return value
 
-    if name.endswith(".json"):
+    if format == "opaque":
+        return data
+    if format == "json":
         original = json.loads(data)
         def update(value):
             if isinstance(value, dict):
@@ -238,7 +261,8 @@ def relocate(data: bytes, name: str, manifest: dict, home: Path, repo: Path) -> 
     for line in data.decode().splitlines(keepends=True):
         key = re.split(r"[=\s]", line.strip(), maxsplit=1)[0].lower()
         if key in allowed:
-            replacements = {manifest["home"]: str(home), manifest["repository"]: str(repo)}
+            replacements = {manifest["home"]: str(home), manifest["repository"]: str(repo),
+                            f"/run/user/{manifest['uid']}": f"/run/user/{os.getuid()}"}
             pattern = "|".join(re.escape(old) for old in sorted(replacements, key=len, reverse=True))
             line = re.sub(r"(?<![A-Za-z0-9_./-])(" + pattern + r")(?=/|[\s\"']|$)",
                           lambda match: replacements[match[1]], line)
@@ -282,7 +306,7 @@ def restore(archive: Path, home: Path, repo: Path, overwrite=False, dry_run=Fals
         if target in targets:
             raise ValueError("Backup destinations collide")
         targets.add(target)
-        data = relocate(payload[name], name, manifest, home, repo)
+        data = relocate(payload[name], name, manifest, home, repo, entry["format"])
         if target.exists() and target.stat().st_size > MAX_FILE_BYTES:
             raise ValueError("Existing configuration exceeds size limit")
         previous = target.read_bytes() if target.exists() else None
@@ -308,8 +332,8 @@ def restore(archive: Path, home: Path, repo: Path, overwrite=False, dry_run=Fals
                 target.chmod(mode)
         for prefix in (".ssh", OPERATOR, FEEDBACK):
             directory = home / prefix
-            if directory.is_dir():
-                directory.chmod(0o700)
+            if any(target.is_relative_to(directory) for target in targets):
+                directory.chmod(0o700, follow_symlinks=False)
     return {"restored": 0 if dry_run else len(plan), "dryRun": dry_run,
             "files": [name for name, *_ in plan],
             "previousFiles": str(previous_root) if previous_root.exists() else None}
