@@ -1,0 +1,1331 @@
+{
+  "source": {
+    "title": "Magic: The Gathering Comprehensive Rules",
+    "version": "2026-09-25",
+    "url": "https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt",
+    "landingUrl": "https://magic.wizards.com/en/rules",
+    "sha256": "8d860e451f20f38865b725b42d82feb714c725373dd8f3b32b8652b3eeb070ca"
+  },
+  "headings": [
+    {
+      "rule": "701.2",
+      "english": "Activate",
+      "category": "action"
+    },
+    {
+      "rule": "701.3",
+      "english": "Attach",
+      "category": "action"
+    },
+    {
+      "rule": "701.4",
+      "english": "Behold",
+      "category": "action"
+    },
+    {
+      "rule": "701.5",
+      "english": "Cast",
+      "category": "action"
+    },
+    {
+      "rule": "701.6",
+      "english": "Counter",
+      "category": "action"
+    },
+    {
+      "rule": "701.7",
+      "english": "Create",
+      "category": "action"
+    },
+    {
+      "rule": "701.8",
+      "english": "Destroy",
+      "category": "action"
+    },
+    {
+      "rule": "701.9",
+      "english": "Discard",
+      "category": "action"
+    },
+    {
+      "rule": "701.10",
+      "english": "Double",
+      "category": "action"
+    },
+    {
+      "rule": "701.11",
+      "english": "Triple",
+      "category": "action"
+    },
+    {
+      "rule": "701.12",
+      "english": "Exchange",
+      "category": "action"
+    },
+    {
+      "rule": "701.13",
+      "english": "Exile",
+      "category": "action"
+    },
+    {
+      "rule": "701.14",
+      "english": "Fight",
+      "category": "action"
+    },
+    {
+      "rule": "701.15",
+      "english": "Goad",
+      "category": "action"
+    },
+    {
+      "rule": "701.16",
+      "english": "Investigate",
+      "category": "action"
+    },
+    {
+      "rule": "701.17",
+      "english": "Mill",
+      "category": "action"
+    },
+    {
+      "rule": "701.18",
+      "english": "Play",
+      "category": "action"
+    },
+    {
+      "rule": "701.19",
+      "english": "Regenerate",
+      "category": "action"
+    },
+    {
+      "rule": "701.20",
+      "english": "Reveal",
+      "category": "action"
+    },
+    {
+      "rule": "701.21",
+      "english": "Sacrifice",
+      "category": "action"
+    },
+    {
+      "rule": "701.22",
+      "english": "Scry",
+      "category": "action"
+    },
+    {
+      "rule": "701.23",
+      "english": "Search",
+      "category": "action"
+    },
+    {
+      "rule": "701.24",
+      "english": "Shuffle",
+      "category": "action"
+    },
+    {
+      "rule": "701.25",
+      "english": "Surveil",
+      "category": "action"
+    },
+    {
+      "rule": "701.26",
+      "english": "Tap and Untap",
+      "category": "action"
+    },
+    {
+      "rule": "701.27",
+      "english": "Transform",
+      "category": "action"
+    },
+    {
+      "rule": "701.28",
+      "english": "Convert",
+      "category": "action"
+    },
+    {
+      "rule": "701.29",
+      "english": "Fateseal",
+      "category": "action"
+    },
+    {
+      "rule": "701.30",
+      "english": "Clash",
+      "category": "action"
+    },
+    {
+      "rule": "701.31",
+      "english": "Planeswalk",
+      "category": "action"
+    },
+    {
+      "rule": "701.32",
+      "english": "Set in Motion",
+      "category": "action"
+    },
+    {
+      "rule": "701.33",
+      "english": "Abandon",
+      "category": "action"
+    },
+    {
+      "rule": "701.34",
+      "english": "Proliferate",
+      "category": "action"
+    },
+    {
+      "rule": "701.35",
+      "english": "Detain",
+      "category": "action"
+    },
+    {
+      "rule": "701.36",
+      "english": "Populate",
+      "category": "action"
+    },
+    {
+      "rule": "701.37",
+      "english": "Monstrosity",
+      "category": "action"
+    },
+    {
+      "rule": "701.38",
+      "english": "Vote",
+      "category": "action"
+    },
+    {
+      "rule": "701.39",
+      "english": "Bolster",
+      "category": "action"
+    },
+    {
+      "rule": "701.40",
+      "english": "Manifest",
+      "category": "action"
+    },
+    {
+      "rule": "701.41",
+      "english": "Support",
+      "category": "action"
+    },
+    {
+      "rule": "701.42",
+      "english": "Meld",
+      "category": "action"
+    },
+    {
+      "rule": "701.43",
+      "english": "Exert",
+      "category": "action"
+    },
+    {
+      "rule": "701.44",
+      "english": "Explore",
+      "category": "action"
+    },
+    {
+      "rule": "701.45",
+      "english": "Assemble",
+      "category": "action"
+    },
+    {
+      "rule": "701.46",
+      "english": "Adapt",
+      "category": "action"
+    },
+    {
+      "rule": "701.47",
+      "english": "Amass",
+      "category": "action"
+    },
+    {
+      "rule": "701.48",
+      "english": "Learn",
+      "category": "action"
+    },
+    {
+      "rule": "701.49",
+      "english": "Venture into the Dungeon",
+      "category": "action"
+    },
+    {
+      "rule": "701.50",
+      "english": "Connive",
+      "category": "action"
+    },
+    {
+      "rule": "701.51",
+      "english": "Open an Attraction",
+      "category": "action"
+    },
+    {
+      "rule": "701.52",
+      "english": "Roll to Visit Your Attractions",
+      "category": "action"
+    },
+    {
+      "rule": "701.53",
+      "english": "Incubate",
+      "category": "action"
+    },
+    {
+      "rule": "701.54",
+      "english": "The Ring Tempts You",
+      "category": "action"
+    },
+    {
+      "rule": "701.55",
+      "english": "Face a Villainous Choice",
+      "category": "action"
+    },
+    {
+      "rule": "701.56",
+      "english": "Time Travel",
+      "category": "action"
+    },
+    {
+      "rule": "701.57",
+      "english": "Discover",
+      "category": "action"
+    },
+    {
+      "rule": "701.58",
+      "english": "Cloak",
+      "category": "action"
+    },
+    {
+      "rule": "701.59",
+      "english": "Collect Evidence",
+      "category": "action"
+    },
+    {
+      "rule": "701.60",
+      "english": "Suspect",
+      "category": "action"
+    },
+    {
+      "rule": "701.61",
+      "english": "Forage",
+      "category": "action"
+    },
+    {
+      "rule": "701.62",
+      "english": "Manifest Dread",
+      "category": "action"
+    },
+    {
+      "rule": "701.63",
+      "english": "Endure",
+      "category": "action"
+    },
+    {
+      "rule": "701.64",
+      "english": "Harness",
+      "category": "action"
+    },
+    {
+      "rule": "701.65",
+      "english": "Airbend",
+      "category": "action"
+    },
+    {
+      "rule": "701.66",
+      "english": "Earthbend",
+      "category": "action"
+    },
+    {
+      "rule": "701.67",
+      "english": "Waterbend",
+      "category": "action"
+    },
+    {
+      "rule": "701.68",
+      "english": "Blight",
+      "category": "action"
+    },
+    {
+      "rule": "701.69",
+      "english": "Heal",
+      "category": "action"
+    },
+    {
+      "rule": "701.70",
+      "english": "Recruit",
+      "category": "action"
+    },
+    {
+      "rule": "701.71",
+      "english": "Empower Jace",
+      "category": "action"
+    },
+    {
+      "rule": "702.2",
+      "english": "Deathtouch",
+      "category": "ability"
+    },
+    {
+      "rule": "702.3",
+      "english": "Defender",
+      "category": "ability"
+    },
+    {
+      "rule": "702.4",
+      "english": "Double Strike",
+      "category": "ability"
+    },
+    {
+      "rule": "702.5",
+      "english": "Enchant",
+      "category": "ability"
+    },
+    {
+      "rule": "702.6",
+      "english": "Equip",
+      "category": "ability"
+    },
+    {
+      "rule": "702.7",
+      "english": "First Strike",
+      "category": "ability"
+    },
+    {
+      "rule": "702.8",
+      "english": "Flash",
+      "category": "ability"
+    },
+    {
+      "rule": "702.9",
+      "english": "Flying",
+      "category": "ability"
+    },
+    {
+      "rule": "702.10",
+      "english": "Haste",
+      "category": "ability"
+    },
+    {
+      "rule": "702.11",
+      "english": "Hexproof",
+      "category": "ability"
+    },
+    {
+      "rule": "702.12",
+      "english": "Indestructible",
+      "category": "ability"
+    },
+    {
+      "rule": "702.13",
+      "english": "Intimidate",
+      "category": "ability"
+    },
+    {
+      "rule": "702.14",
+      "english": "Landwalk",
+      "category": "ability"
+    },
+    {
+      "rule": "702.15",
+      "english": "Lifelink",
+      "category": "ability"
+    },
+    {
+      "rule": "702.16",
+      "english": "Protection",
+      "category": "ability"
+    },
+    {
+      "rule": "702.17",
+      "english": "Reach",
+      "category": "ability"
+    },
+    {
+      "rule": "702.18",
+      "english": "Shroud",
+      "category": "ability"
+    },
+    {
+      "rule": "702.19",
+      "english": "Trample",
+      "category": "ability"
+    },
+    {
+      "rule": "702.20",
+      "english": "Vigilance",
+      "category": "ability"
+    },
+    {
+      "rule": "702.21",
+      "english": "Ward",
+      "category": "ability"
+    },
+    {
+      "rule": "702.22",
+      "english": "Banding",
+      "category": "ability"
+    },
+    {
+      "rule": "702.23",
+      "english": "Rampage",
+      "category": "ability"
+    },
+    {
+      "rule": "702.24",
+      "english": "Cumulative Upkeep",
+      "category": "ability"
+    },
+    {
+      "rule": "702.25",
+      "english": "Flanking",
+      "category": "ability"
+    },
+    {
+      "rule": "702.26",
+      "english": "Phasing",
+      "category": "ability"
+    },
+    {
+      "rule": "702.27",
+      "english": "Buyback",
+      "category": "ability"
+    },
+    {
+      "rule": "702.28",
+      "english": "Shadow",
+      "category": "ability"
+    },
+    {
+      "rule": "702.29",
+      "english": "Cycling",
+      "category": "ability"
+    },
+    {
+      "rule": "702.30",
+      "english": "Echo",
+      "category": "ability"
+    },
+    {
+      "rule": "702.31",
+      "english": "Horsemanship",
+      "category": "ability"
+    },
+    {
+      "rule": "702.32",
+      "english": "Fading",
+      "category": "ability"
+    },
+    {
+      "rule": "702.33",
+      "english": "Kicker",
+      "category": "ability"
+    },
+    {
+      "rule": "702.34",
+      "english": "Flashback",
+      "category": "ability"
+    },
+    {
+      "rule": "702.35",
+      "english": "Madness",
+      "category": "ability"
+    },
+    {
+      "rule": "702.36",
+      "english": "Fear",
+      "category": "ability"
+    },
+    {
+      "rule": "702.37",
+      "english": "Morph",
+      "category": "ability"
+    },
+    {
+      "rule": "702.38",
+      "english": "Amplify",
+      "category": "ability"
+    },
+    {
+      "rule": "702.39",
+      "english": "Provoke",
+      "category": "ability"
+    },
+    {
+      "rule": "702.40",
+      "english": "Storm",
+      "category": "ability"
+    },
+    {
+      "rule": "702.41",
+      "english": "Affinity",
+      "category": "ability"
+    },
+    {
+      "rule": "702.42",
+      "english": "Entwine",
+      "category": "ability"
+    },
+    {
+      "rule": "702.43",
+      "english": "Modular",
+      "category": "ability"
+    },
+    {
+      "rule": "702.44",
+      "english": "Sunburst",
+      "category": "ability"
+    },
+    {
+      "rule": "702.45",
+      "english": "Bushido",
+      "category": "ability"
+    },
+    {
+      "rule": "702.46",
+      "english": "Soulshift",
+      "category": "ability"
+    },
+    {
+      "rule": "702.47",
+      "english": "Splice",
+      "category": "ability"
+    },
+    {
+      "rule": "702.48",
+      "english": "Offering",
+      "category": "ability"
+    },
+    {
+      "rule": "702.49",
+      "english": "Ninjutsu",
+      "category": "ability"
+    },
+    {
+      "rule": "702.50",
+      "english": "Epic",
+      "category": "ability"
+    },
+    {
+      "rule": "702.51",
+      "english": "Convoke",
+      "category": "ability"
+    },
+    {
+      "rule": "702.52",
+      "english": "Dredge",
+      "category": "ability"
+    },
+    {
+      "rule": "702.53",
+      "english": "Transmute",
+      "category": "ability"
+    },
+    {
+      "rule": "702.54",
+      "english": "Bloodthirst",
+      "category": "ability"
+    },
+    {
+      "rule": "702.55",
+      "english": "Haunt",
+      "category": "ability"
+    },
+    {
+      "rule": "702.56",
+      "english": "Replicate",
+      "category": "ability"
+    },
+    {
+      "rule": "702.57",
+      "english": "Forecast",
+      "category": "ability"
+    },
+    {
+      "rule": "702.58",
+      "english": "Graft",
+      "category": "ability"
+    },
+    {
+      "rule": "702.59",
+      "english": "Recover",
+      "category": "ability"
+    },
+    {
+      "rule": "702.60",
+      "english": "Ripple",
+      "category": "ability"
+    },
+    {
+      "rule": "702.61",
+      "english": "Split Second",
+      "category": "ability"
+    },
+    {
+      "rule": "702.62",
+      "english": "Suspend",
+      "category": "ability"
+    },
+    {
+      "rule": "702.63",
+      "english": "Vanishing",
+      "category": "ability"
+    },
+    {
+      "rule": "702.64",
+      "english": "Absorb",
+      "category": "ability"
+    },
+    {
+      "rule": "702.65",
+      "english": "Aura Swap",
+      "category": "ability"
+    },
+    {
+      "rule": "702.66",
+      "english": "Delve",
+      "category": "ability"
+    },
+    {
+      "rule": "702.67",
+      "english": "Fortify",
+      "category": "ability"
+    },
+    {
+      "rule": "702.68",
+      "english": "Frenzy",
+      "category": "ability"
+    },
+    {
+      "rule": "702.69",
+      "english": "Gravestorm",
+      "category": "ability"
+    },
+    {
+      "rule": "702.70",
+      "english": "Poisonous",
+      "category": "ability"
+    },
+    {
+      "rule": "702.71",
+      "english": "Transfigure",
+      "category": "ability"
+    },
+    {
+      "rule": "702.72",
+      "english": "Champion",
+      "category": "ability"
+    },
+    {
+      "rule": "702.73",
+      "english": "Changeling",
+      "category": "ability"
+    },
+    {
+      "rule": "702.74",
+      "english": "Evoke",
+      "category": "ability"
+    },
+    {
+      "rule": "702.75",
+      "english": "Hideaway",
+      "category": "ability"
+    },
+    {
+      "rule": "702.76",
+      "english": "Prowl",
+      "category": "ability"
+    },
+    {
+      "rule": "702.77",
+      "english": "Reinforce",
+      "category": "ability"
+    },
+    {
+      "rule": "702.78",
+      "english": "Conspire",
+      "category": "ability"
+    },
+    {
+      "rule": "702.79",
+      "english": "Persist",
+      "category": "ability"
+    },
+    {
+      "rule": "702.80",
+      "english": "Wither",
+      "category": "ability"
+    },
+    {
+      "rule": "702.81",
+      "english": "Retrace",
+      "category": "ability"
+    },
+    {
+      "rule": "702.82",
+      "english": "Devour",
+      "category": "ability"
+    },
+    {
+      "rule": "702.83",
+      "english": "Exalted",
+      "category": "ability"
+    },
+    {
+      "rule": "702.84",
+      "english": "Unearth",
+      "category": "ability"
+    },
+    {
+      "rule": "702.85",
+      "english": "Cascade",
+      "category": "ability"
+    },
+    {
+      "rule": "702.86",
+      "english": "Annihilator",
+      "category": "ability"
+    },
+    {
+      "rule": "702.87",
+      "english": "Level Up",
+      "category": "ability"
+    },
+    {
+      "rule": "702.88",
+      "english": "Rebound",
+      "category": "ability"
+    },
+    {
+      "rule": "702.89",
+      "english": "Umbra Armor",
+      "category": "ability"
+    },
+    {
+      "rule": "702.90",
+      "english": "Infect",
+      "category": "ability"
+    },
+    {
+      "rule": "702.91",
+      "english": "Battle Cry",
+      "category": "ability"
+    },
+    {
+      "rule": "702.92",
+      "english": "Living Weapon",
+      "category": "ability"
+    },
+    {
+      "rule": "702.93",
+      "english": "Undying",
+      "category": "ability"
+    },
+    {
+      "rule": "702.94",
+      "english": "Miracle",
+      "category": "ability"
+    },
+    {
+      "rule": "702.95",
+      "english": "Soulbond",
+      "category": "ability"
+    },
+    {
+      "rule": "702.96",
+      "english": "Overload",
+      "category": "ability"
+    },
+    {
+      "rule": "702.97",
+      "english": "Scavenge",
+      "category": "ability"
+    },
+    {
+      "rule": "702.98",
+      "english": "Unleash",
+      "category": "ability"
+    },
+    {
+      "rule": "702.99",
+      "english": "Cipher",
+      "category": "ability"
+    },
+    {
+      "rule": "702.100",
+      "english": "Evolve",
+      "category": "ability"
+    },
+    {
+      "rule": "702.101",
+      "english": "Extort",
+      "category": "ability"
+    },
+    {
+      "rule": "702.102",
+      "english": "Fuse",
+      "category": "ability"
+    },
+    {
+      "rule": "702.103",
+      "english": "Bestow",
+      "category": "ability"
+    },
+    {
+      "rule": "702.104",
+      "english": "Tribute",
+      "category": "ability"
+    },
+    {
+      "rule": "702.105",
+      "english": "Dethrone",
+      "category": "ability"
+    },
+    {
+      "rule": "702.106",
+      "english": "Hidden Agenda",
+      "category": "ability"
+    },
+    {
+      "rule": "702.107",
+      "english": "Outlast",
+      "category": "ability"
+    },
+    {
+      "rule": "702.108",
+      "english": "Prowess",
+      "category": "ability"
+    },
+    {
+      "rule": "702.109",
+      "english": "Dash",
+      "category": "ability"
+    },
+    {
+      "rule": "702.110",
+      "english": "Exploit",
+      "category": "ability"
+    },
+    {
+      "rule": "702.111",
+      "english": "Menace",
+      "category": "ability"
+    },
+    {
+      "rule": "702.112",
+      "english": "Renown",
+      "category": "ability"
+    },
+    {
+      "rule": "702.113",
+      "english": "Awaken",
+      "category": "ability"
+    },
+    {
+      "rule": "702.114",
+      "english": "Devoid",
+      "category": "ability"
+    },
+    {
+      "rule": "702.115",
+      "english": "Ingest",
+      "category": "ability"
+    },
+    {
+      "rule": "702.116",
+      "english": "Myriad",
+      "category": "ability"
+    },
+    {
+      "rule": "702.117",
+      "english": "Surge",
+      "category": "ability"
+    },
+    {
+      "rule": "702.118",
+      "english": "Skulk",
+      "category": "ability"
+    },
+    {
+      "rule": "702.119",
+      "english": "Emerge",
+      "category": "ability"
+    },
+    {
+      "rule": "702.120",
+      "english": "Escalate",
+      "category": "ability"
+    },
+    {
+      "rule": "702.121",
+      "english": "Melee",
+      "category": "ability"
+    },
+    {
+      "rule": "702.122",
+      "english": "Crew",
+      "category": "ability"
+    },
+    {
+      "rule": "702.123",
+      "english": "Fabricate",
+      "category": "ability"
+    },
+    {
+      "rule": "702.124",
+      "english": "Partner",
+      "category": "ability"
+    },
+    {
+      "rule": "702.125",
+      "english": "Undaunted",
+      "category": "ability"
+    },
+    {
+      "rule": "702.126",
+      "english": "Improvise",
+      "category": "ability"
+    },
+    {
+      "rule": "702.127",
+      "english": "Aftermath",
+      "category": "ability"
+    },
+    {
+      "rule": "702.128",
+      "english": "Embalm",
+      "category": "ability"
+    },
+    {
+      "rule": "702.129",
+      "english": "Eternalize",
+      "category": "ability"
+    },
+    {
+      "rule": "702.130",
+      "english": "Afflict",
+      "category": "ability"
+    },
+    {
+      "rule": "702.131",
+      "english": "Ascend",
+      "category": "ability"
+    },
+    {
+      "rule": "702.132",
+      "english": "Assist",
+      "category": "ability"
+    },
+    {
+      "rule": "702.133",
+      "english": "Jump-Start",
+      "category": "ability"
+    },
+    {
+      "rule": "702.134",
+      "english": "Mentor",
+      "category": "ability"
+    },
+    {
+      "rule": "702.135",
+      "english": "Afterlife",
+      "category": "ability"
+    },
+    {
+      "rule": "702.136",
+      "english": "Riot",
+      "category": "ability"
+    },
+    {
+      "rule": "702.137",
+      "english": "Spectacle",
+      "category": "ability"
+    },
+    {
+      "rule": "702.138",
+      "english": "Escape",
+      "category": "ability"
+    },
+    {
+      "rule": "702.139",
+      "english": "Companion",
+      "category": "ability"
+    },
+    {
+      "rule": "702.140",
+      "english": "Mutate",
+      "category": "ability"
+    },
+    {
+      "rule": "702.141",
+      "english": "Encore",
+      "category": "ability"
+    },
+    {
+      "rule": "702.142",
+      "english": "Boast",
+      "category": "ability"
+    },
+    {
+      "rule": "702.143",
+      "english": "Foretell",
+      "category": "ability"
+    },
+    {
+      "rule": "702.144",
+      "english": "Demonstrate",
+      "category": "ability"
+    },
+    {
+      "rule": "702.145",
+      "english": "Daybound and Nightbound",
+      "category": "ability"
+    },
+    {
+      "rule": "702.146",
+      "english": "Disturb",
+      "category": "ability"
+    },
+    {
+      "rule": "702.147",
+      "english": "Decayed",
+      "category": "ability"
+    },
+    {
+      "rule": "702.148",
+      "english": "Cleave",
+      "category": "ability"
+    },
+    {
+      "rule": "702.149",
+      "english": "Training",
+      "category": "ability"
+    },
+    {
+      "rule": "702.150",
+      "english": "Compleated",
+      "category": "ability"
+    },
+    {
+      "rule": "702.151",
+      "english": "Reconfigure",
+      "category": "ability"
+    },
+    {
+      "rule": "702.152",
+      "english": "Blitz",
+      "category": "ability"
+    },
+    {
+      "rule": "702.153",
+      "english": "Casualty",
+      "category": "ability"
+    },
+    {
+      "rule": "702.154",
+      "english": "Enlist",
+      "category": "ability"
+    },
+    {
+      "rule": "702.155",
+      "english": "Read Ahead",
+      "category": "ability"
+    },
+    {
+      "rule": "702.156",
+      "english": "Ravenous",
+      "category": "ability"
+    },
+    {
+      "rule": "702.157",
+      "english": "Squad",
+      "category": "ability"
+    },
+    {
+      "rule": "702.158",
+      "english": "Space Sculptor",
+      "category": "ability"
+    },
+    {
+      "rule": "702.159",
+      "english": "Visit",
+      "category": "ability"
+    },
+    {
+      "rule": "702.160",
+      "english": "Prototype",
+      "category": "ability"
+    },
+    {
+      "rule": "702.161",
+      "english": "Living Metal",
+      "category": "ability"
+    },
+    {
+      "rule": "702.162",
+      "english": "More Than Meets the Eye",
+      "category": "ability"
+    },
+    {
+      "rule": "702.163",
+      "english": "For Mirrodin!",
+      "category": "ability"
+    },
+    {
+      "rule": "702.164",
+      "english": "Toxic",
+      "category": "ability"
+    },
+    {
+      "rule": "702.165",
+      "english": "Backup",
+      "category": "ability"
+    },
+    {
+      "rule": "702.166",
+      "english": "Bargain",
+      "category": "ability"
+    },
+    {
+      "rule": "702.167",
+      "english": "Craft",
+      "category": "ability"
+    },
+    {
+      "rule": "702.168",
+      "english": "Disguise",
+      "category": "ability"
+    },
+    {
+      "rule": "702.169",
+      "english": "Solved",
+      "category": "ability"
+    },
+    {
+      "rule": "702.170",
+      "english": "Plot",
+      "category": "ability"
+    },
+    {
+      "rule": "702.171",
+      "english": "Saddle",
+      "category": "ability"
+    },
+    {
+      "rule": "702.172",
+      "english": "Spree",
+      "category": "ability"
+    },
+    {
+      "rule": "702.173",
+      "english": "Freerunning",
+      "category": "ability"
+    },
+    {
+      "rule": "702.174",
+      "english": "Gift",
+      "category": "ability"
+    },
+    {
+      "rule": "702.175",
+      "english": "Offspring",
+      "category": "ability"
+    },
+    {
+      "rule": "702.176",
+      "english": "Impending",
+      "category": "ability"
+    },
+    {
+      "rule": "702.177",
+      "english": "Exhaust",
+      "category": "ability"
+    },
+    {
+      "rule": "702.178",
+      "english": "Max Speed",
+      "category": "ability"
+    },
+    {
+      "rule": "702.179",
+      "english": "Start Your Engines!",
+      "category": "ability"
+    },
+    {
+      "rule": "702.180",
+      "english": "Harmonize",
+      "category": "ability"
+    },
+    {
+      "rule": "702.181",
+      "english": "Mobilize",
+      "category": "ability"
+    },
+    {
+      "rule": "702.182",
+      "english": "Job Select",
+      "category": "ability"
+    },
+    {
+      "rule": "702.183",
+      "english": "Tiered",
+      "category": "ability"
+    },
+    {
+      "rule": "702.184",
+      "english": "Station",
+      "category": "ability"
+    },
+    {
+      "rule": "702.185",
+      "english": "Warp",
+      "category": "ability"
+    },
+    {
+      "rule": "702.186",
+      "english": "∞ (Infinity)",
+      "category": "ability"
+    },
+    {
+      "rule": "702.187",
+      "english": "Mayhem",
+      "category": "ability"
+    },
+    {
+      "rule": "702.188",
+      "english": "Web-slinging",
+      "category": "ability"
+    },
+    {
+      "rule": "702.189",
+      "english": "Firebending",
+      "category": "ability"
+    },
+    {
+      "rule": "702.190",
+      "english": "Sneak",
+      "category": "ability"
+    },
+    {
+      "rule": "702.191",
+      "english": "Increment",
+      "category": "ability"
+    },
+    {
+      "rule": "702.192",
+      "english": "Paradigm",
+      "category": "ability"
+    },
+    {
+      "rule": "702.193",
+      "english": "Power-up",
+      "category": "ability"
+    },
+    {
+      "rule": "702.194",
+      "english": "Teamwork",
+      "category": "ability"
+    },
+    {
+      "rule": "702.195",
+      "english": "Storied",
+      "category": "ability"
+    }
+  ]
+}

@@ -17493,4 +17493,47 @@ Las imágenes descargadas y personalizadas se copiarán y verificarán antes de 
         <translation>Examinar carta</translation>
     </message>
 </context>
+<context>
+    <name>KeywordReferencePopup</name>
+    <message>
+        <source>Keyword reference</source>
+        <translation>Referencia de palabras clave</translation>
+    </message>
+    <message>
+        <source>Read-only reference · search English or Chinese names</source>
+        <translation>Solo consulta · busca nombres en inglés o chino</translation>
+    </message>
+    <message>
+        <source>Search keywords…</source>
+        <translation>Buscar palabras clave…</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Restablecer</translation>
+    </message>
+    <message>
+        <source>%1 of %2 keywords</source>
+        <translation>%1 de %2 palabras clave</translation>
+    </message>
+    <message>
+        <source>Keyword action</source>
+        <translation>Acción de palabra clave</translation>
+    </message>
+    <message>
+        <source>Keyword ability</source>
+        <translation>Habilidad de palabra clave</translation>
+    </message>
+    <message>
+        <source>No keywords found. Try another name or reset.</source>
+        <translation>No se encontraron palabras clave. Prueba otro nombre o restablece la búsqueda.</translation>
+    </message>
+    <message>
+        <source>Keyword reference is unavailable.</source>
+        <translation>La referencia de palabras clave no está disponible.</translation>
+    </message>
+    <message>
+        <source>Official rules source</source>
+        <translation>Fuente de reglas oficiales</translation>
+    </message>
+</context>
 </TS>

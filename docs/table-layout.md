@@ -874,3 +874,19 @@ remaining card when it disappears, and clear the preview when no cards remain.
 - Automatic priority/stack legality engine  
 - Legacy desktop chrome or a pixel clone of another client
 - Permanent forever storage of every match without TTL  
+
+## In-match keyword reference
+
+The manual table action rail and the Forge table Settings drawer provide a
+**Keyword reference** entry. The modal stays in the match, works without a
+selected card, and searches the bundled English and Chinese keyword names,
+aliases and rule numbers. Empty search browses the entire index; Reset clears
+the search, and an unmatched search displays a clear empty state. Entries and
+source/coverage notes scroll without truncating their explanations.
+
+The reference reads only its bundled public catalog. It never reads a card or
+room projection, sends gameplay/Forge input, enforces rules, or persists match
+state. While visible it blocks underlying table shortcuts and pointer input.
+Escape and the close button dismiss it and restore usable table focus.
+See [keyword source and coverage](keyword-reference.md) for the pinned rules
+version, maintenance process, translations and scope.

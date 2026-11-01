@@ -379,7 +379,11 @@ qt_add_qml_module(hexproof_quick
     RESOURCE_PREFIX /qt/qml
     SOURCES
         src/ui/FramePolish.cpp
-        src/ui/FramePolish.h)
+        src/ui/FramePolish.h
+        src/ui/KeywordReference.cpp
+        src/ui/KeywordReference.h)
+qt_add_resources(hexproof_quick "keyword_reference" PREFIX "/"
+    FILES resources/keyword-reference.json)
 target_include_directories(hexproof_quick
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/ui)
@@ -407,6 +411,7 @@ target_include_directories(hexproof PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 set(HEXPROOF_APPLICATION_QML_FILES
         "${HEXPROOF_SERVER_DIRECTORY_RESOURCE}"
+        qml/components/KeywordReferencePopup.qml
         qml/Main.qml
         qml/ProfileUnavailable.qml
         qml/components/qmldir

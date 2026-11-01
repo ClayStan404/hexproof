@@ -15,6 +15,7 @@ Surface {
     property bool compactChrome: false
     property var hostingDialog: null
     signal audioSettingsRequested()
+    signal keywordReferenceRequested()
     readonly property bool playerHosted: tableController.roomSession.hostingMode === "player"
     readonly property var priority: tableController.priority || null
     readonly property bool showTurnState: tableController.rulesSession.active
@@ -110,6 +111,14 @@ Surface {
         SectionLabel {
             text: qsTr("Table")
             visible: root.compactChrome
+        }
+
+        AppButton {
+            objectName: "rulesKeywordReferenceButton"
+            Layout.fillWidth: true
+            compact: true
+            text: qsTranslate("KeywordReferencePopup", "Keyword reference")
+            onClicked: root.keywordReferenceRequested()
         }
 
         AppButton {

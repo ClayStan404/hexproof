@@ -141,6 +141,13 @@ Surface {
                 onClicked: root.tableController.sessionUi.openTableSettings()
             }
             NavigationButton {
+                objectName: "tableKeywordReferenceButton"
+                variant: "ghost"
+                accessibleName: qsTranslate("KeywordReferencePopup", "Keyword reference")
+                text: root.compactNavigation ? "Aa" : accessibleName
+                onClicked: root.tableController.keywordReference.showFor(this)
+            }
+            NavigationButton {
                 objectName: "tableShortcutHelpButton"
                 variant: "ghost"
                 accessibleName: qsTranslate("Table", "Shortcuts")
