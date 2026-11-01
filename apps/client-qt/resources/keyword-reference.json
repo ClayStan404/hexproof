@@ -1176,8 +1176,8 @@
       ],
       "category": "ability",
       "rule": "702.24",
-      "summaryEn": "Each upkeep, add an age counter, then pay the stated cost once for every age counter or sacrifice the permanent. You must pay the entire accumulated cost.",
-      "summaryZh": "每个维持开始时加一个岁月指示物，然后为每个岁月指示物各支付一次所列费用，否则牺牲该永久物。必须支付全部累积费用。"
+      "summaryEn": "At the beginning of your upkeep, add an age counter, then pay the stated cost once for every age counter or sacrifice the permanent. You must pay the entire accumulated cost.",
+      "summaryZh": "在你的维持开始时加一个岁月指示物，然后为每个岁月指示物各支付一次所列费用，否则牺牲该永久物。必须支付全部累积费用。"
     },
     {
       "id": "ability-flanking",
@@ -1292,8 +1292,8 @@
       "aliases": [],
       "category": "ability",
       "rule": "702.32",
-      "summaryEn": "Enter with N fade counters. Each upkeep, remove one; sacrifice this permanent if you cannot remove one, rather than immediately when the last counter is removed.",
-      "summaryZh": "进战场时有N个消退指示物。每个维持移去一个；当无法移去时才牺牲此永久物，并非移去最后一个时立即牺牲。"
+      "summaryEn": "Enter with N fade counters. At the beginning of your upkeep, remove one; sacrifice this permanent if you cannot remove one, rather than immediately when the last counter is removed.",
+      "summaryZh": "进战场时有N个消退指示物。在你的维持开始时移去一个；当无法移去时才牺牲此永久物，并非移去最后一个时立即牺牲。"
     },
     {
       "id": "ability-kicker",
@@ -1644,8 +1644,8 @@
       ],
       "category": "ability",
       "rule": "702.62",
-      "summaryEn": "Pay the suspend cost to exile this card from hand with N time counters when you could begin casting it. Remove one each upkeep; removing the last lets you play it free, giving a resulting creature haste.",
-      "summaryZh": "在能开始施放此牌的时机，可支付延缓费用将其从手上放逐，其上有N个计时指示物。每个维持移去一个；移去最后一个时可免费使用它，产生的生物具有敏捷。"
+      "summaryEn": "Pay the suspend cost to exile this card from hand with N time counters when you could begin casting it. At the beginning of your upkeep, remove one; removing the last lets you play it free, giving a resulting creature haste.",
+      "summaryZh": "在能开始施放此牌的时机，可支付延缓费用将其从手上放逐，其上有N个计时指示物。在你的维持开始时移去一个；移去最后一个时可免费使用它，产生的生物具有敏捷。"
     },
     {
       "id": "ability-vanishing",
@@ -1654,8 +1654,8 @@
       "aliases": [],
       "category": "ability",
       "rule": "702.63",
-      "summaryEn": "Enter with N time counters, removing one each upkeep. Sacrifice this permanent when its last time counter is removed. A version without N supplies no starting counters.",
-      "summaryZh": "进场时有N个计时指示物，每个维持移去一个。最后一个计时指示物被移去时牺牲此永久物。未注明N的版本不会提供初始指示物。"
+      "summaryEn": "Enter with N time counters. At the beginning of your upkeep, remove one if any remain. Sacrifice this permanent when its last time counter is removed. A version without N supplies no starting counters.",
+      "summaryZh": "进场时有N个计时指示物。在你的维持开始时，若仍有计时指示物便移去一个。最后一个计时指示物被移去时牺牲此永久物。未注明N的版本不会提供初始指示物。"
     },
     {
       "id": "ability-absorb",
