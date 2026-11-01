@@ -9,6 +9,55 @@ application changes that use new catalog metadata are included here.
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-11-01
+
+### Added
+
+- Optional native Forge AI practice for two-player Duel Commander BO1, with
+  independently selected human/AI decks, 20 starting life, each player's own
+  one or two commanders and independent commander tax. Existing Duel Commander
+  deck validation applies to both decks. Easy, Normal and Hard remain practice
+  presets; multiplayer Commander/EDH, BO3, Limited/Cube and tournaments do not
+  gain AI support.
+- Searchable, offline English/Chinese keyword reference in manual and Forge
+  tables, available without selecting a card. It contains original bilingual
+  summaries for all 70 keyword actions and 194 keyword abilities named in
+  Comprehensive Rules 701/702 effective September 25, 2026, with rule references,
+  source/coverage notices and lookup aliases. Some Chinese labels are unofficial.
+  Ability words and other rule sections are outside this index; the reference
+  does not enforce rules or submit game actions. Opening it blocks table
+  shortcuts and closing it restores usable focus.
+
+### Changed
+
+- Duel AI availability is explicit for server and player hosting. Runtime
+  capability checks and coordinator acknowledgement prevent unsupported Duel
+  AI placement while preserving ordinary allocation with older coordinators.
+- Home-node bundles retain verified Forge source references instead of copying
+  complete source archives onto each game node. Matching complete sources remain
+  available through the release/source distribution process; existing rollback
+  trees are preserved.
+- Refresh pinned artifact actions across build workflows. Clarify permitted AI
+  assignment, independent review, missed-feedback reconciliation and native
+  source-task completion in development/operations guidance.
+
+### Compatibility
+
+- Retain game protocol `hexproof.v2`, internal RPC `hexproof.cluster.v1` and
+  helper protocol 1. Application-version equality is not an admission gate;
+  compatible older clients/hubs can continue ordinary play. Legacy v1 peers
+  still need an upgrade. The keyword reference requires only the new client.
+- Duel AI needs the new client and hub plus a runtime advertising both
+  `forge-ai-v1` and `forge-duel-ai-v1`. Cluster use additionally needs coordinator
+  acknowledgement; player hosting needs the bundled helper/current overlay.
+  Missing optional support disables Duel AI without disabling ordinary play or
+  existing constructed AI on capable runtimes. A hub upgrade for this feature
+  is separate from connecting a version-bumped client.
+- Forge adapter revision remains 34, but the full runtime content identity
+  changes. Existing exact helper/runtime checks still apply to hosting and
+  execution; ordinary players and spectators need no local Forge installation.
+  Source preparation does not establish deployment or release qualification.
+
 ## [3.2.0] - 2026-10-25
 
 ### Changed
@@ -1182,7 +1231,9 @@ Follow-up fixes are combined; reverted theme experiments are not included.
   becomes selectable at 90 physical cards, the two-player pack requirement.
 - Draft columns stay usable on shorter windows.
 
-[Unreleased]: https://github.com/ClayStan404/hexproof/compare/v3.1.0...HEAD
+[Unreleased]: https://github.com/ClayStan404/hexproof/compare/v3.3.0...HEAD
+[3.3.0]: https://github.com/ClayStan404/hexproof/compare/v3.2.0...v3.3.0
+[3.2.0]: https://github.com/ClayStan404/hexproof/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/ClayStan404/hexproof/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/ClayStan404/hexproof/compare/v2.5.0...v3.0.0
 [2.0.0]: https://github.com/ClayStan404/hexproof/compare/v1.2.0...v2.0.0
