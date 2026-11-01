@@ -52,20 +52,62 @@ def checked_archive(path: Path, expected: str, destination: Path) -> Path:
     return roots[0]
 
 
-def preserve_forge_source(release: Path, archive: Path | None, expected: str | None) -> dict:
+def forge_source_identity(sources: dict) -> dict:
+    """Normalize source references from both legacy and archive-free bundles."""
+    if not isinstance(sources, dict):
+        raise ValueError("Invalid Forge source reference")
+    name = sources.get("forgeSourceArchiveName")
+    legacy = sources.get("forgeSourceArchive")
+    if "forgeSourceArchive" in sources:
+        if not isinstance(legacy, str) or not legacy.startswith("sources/"):
+            raise ValueError("Invalid legacy Forge source path")
+        legacy_name = legacy.removeprefix("sources/")
+        if "forgeSourceArchiveName" in sources and name != legacy_name:
+            raise ValueError("Conflicting Forge source references")
+        name = legacy_name
+    checksum = sources.get("forgeSourceArchiveSha256")
+    if (not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,254}", name)
+            or not isinstance(checksum, str) or not re.fullmatch(r"[a-f0-9]{64}", checksum)):
+        raise ValueError("Invalid Forge source reference")
+    return {"forgeSourceArchiveName": name, "forgeSourceArchiveSha256": checksum}
+
+
+def runtime_source_identity(release: Path) -> dict:
+    reference = json.loads((release / "forge-runtime" / "SOURCE.json").read_text())
+    if not isinstance(reference, dict) or reference.get("schemaVersion") != 2:
+        raise ValueError("Invalid runtime Forge source reference")
+    return forge_source_identity({"forgeSourceArchiveName": reference.get("archive"),
+                                  "forgeSourceArchiveSha256": reference.get("sha256")})
+
+
+def reference_forge_source(release: Path, archive: Path | None, expected: str | None) -> dict:
+    """Verify centrally retained sources without copying them into a node."""
     if archive is None or expected is None:
         raise ValueError("Node bundle requires forge-source archive and SHA-256")
     if not re.fullmatch(r"[a-f0-9]{64}", expected) or digest(archive) != expected:
         raise ValueError("Forge source archive SHA-256 mismatch")
-    reference = json.loads((release / "forge-runtime" / "SOURCE.json").read_text())
-    if (reference.get("schemaVersion") != 2 or reference.get("archive") != archive.name
-            or reference.get("sha256") != expected):
+    reference = runtime_source_identity(release)
+    if reference != {"forgeSourceArchiveName": archive.name, "forgeSourceArchiveSha256": expected}:
         raise ValueError("Forge runtime does not reference this matching source archive")
-    destination = release / "sources" / archive.name
-    destination.parent.mkdir()
-    shutil.copy2(archive, destination)
-    return {"forgeSourceArchiveSha256": expected,
-            "forgeSourceArchive": destination.relative_to(release).as_posix()}
+    return reference
+
+
+def externalize_forge_source(release: Path, sources: dict) -> dict:
+    """Migrate only the candidate copy; retain the original tree for rollback."""
+    reference = forge_source_identity(sources)
+    if reference != runtime_source_identity(release):
+        raise ValueError("Manifest and runtime Forge source references differ")
+    if "forgeSourceArchive" in sources:
+        archive = release / sources["forgeSourceArchive"]
+        if (archive.parent.is_symlink() or archive.is_symlink() or not archive.is_file()
+                or digest(archive) != reference["forgeSourceArchiveSha256"]):
+            raise ValueError("Legacy Forge source archive verification failed")
+        archive.unlink()
+        if not any(archive.parent.iterdir()):
+            archive.parent.rmdir()
+    result = dict(sources, **reference)
+    result.pop("forgeSourceArchive", None)
+    return result
 
 
 def seal_tree(release: Path, kind: str, sources: dict) -> dict:
@@ -115,11 +157,12 @@ def upgrade_node(args: argparse.Namespace) -> dict:
         shutil.copytree(base, release, symlinks=True)
         # Recheck the copy so a changed base cannot silently become a new baseline.
         installer.verify_tree(release, args.base_manifest_sha256)
+        sources = externalize_forge_source(release, previous["sources"])
         shutil.rmtree(release / "server")
         shutil.move(server, release / "server")
         (release / "hexproof-home").unlink()
         shutil.copy2(release / "server/bin/hexproof-home", release / "hexproof-home")
-        sources = dict(previous["sources"], sourceCommit=args.source_commit,
+        sources = dict(sources, sourceCommit=args.source_commit,
                        hubArchiveSha256=args.hub_sha256,
                        connectorSha256=digest(release / "hexproof-home"),
                        baseTreeSha256=previous["treeSha256"])
@@ -157,8 +200,8 @@ def build(args: argparse.Namespace) -> dict:
                     raise ValueError(f"Missing {kind} entry point: {required}")
                 shutil.move(root, release / kind)
                 sources[prefix + "ArchiveSha256"] = checksum
-            sources.update(preserve_forge_source(release, args.forge_source_archive,
-                                                 args.forge_source_sha256))
+            sources.update(reference_forge_source(release, args.forge_source_archive,
+                                                  args.forge_source_sha256))
         templates = release / "deploy"
         templates.mkdir()
         names = [f"hexproof-home-{args.kind}.service"]
