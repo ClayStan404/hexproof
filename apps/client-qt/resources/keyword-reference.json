@@ -1421,7 +1421,7 @@
       "aliases": [],
       "category": "ability",
       "rule": "702.43",
-      "summaryEn": "Enter with N +1/+1 counters. When this permanent goes from battlefield to graveyard, you may put that many of its +1/+1 counters on a target artifact creature.",
+      "summaryEn": "Enter with N +1/+1 counters. When this permanent goes from battlefield to graveyard, you may put +1/+1 counters on a target artifact creature equal to the number this permanent had immediately before leaving the battlefield.",
       "summaryZh": "进战场时有N个+1/+1指示物。从战场进入坟墓场时，可在目标神器生物上放等同此永久物最后所具有数量的+1/+1指示物。"
     },
     {
