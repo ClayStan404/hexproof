@@ -17,6 +17,37 @@ Item {
     property bool forge: auditProbe.environment("HEXPROOF_AUDIT_VARIANT") === "forge"
     property var popup: null
     property var table: null
+    property var focusTarget: null
+    property bool watchingInput: false
+    property int queuedCommands: 0
+    property int failedCommands: 0
+    property int errorChanges: 0
+    property int snapshotChanges: 0
+    Connections {
+        target: ws
+        function onCommandQueued(requestId, commandType, payload) {
+            if (driver.watchingInput) ++driver.queuedCommands
+        }
+        function onCommandFailed(requestId, commandType, payload, error) {
+            if (driver.watchingInput) ++driver.failedCommands
+        }
+        function onLastErrorChanged() {
+            if (driver.watchingInput) ++driver.errorChanges
+        }
+        function onGameSnapshotChanged() {
+            if (driver.watchingInput) ++driver.snapshotChanges
+        }
+    }
+    function requireIsolatedInput() {
+        require(queuedCommands === 0 && failedCommands === 0 && errorChanges === 0
+            && snapshotChanges === 0, "Reference input reached gameplay transport/state")
+        auditProbe.record("keyword-input-isolation", {queuedCommands:queuedCommands,
+            failedCommands:failedCommands, errorChanges:errorChanges, snapshotChanges:snapshotChanges})
+    }
+    function focusRestored() {
+        return !popup.visible && focusTarget && focusTarget.activeFocus
+            && (forge ? !table.priorityInputBlocked : !table.sessionUi.counterShortcutBlocked())
+    }
     function require(value, message) { if (!value) throw new Error(message + "; " + auditProbe.lastError) }
     function find(name) { return auditProbe.find(auditWindow, name) }
     function add(name, action, check) { steps.push({name:name, action:action, check:check || (() => true), timeout:20000}) }
@@ -81,6 +112,7 @@ Item {
             const button = find(forge ? "rulesKeywordReferenceButton" : "tableKeywordReferenceButton")
             require(button, "Missing reference entry")
             table = find(forge ? "rulesActionRail" : "tableActionRail").tableController
+            watchingInput = true
             require(auditProbe.click(button), "Cannot open reference")
         }, () => !!find("keywordSearch") && find("keywordSearch").activeFocus)
         add("Read the complete browse index", () => {
@@ -88,6 +120,7 @@ Item {
             require(popup && popup.entries.length === 264 && popup.filteredEntries.length === 264, "Incomplete catalog")
             const geometry = auditProbe.observe(auditWindow)
             require(geometry.windowMode === "maximized", "Primary window must be maximized")
+            focusTarget = popup.returnFocusItem
             capture("keywords-browse")
         })
         add("Search mixed-case English", () => search("FlYiNg"), () => popup.filteredEntries.length === 1)
@@ -96,6 +129,7 @@ Item {
             require(auditProbe.key(Qt.Key_Space), "Cannot type space")
             require(auditProbe.key(Qt.Key_Return), "Cannot test Enter")
             require(auditProbe.key(Qt.Key_D, Qt.ControlModifier), "Cannot test table shortcut")
+            requireIsolatedInput()
             capture("keywords-english")
         })
         add("Search Chinese", () => search("飞行"), () => popup.filteredEntries.length === 1)
@@ -118,11 +152,23 @@ Item {
         add("Inspect scrolled list", () => capture("keywords-scrolled"))
         add("Close with Escape and restore table focus", () => {
             require(auditProbe.key(Qt.Key_Escape), "Cannot close with Escape")
-        }, () => !popup.visible)
-        add("Verify close leaves the match usable", () => {
-            require(!popup.visible, "Popup remained open")
-            require(forge ? !table.priorityInputBlocked : !table.sessionUi.counterShortcutBlocked(), "Table input remained blocked")
+        }, focusRestored)
+        add("Verify Escape restores focus without commands", () => {
+            requireIsolatedInput()
             capture("keywords-closed")
+        })
+        add("Reopen table navigation", openReference, () => !forge || !!find("rulesKeywordReferenceButton"))
+        add("Reopen reference", () => {
+            require(auditProbe.click(find(forge ? "rulesKeywordReferenceButton" : "tableKeywordReferenceButton")), "Cannot reopen reference")
+        }, () => popup.opened && find("keywordSearch").activeFocus)
+        add("Close using the explicit close button", () => {
+            focusTarget = popup.returnFocusItem
+            require(auditProbe.click(find("closeKeywordReference")), "Cannot click close button")
+        }, focusRestored)
+        add("Verify close button restores focus without commands", () => {
+            requireIsolatedInput()
+            watchingInput = false
+            capture("keywords-close-button")
         })
     }
     Component.onCompleted: plan()
