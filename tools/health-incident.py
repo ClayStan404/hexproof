@@ -7,8 +7,9 @@
 Every entry point runs on the fixed Debian operator host under one lock and
 journal. Runs are read through the supported `multica autopilot runs` pages;
 accepted, skipped and failed webhook runs can be reconciled from their
-original payload into an issue fallback with preserved provenance. This does
-not replay webhook admission; isolated native qualification remains required. An incident issue is
+original payload into an issue fallback with preserved provenance. Missing native
+payloads remain unresolved; protected original bytes can be imported explicitly.
+This does not replay webhook admission; isolated native qualification remains required. An incident issue is
 created in backlog with an exact marker, indexed by metadata, read back and
 only then admitted to the coordinator. Uncertain writes are reconciled by
 paginated marker/metadata readback before any retry. Recovery observations
@@ -24,6 +25,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 import time
@@ -172,7 +174,8 @@ def validate_event(payload, source):
 
 
 def empty_journal():
-    return {"schemaVersion": SCHEMA, "runs": {}, "events": {}, "incidents": {}, "open": {}}
+    return {"schemaVersion": SCHEMA, "runs": {}, "events": {}, "incidents": {}, "open": {},
+            "discovery": None}
 
 
 class Reconciler:
@@ -190,7 +193,7 @@ class Reconciler:
         self.wall = wall
         self.directory = trust["stateDirectory"]
         self.path = self.directory / "journal.json"
-        self.report = {"processedRuns": 0, "duplicates": 0, "invalid": 0, "unmatchedRecoveries": 0,
+        self.report = {"processedRuns": 0, "processedOriginalEvents": 0, "duplicates": 0, "invalid": 0, "unmatchedRecoveries": 0,
                        "incidents": {}}
 
     # Journal and lock -----------------------------------------------------
@@ -229,13 +232,28 @@ class Reconciler:
                        for value in journal[key].values())
                 or any(value not in journal["incidents"] for value in journal["open"].values())):
             raise IncidentError("journal_corrupt")
+        boundary = journal.get("discovery")
+        if boundary is not None and (not isinstance(boundary, dict)
+                or not UUID.fullmatch(str(boundary.get("runId", "")))
+                or not TIME.fullmatch(str(boundary.get("triggeredAt", "")))):
+            raise IncidentError("journal_corrupt")
+        for record in journal["runs"].values():
+            if record.get("outcome") == "invalid_payload":
+                record.setdefault("unresolved", "original_payload_unavailable")
         return journal
 
     def save(self, journal):
         for name in ("runs", "events"):
             if len(journal[name]) > JOURNAL_LIMIT:
-                keep = sorted(journal[name].items(), key=lambda item: item[1].get("at", ""))[-JOURNAL_LIMIT:]
-                journal[name] = dict(keep)
+                removable = sorted((key for key, item in journal[name].items()
+                                    if not item.get("unresolved") and not (
+                                        name == "events" and item.get("kind") == "recovery"
+                                        and item.get("marker") is None)),
+                                   key=lambda key: journal[name][key].get("at", ""))
+                for key in removable[:len(journal[name]) - JOURNAL_LIMIT]:
+                    del journal[name][key]
+                if len(journal[name]) > JOURNAL_LIMIT:
+                    raise IncidentError("journal_capacity")
         closed = [marker for marker, item in journal["incidents"].items() if item.get("closed")]
         for marker in sorted(closed, key=lambda key: journal["incidents"][key].get("lastEventAt", ""))[
                 :max(0, len(closed) - CLOSED_INCIDENT_LIMIT)]:
@@ -258,20 +276,47 @@ class Reconciler:
 
     # Native reads ---------------------------------------------------------
 
-    def runs(self):
+    def runs(self, journal):
+        """Read newest-first pages through a previously proved coverage boundary.
+
+        A cursor is committed only after the entire discovered prefix is saved.
+        Legacy journals get one bounded migration scan of retained known history;
+        unknown history beyond the normal window still fails closed.
+        """
         found = []
-        for page in range(RUN_PAGES):
+        boundary = journal.get("discovery")
+        previous_time = None
+        seen = set()
+        pages = RUN_PAGES if boundary or not journal["runs"] else (JOURNAL_LIMIT + RUN_PAGE - 1) // RUN_PAGE
+        for page in range(pages):
             code, reply = self.runner("autopilot", "runs", self.trust["autopilotId"], "--limit", str(RUN_PAGE),
                                       "--offset", str(page * RUN_PAGE))
             if code != 0 or not isinstance(reply, dict) or not isinstance(reply.get("runs"), list):
                 raise IncidentError("runs_unavailable")
-            found += [run for run in reply["runs"] if isinstance(run, dict)]
-            if len(reply["runs"]) < RUN_PAGE:
-                break
-        else:
-            if reply.get("total", len(found) + 1) > len(found):
-                raise IncidentError("run_pagination_limit")
-        return found
+            rows = reply["runs"]
+            if len(rows) > RUN_PAGE:
+                raise IncidentError("runs_unavailable")
+            for run in rows:
+                if (not isinstance(run, dict) or not UUID.fullmatch(str(run.get("id", "")))
+                        or not TIME.fullmatch(str(run.get("triggered_at", "")))):
+                    raise IncidentError("runs_order_unproven")
+                at = run["triggered_at"]
+                if (previous_time is not None and at > previous_time) or run["id"] in seen:
+                    raise IncidentError("runs_order_unproven")
+                previous_time = at
+                seen.add(run["id"])
+                if page >= RUN_PAGES and run["id"] not in journal["runs"]:
+                    raise IncidentError("run_pagination_limit")
+            found += rows
+            reached = boundary is not None and any(run["id"] == boundary["runId"]
+                and run["triggered_at"] == boundary["triggeredAt"] for run in rows)
+            if reached:
+                return found
+            if len(rows) < RUN_PAGE or reply.get("total") == len(found):
+                if boundary is not None:
+                    raise IncidentError("run_boundary_missing")
+                return found
+        raise IncidentError("run_pagination_limit")
 
     def find_marker(self, marker):
         """Return the issue carrying this exact marker, False if absent, None if unproven."""
@@ -401,14 +446,57 @@ class Reconciler:
                                             "phase": "metadata_pending" if incident["phase"] == "admitted" and incident.get("metadataDirty") else incident["phase"],
                                             "issueId": incident.get("issueId")}
 
-    def process(self, journal, run, event):
-        admission = "admitted" if run.get("status") in ADMITTED else "recovered"
-        record = {"eventId": event["eventId"], "admission": admission, "originalTaskId": run.get("task_id"), "at": utc(self.wall()), "marker": None}
-        if event["eventId"] in journal["events"]:
-            record.update(outcome="duplicate_event", marker=journal["events"][event["eventId"]].get("marker"))
-            journal["runs"][run["id"]] = record
+    def attach(self, journal, marker, run, event, origin, original_bytes=None, count=True):
+        incident = journal["incidents"][marker]
+        if run.get("id") and run["id"] not in incident["runIds"]:
+            incident["runIds"] = (incident["runIds"] + [run["id"]])[-16:]
+        provenance = {"event": event, "webhookRunId": run.get("id"),
+                      "originalTaskId": run.get("task_id"), "triggerId": run["trigger_id"],
+                      "nativeStatus": run["status"], "payloadOrigin": origin}
+        if original_bytes is not None:
+            provenance["originalBytesSha256"] = hashlib.sha256(original_bytes.encode()).hexdigest()
+        incident["provenance"] = provenance
+        if ("firstProvenance" not in incident
+                or incident["firstProvenance"]["event"]["eventId"] == event["eventId"]):
+            incident["firstProvenance"] = provenance
+        incident.update(eventCount=incident["eventCount"] + int(count), lastEventId=event["eventId"],
+                        lastEventAt=max(incident.get("lastEventAt", ""), event["occurredAt"]),
+                        lastRunId=run.get("id"), metadataDirty=True)
+
+    def process(self, journal, run, event, origin="native_payload", original_bytes=None):
+        run = {key: run.get(key) for key in ("id", "source", "trigger_id", "status", "task_id", "triggered_at")}
+        admission = "admitted" if run.get("status") in ADMITTED else "not_admitted" if run.get("status") in NOT_ADMITTED else "unverified"
+        record = {"eventId": event["eventId"], "admission": admission, "originalTaskId": run.get("task_id"),
+                  "nativeRun": run, "at": utc(self.wall()), "marker": None}
+        original_run = journal["runs"].get(run.get("id"), {})
+        if original_run.get("eventId") and original_run["eventId"] != event["eventId"]:
+            raise IncidentError("run_identity_conflict")
+        if admission == "unverified" and run.get("id"):
+            record["unresolved"] = "original_admission_unverified"
+        previous = journal["events"].get(event["eventId"])
+        if previous:
+            if previous["payload"] != event or previous["triggerId"] != run["trigger_id"]:
+                raise IncidentError("event_identity_conflict")
+            if (original_bytes is not None and previous.get("originalBytes") is not None
+                    and previous["originalBytes"] != original_bytes):
+                raise IncidentError("event_identity_conflict")
+            if previous.get("runId") and run.get("id") and previous["runId"] != run["id"]:
+                # Preserve multiple native delivery records without changing the first association.
+                if origin == "operator_original":
+                    raise IncidentError("run_identity_conflict")
+            record.update(outcome="duplicate_event", marker=previous.get("marker"))
+            # A supported import can bind previously unobserved ingress without new incident work.
+            if origin == "operator_original":
+                previous.update(originalBytes=original_bytes, origin=origin)
+                if run.get("id"):
+                    previous.update(runId=run["id"], nativeRun=run, unresolved=record.get("unresolved"))
+                if record["marker"]:
+                    self.attach(journal, record["marker"], previous.get("nativeRun", run), event,
+                                origin, original_bytes, count=False)
+            if run.get("id"):
+                journal["runs"][run["id"]] = record
             self.report["duplicates"] += 1
-            return
+            return record["marker"]
         group = event["serviceGroup"]
         marker = self.open_incident(journal, group)
         closed_episode = next((key for key, item in journal["incidents"].items()
@@ -416,11 +504,7 @@ class Reconciler:
                                and event["episodeId"] in item["episodes"]), None)
         if closed_episode:
             record.update(outcome="closed_episode_observation", marker=closed_episode)
-            journal["events"][event["eventId"]] = {"runId": run["id"], "marker": closed_episode,
-                                                   "kind": event["kind"], "payload": event, "triggerId": run["trigger_id"], "at": record["at"]}
-            journal["runs"][run["id"]] = record
-            return
-        if event["kind"] == "recovery":
+        elif event["kind"] == "recovery":
             incident = journal["incidents"].get(marker) if marker else None
             episode = incident["episodes"].get(event["episodeId"]) if incident else None
             if episode is None or episode["source"] != event["source"] or episode["signal"] != event["signal"]:
@@ -429,8 +513,6 @@ class Reconciler:
             elif event["sequence"] <= episode["lastSequence"]:
                 record.update(outcome="stale_recovery", marker=marker)
             else:
-                # Only this episode recovers; newer faults and the maintenance
-                # task itself stay open until verified maintenance closes them.
                 episode.update(status="recovered", lastSequence=event["sequence"])
                 record.update(outcome="recovery_recorded", marker=marker)
         else:
@@ -447,57 +529,159 @@ class Reconciler:
                 raise IncidentError("episode_capacity")
             episode = journal["incidents"][marker]["episodes"].setdefault(event["episodeId"], {
                 "signal": event["signal"], "source": event["source"], "status": "failing", "lastSequence": 0})
+            if episode["source"] != event["source"] or episode["signal"] != event["signal"]:
+                raise IncidentError("episode_identity_conflict")
             if event["sequence"] > episode["lastSequence"] and episode["status"] != "recovered":
                 episode["lastSequence"] = event["sequence"]
             record.update(outcome="incident", marker=marker)
-        if record["marker"]:
-            incident = journal["incidents"][record["marker"]]
-            incident["runIds"] = (incident["runIds"] + [run["id"]])[-16:]
-            incident["provenance"] = {"event": event, "webhookRunId": run["id"],
-                                      "originalTaskId": run.get("task_id"),
-                                      "triggerId": run["trigger_id"], "nativeStatus": run["status"]}
-            incident.setdefault("firstProvenance", incident["provenance"])
-            incident.update(eventCount=incident["eventCount"] + 1, lastEventId=event["eventId"],
-                            lastEventAt=max(incident.get("lastEventAt", ""), event["occurredAt"]),
-                            lastRunId=run["id"], metadataDirty=True)
-        journal["events"][event["eventId"]] = {"runId": run["id"], "marker": record["marker"],
-                                                "kind": event["kind"], "payload": event, "triggerId": run["trigger_id"], "at": record["at"]}
-        journal["runs"][run["id"]] = record
-        self.report["processedRuns"] += 1
+        if record["marker"] and not closed_episode:
+            self.attach(journal, record["marker"], run, event, origin, original_bytes)
+        stored = {"runId": run.get("id"), "marker": record["marker"], "kind": event["kind"],
+                  "payload": event, "triggerId": run["trigger_id"], "nativeRun": run,
+                  "origin": origin, "at": record["at"]}
+        if original_bytes is not None:
+            stored["originalBytes"] = original_bytes
+        if run.get("id") is None:
+            stored["unresolved"] = "original_run_unobserved"
+        elif record.get("unresolved"):
+            stored["unresolved"] = record["unresolved"]
+        journal["events"][event["eventId"]] = stored
+        if run.get("id"):
+            journal["runs"][run["id"]] = record
+        self.report["processedRuns" if run.get("id") else "processedOriginalEvents"] += 1
+        if event["kind"] != "recovery" and not closed_episode:
+            # Reassociate retained recovery even after restart. Sequence/source/signal
+            # scope this to its original episode, so newer faults remain failing.
+            for prior in journal["events"].values():
+                recovery = prior["payload"]
+                if (prior["marker"] is None and recovery["kind"] == "recovery"
+                        and all(recovery[key] == event[key] for key in
+                                ("serviceGroup", "source", "signal", "episodeId"))):
+                    if recovery["sequence"] > episode["lastSequence"]:
+                        episode.update(status="recovered", lastSequence=recovery["sequence"])
+                    prior["marker"] = marker
+                    prior_run = prior.get("nativeRun")
+                    if prior_run is None:
+                        # Migration of retained schema-1 unmatched recovery.
+                        old = journal["runs"].get(prior["runId"], {})
+                        prior_run = {"id": prior["runId"], "trigger_id": prior["triggerId"],
+                                     "status": "unverified", "task_id": old.get("originalTaskId")}
+                    self.attach(journal, marker, prior_run, recovery, prior.get("origin", "native_payload"),
+                                prior.get("originalBytes"))
+                    if prior.get("runId") in journal["runs"]:
+                        journal["runs"][prior["runId"]].update(marker=marker, outcome="recovery_recorded")
+        return record["marker"]
 
-    def reconcile(self):
+    def original_event(self, path, trigger_id):
+        # Only a protected staging directory under the fixed journal root is accepted.
+        # The operator copies the durable original bytes here; no payload comes from a prompt.
+        directory = self.directory / "original-events"
+        if trigger_id not in self.trust["triggers"] or Path(path).parent.resolve() != directory.resolve():
+            raise IncidentError("invalid_original_event_path")
+        for item in (directory, Path(path)):
+            info = item.lstat()
+            expected_type = stat.S_ISDIR if item == directory else stat.S_ISREG
+            if (not expected_type(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077):
+                raise IncidentError("unprotected_original_event")
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(fd, "rb") as stream:
+            raw = stream.read(65537)
+        if len(raw) > 65536:
+            raise IncidentError("original_event_capacity")
+        try:
+            original = raw.decode("utf-8")
+            event = validate_event(json.loads(original), self.trust["triggers"][trigger_id])
+        except (ValueError, UnicodeDecodeError):
+            event = None
+        if event is None or event["serviceGroup"] not in self.trust["serviceGroups"]:
+            raise IncidentError("invalid_original_event")
+        return event, original
+
+    def obligations(self, journal):
+        unresolved = [{"runId": key, "phase": value["unresolved"]}
+                      for key, value in journal["runs"].items() if value.get("unresolved")]
+        for key, value in journal["events"].items():
+            if value.get("unresolved"):
+                unresolved.append({"eventId": key, "phase": value["unresolved"]})
+            if value["kind"] == "recovery" and value.get("marker") is None:
+                unresolved.append({"eventId": key, "phase": "recovery_unmatched"})
+        return unresolved
+
+    def reconcile(self, original_file=None, trigger_id=None, run_id=None):
         fd = self.lock()
         try:
             journal = self.load()
+            original = self.original_event(original_file, trigger_id) if original_file else None
+            # Complete discovery before any external mutation; a missing boundary is not success.
+            runs = self.runs(journal)
             for marker, incident in list(journal["incidents"].items()):
                 if not incident.get("closed"):
                     self.advance(journal, marker)
-            candidates = []
-            for run in self.runs():
-                if (run.get("source") != "webhook" or run.get("trigger_id") not in self.trust["triggers"]
-                        or not UUID.fullmatch(str(run.get("id", ""))) or run["id"] in journal["runs"]):
+            pending = False
+            for run in reversed(runs):
+                if run.get("source") != "webhook" or run.get("trigger_id") not in self.trust["triggers"]:
                     continue
+                old = journal["runs"].get(run["id"])
+                if old and old.get("outcome") not in ("invalid_payload", "native_pending") and not old.get("unresolved"):
+                    continue
+                snapshot = {key: run.get(key) for key in
+                            ("id", "source", "trigger_id", "status", "task_id", "triggered_at")}
                 if run.get("status") not in ADMITTED | NOT_ADMITTED:
-                    continue  # Still being admitted; a later reconciliation reads it.
-                candidates.append(run)
-            for run in sorted(candidates, key=lambda item: (str(item.get("triggered_at", "")), item["id"])):
+                    pending = True
+                    journal["runs"][run["id"]] = {"outcome": "native_pending", "unresolved": "native_pending",
+                        "nativeRun": snapshot, "at": utc(self.wall())}
+                    continue
                 event = validate_event(run.get("trigger_payload"), self.trust["triggers"][run["trigger_id"]])
+                imported = next((item for item in journal["events"].values()
+                                 if item.get("runId") == run["id"]
+                                 and item.get("origin") == "operator_original"), None)
+                if imported is not None and event is not None and imported["payload"] != event:
+                    raise IncidentError("event_identity_conflict")
+                if event is None and imported is not None:
+                    event = imported["payload"]
                 if event is None or event["serviceGroup"] not in self.trust["serviceGroups"]:
-                    journal["runs"][run["id"]] = {"outcome": "invalid_payload", "at": utc(self.wall())}
+                    journal["runs"][run["id"]] = {"outcome": "invalid_payload", "unresolved": "original_payload_unavailable",
+                                                 "nativeRun": snapshot, "at": utc(self.wall())}
                     self.report["invalid"] += 1
+                    marker = None
                 else:
-                    self.process(journal, run, event)
+                    marker = self.process(journal, run, event,
+                                          "operator_original" if imported else "native_payload",
+                                          imported.get("originalBytes") if imported else None)
                 self.save(journal)
-                marker = journal["runs"][run["id"]].get("marker")
                 if marker and not journal["incidents"][marker].get("closed"):
                     self.advance(journal, marker)
+            if original:
+                event, raw = original
+                run = None
+                if run_id:
+                    if not UUID.fullmatch(run_id):
+                        raise IncidentError("invalid_original_run")
+                    run = next((item for item in runs if item["id"] == run_id), None)
+                    if run is None:
+                        run = journal["runs"].get(run_id, {}).get("nativeRun")
+                    if (not run or run.get("source") != "webhook" or run.get("trigger_id") != trigger_id):
+                        raise IncidentError("original_run_unproven")
+                    native_event = validate_event(run.get("trigger_payload"), self.trust["triggers"][trigger_id])
+                    if native_event is not None and native_event != event:
+                        raise IncidentError("event_identity_conflict")
+                else:
+                    run = {"id": None, "trigger_id": trigger_id, "source": "operator_original",
+                           "status": "unobserved", "task_id": None}
+                marker = self.process(journal, run, event, "operator_original", raw)
+                self.save(journal)
+                if marker and not journal["incidents"][marker].get("closed"):
+                    self.advance(journal, marker)
+            if runs and not pending:
+                journal["discovery"] = {"runId": runs[0]["id"], "triggeredAt": runs[0]["triggered_at"]}
             self.save(journal)
+            obligations = self.obligations(journal)
         finally:
             fcntl.flock(fd, fcntl.LOCK_UN)
             os.close(fd)
         report = dict(self.report)
         report["incidents"] = sorted(report["incidents"].values(), key=lambda item: item["serviceGroup"])
-        report["unresolved"] = [item for item in report["incidents"] if item["phase"] != "admitted"]
+        report["unresolved"] = [item for item in report["incidents"] if item["phase"] != "admitted"] + obligations
         return report
 
 
@@ -554,19 +738,35 @@ def metadata_value(marker, incident):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=("reconcile", "status"))
+    parser.add_argument("command", choices=("reconcile", "recover", "status"))
     parser.add_argument("--operations", type=Path, default=default_operations())
     parser.add_argument("--config", type=Path, default=default_config())
+    parser.add_argument("--event-file", type=Path)
+    parser.add_argument("--trigger-id")
+    parser.add_argument("--run-id")
     args = parser.parse_args(argv)
+    if args.command == "recover":
+        if not args.event_file or not args.trigger_id:
+            parser.error("recover requires --event-file and --trigger-id")
+    elif args.event_file or args.trigger_id or args.run_id:
+        parser.error("original event arguments require recover")
     try:
         reconciler = Reconciler(load_trust(args.operations, args.config))
         if args.command == "status":
-            journal = reconciler.load()
-            report = {"open": journal["open"], "incidents": {
-                marker: {key: item.get(key) for key in ("serviceGroup", "phase", "issueId", "eventCount", "closed")}
-                for marker, item in journal["incidents"].items()}}
+            fd = reconciler.lock()
+            try:
+                journal = reconciler.load()
+                report = {"open": journal["open"], "incidents": {
+                    marker: {key: item.get(key) for key in ("serviceGroup", "phase", "issueId", "eventCount", "closed")}
+                    for marker, item in journal["incidents"].items()}, "unresolved": reconciler.obligations(journal) + [
+                        {"issueId": item.get("issueId"), "phase": item["phase"]}
+                        for item in journal["incidents"].values() if not item.get("closed")
+                        and (item["phase"] != "admitted" or item.get("metadataDirty"))]}
+            finally:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+                os.close(fd)
         else:
-            report = reconciler.reconcile()
+            report = reconciler.reconcile(args.event_file, args.trigger_id, args.run_id)
     except (OSError, ValueError, KeyError, TypeError):
         print(json.dumps({"error": "reconciliation_failed"}), file=sys.stderr)
         return 1

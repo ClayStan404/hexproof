@@ -4,6 +4,7 @@
 
 """Exercise the supported CLI boundary without creating native test issues."""
 
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -45,7 +46,8 @@ class NativeCLI:
             offset = int(args[args.index('--offset') + 1])
             if self.all_pages:
                 return 0, {'runs': [dict(self.runs[0], id=identifier()) for _ in range(50)], 'total': 501}
-            return 0, {'runs': self.runs[offset:offset + 50], 'total': len(self.runs)}
+            rows = sorted(reversed(self.runs), key=lambda item: item['triggered_at'], reverse=True)
+            return 0, {'runs': rows[offset:offset + 50], 'total': len(rows)}
         if args[:2] == ('issue', 'list'):
             offset = int(args[args.index('--offset') + 1])
             rows = list(self.issues.values())[offset:offset + 100]
@@ -177,6 +179,170 @@ class ReconciliationTests(unittest.TestCase):
         self.assertIn('tls:failing', stored['episodes'].values())
         self.assertIn('renewal:failing', stored['episodes'].values())
         self.assertNotIn(('issue', 'status'), [call[:2] for call in self.native.calls])
+
+    def test_recovery_before_failure_reassociates_after_restart_without_clearing_new_fault(self):
+        recovery = health_alerts.observe(self.state, self.now + 1, 'observer-debian', 'cloud-a', 'tls', True)
+        recovery_run = self.run_for(recovery)
+        first = self.reconcile()
+        self.assertEqual(first['unmatchedRecoveries'], 1)
+        late = self.run_for(self.failure)
+        late['triggered_at'] = incident.utc(self.now + 2)
+        self.assertFalse(self.reconcile()['unresolved'])
+        stored = json.loads(next(iter(self.native.metadata.values())))
+        self.assertTrue(stored['recoveryObserved'])
+        self.assertEqual(first['unresolved'][0]['phase'], 'recovery_unmatched')
+        journal = self.journal()
+        marker = journal['events'][recovery['eventId']]['marker']
+        self.assertIsNotNone(marker)
+        self.assertEqual(journal['events'][recovery['eventId']]['runId'], recovery_run['id'])
+        self.assertEqual(journal['events'][recovery['eventId']]['payload'], recovery)
+        self.assertEqual(journal['incidents'][marker]['episodes'][recovery['episodeId']]['lastSequence'],
+                         recovery['sequence'])
+        newer = health_alerts.observe(self.state, self.now + 3, 'observer-debian', 'cloud-a', 'tls', False,
+                                      {'timeout': 1})
+        self.run_for(newer)
+        self.run_for(recovery)  # Duplicate retained recovery after a newer fault.
+        self.reconcile()
+        stored = json.loads(next(iter(self.native.metadata.values())))
+        self.assertFalse(stored['recoveryObserved'])
+        self.assertIn('tls:failing', stored['episodes'].values())
+        self.assertEqual(self.native.creates, 1)
+        self.assertEqual(next(iter(self.native.issues.values()))['status'], 'todo')
+
+    def test_incremental_boundary_survives_large_known_history_and_restart(self):
+        for _ in range(450):
+            self.run_for(self.failure)
+        self.reconcile()
+        for _ in range(200):
+            self.run_for(self.failure)
+        new_event = dict(self.failure, eventId=identifier())
+        newest = self.run_for(new_event)
+        self.assertFalse(self.reconcile()['unresolved'])
+        self.assertIn(new_event['eventId'], self.journal()['events'])
+        self.assertEqual(self.journal()['discovery']['runId'], newest['id'])
+        self.native.calls.clear()
+        self.assertFalse(self.reconcile()['unresolved'])
+        self.assertEqual(sum(call[:2] == ('autopilot', 'runs') for call in self.native.calls), 1)
+        self.assertEqual(self.native.creates, 1)
+
+    def test_legacy_known_history_migration_and_genuine_missed_window(self):
+        journal = incident.empty_journal()
+        for _ in range(501):
+            run = self.run_for(self.failure)
+            journal['runs'][run['id']] = {'outcome': 'duplicate_event', 'at': incident.utc(self.now)}
+        (self.root / 'journal.json').write_text(json.dumps(journal))
+        new_event = dict(self.failure, eventId=identifier())
+        self.run_for(new_event)
+        self.reconcile()
+        self.assertIn(new_event['eventId'], self.journal()['events'])
+        cursor = self.journal()['discovery']
+        for _ in range(501):
+            self.run_for(dict(self.failure, eventId=identifier()))
+        with self.assertRaisesRegex(incident.IncidentError, 'run_pagination_limit'):
+            self.reconcile()
+        self.assertEqual(self.journal()['discovery'], cursor)
+        self.assertEqual(self.native.creates, 1)
+        self.native.runs.clear()
+        with self.assertRaisesRegex(incident.IncidentError, 'run_boundary_missing'):
+            self.reconcile()
+
+    def test_pending_run_pins_discovery_and_later_admission_is_reread(self):
+        self.run_for(self.failure)
+        self.reconcile()
+        cursor = self.journal()['discovery']
+        event = dict(self.failure, eventId=identifier())
+        run = self.run_for(event, 'queued')
+        report = self.reconcile()
+        self.assertEqual(report['unresolved'][0]['phase'], 'native_pending')
+        self.assertEqual(self.journal()['discovery'], cursor)
+        run['status'] = 'completed'
+        self.assertFalse(self.reconcile()['unresolved'])
+        self.assertIn(event['eventId'], self.journal()['events'])
+        self.assertEqual(self.journal()['discovery']['runId'], run['id'])
+
+    def test_retention_keeps_unmatched_recovery_and_unavailable_provenance(self):
+        recovery = health_alerts.observe(self.state, self.now + 1, 'observer-debian', 'cloud-a', 'tls', True)
+        self.run_for(recovery)
+        unknown = self.run_for(self.failure, 'completed')
+        unknown['trigger_payload'] = None
+        self.reconcile()
+        journal = self.journal()
+        # Old unresolved records cannot be evicted by more recent resolved history.
+        for index in range(incident.JOURNAL_LIMIT):
+            journal['runs'][identifier()] = {'outcome': 'duplicate_event', 'at': '2099-01-01T00:00:00Z'}
+            event = dict(self.failure, eventId=identifier())
+            journal['events'][event['eventId']] = {'kind': 'failure', 'marker': 'closed',
+                                                 'payload': event, 'at': '2099-01-01T00:00:00Z'}
+        incident.Reconciler(self.trust, runner=self.native).save(journal)
+        stored = self.journal()
+        self.assertIn(recovery['eventId'], stored['events'])
+        self.assertEqual(stored['runs'][unknown['id']]['unresolved'], 'original_payload_unavailable')
+        self.assertLessEqual(len(stored['events']), incident.JOURNAL_LIMIT)
+        self.assertLessEqual(len(stored['runs']), incident.JOURNAL_LIMIT)
+
+    def original_file(self, event):
+        directory = self.root / 'original-events'
+        directory.mkdir(mode=0o700, exist_ok=True)
+        path = directory / (event['eventId'] + '.json')
+        # Preserve original bytes including whitespace, not a reconstructed payload.
+        path.write_text(json.dumps(event, indent=2) + '\n')
+        path.chmod(0o600)
+        return path
+
+    def test_null_payload_stays_unresolved_until_protected_original_reconciliation(self):
+        run = self.run_for(self.failure, 'completed')
+        run['trigger_payload'] = None
+        report = self.reconcile()
+        self.assertEqual(report['incidents'], [])
+        self.assertEqual(report['unresolved'][0]['phase'], 'original_payload_unavailable')
+        self.assertTrue(self.reconcile()['unresolved'])
+        legacy = self.journal()
+        legacy['runs'][run['id']].pop('unresolved')
+        (self.root / 'journal.json').write_text(json.dumps(legacy))
+        reader = incident.Reconciler(self.trust, runner=self.native)
+        self.assertTrue(reader.obligations(reader.load()))
+        path = self.original_file(self.failure)
+        report = incident.Reconciler(self.trust, runner=self.native).reconcile(path, self.trigger, run['id'])
+        self.assertFalse(report['unresolved'])
+        self.assertEqual(self.native.creates, 1)
+        stored = json.loads(next(iter(self.native.metadata.values())))
+        self.assertEqual(stored['provenance']['payloadOrigin'], 'operator_original')
+        self.assertEqual(stored['provenance']['webhookRunId'], run['id'])
+        self.assertEqual(stored['provenance']['originalBytesSha256'], hashlib.sha256(path.read_bytes()).hexdigest())
+        self.assertEqual(self.journal()['events'][self.failure['eventId']]['originalBytes'], path.read_text())
+        self.assertIsNotNone(stored['maintenanceTaskId'])
+        self.assertFalse(incident.Reconciler(self.trust, runner=self.native).reconcile(path, self.trigger, run['id'])['unresolved'])
+        self.assertEqual(self.native.creates, 1)
+        path.write_text(json.dumps(dict(self.failure, sequence=999)))
+        with self.assertRaisesRegex(incident.IncidentError, 'event_identity_conflict'):
+            incident.Reconciler(self.trust, runner=self.native).reconcile(path, self.trigger, run['id'])
+
+    def test_original_fallback_distinguishes_skipped_failed_unknown_and_no_run(self):
+        path = self.original_file(self.failure)
+        # Rejected/response-lost ingress does not imply that a native run exists.
+        report = incident.Reconciler(self.trust, runner=self.native).reconcile(path, self.trigger)
+        self.assertEqual(report['unresolved'][0]['phase'], 'original_run_unobserved')
+        stored = json.loads(next(iter(self.native.metadata.values())))
+        self.assertIsNone(stored['provenance']['webhookRunId'])
+        self.assertEqual(stored['provenance']['nativeStatus'], 'unobserved')
+        self.assertIsNotNone(stored['maintenanceTaskId'])
+        run = self.run_for(self.failure, 'queued')
+        run['trigger_payload'] = None
+        report = incident.Reconciler(self.trust, runner=self.native).reconcile(path, self.trigger, run['id'])
+        self.assertIn('original_admission_unverified', [item['phase'] for item in report['unresolved']])
+        for status in ('skipped', 'failed', 'completed'):
+            run['status'] = status
+            report = incident.Reconciler(self.trust, runner=self.native).reconcile(path, self.trigger, run['id'])
+            self.assertFalse(report['unresolved'])
+            stored = json.loads(next(iter(self.native.metadata.values())))
+            self.assertEqual(stored['provenance']['nativeStatus'], status)
+        self.assertEqual(self.native.creates, 1)
+        path.chmod(0o644)
+        with self.assertRaisesRegex(incident.IncidentError, 'unprotected_original_event'):
+            incident.Reconciler(self.trust, runner=self.native).reconcile(path, self.trigger, run['id'])
+        path.chmod(0o600)
+        with self.assertRaisesRegex(incident.IncidentError, 'original_run_unproven'):
+            incident.Reconciler(self.trust, runner=self.native).reconcile(path, self.trigger, identifier())
 
     def test_pagination_limit_duplicate_marker_corrupt_journal_and_forged_payload_fail_closed(self):
         self.run_for(self.failure)

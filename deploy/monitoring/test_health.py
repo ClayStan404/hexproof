@@ -353,6 +353,81 @@ class AlertTests(unittest.TestCase):
             reloaded = store.load(self.now)
             self.assertTrue(alerts.summary(reloaded)['transportDegraded'])
 
+    def test_lost_response_duplicate_preserves_original_run_and_stays_unconfirmed(self):
+        event = self.fail()
+        original = json.dumps(event, sort_keys=True, separators=(',', ':')).encode()
+        requests = []
+        replies = [None, {'status': 'duplicate',
+                         'run_id': '12345678-1234-1234-1234-123456789abc',
+                         'delivery_id': '12345678-1234-1234-1234-123456789abd'}]
+        class Response:
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                pass
+            def read(self, limit):
+                return json.dumps(replies.pop(0)).encode()
+        class Opener:
+            def open(self, request, timeout):
+                requests.append(request)
+                if replies[0] is None:
+                    replies.pop(0)
+                    raise TimeoutError()  # Original native admission may have happened.
+                return Response()
+        with patch.object(alerts, 'bounded', side_effect=lambda fn, timeout: fn()), \
+                patch.object(alerts.urllib.request, 'build_opener', return_value=Opener()), \
+                alerts.Store(self.root / 'duplicate') as store:
+            alerts.deliver(store, self.state, self.capability, wall=lambda: self.now)
+            self.assertEqual(self.state['outbox'][0]['event'], event)
+            alerts.deliver(store, self.state, self.capability, wall=lambda: self.now + 61)
+            reloaded = store.load(self.now + 61)
+        self.assertEqual([request.data for request in requests], [original, original])
+        self.assertEqual([request.get_header('Idempotency-key') for request in requests], [event['eventId']] * 2)
+        self.assertEqual(reloaded['outbox'], [])
+        entry = reloaded['history'][0]
+        self.assertEqual(entry['event'], event)
+        self.assertEqual(entry['payloadSha256'], hashlib.sha256(original).hexdigest())
+        self.assertEqual(entry['status'], 'duplicate')
+        self.assertEqual(entry['runId'], '12345678-1234-1234-1234-123456789abc')
+        self.assertEqual(alerts.summary(reloaded)['unconfirmedAdmissions'], 1)
+        self.assertTrue(alerts.summary(reloaded)['transportDegraded'])
+        self.assertEqual(alerts.summary(reloaded)['nativeAdmission'], 'unverified')
+
+    def test_unconfirmed_original_events_survive_bounded_history_pressure(self):
+        events = []
+        with alerts.Store(self.root / 'pinned') as store:
+            for index in range(alerts.HISTORY_LIMIT + 3):
+                event = self.fail(group='cloud-' + str(index))
+                events.append(event['eventId'])
+                alerts.deliver(store, self.state, self.capability,
+                               sender=lambda *args: ('duplicate', '12345678-1234-1234-1234-123456789abc'),
+                               wall=lambda: self.now)
+            self.fail(group='cloud-extra')
+            alerts.deliver(store, self.state, self.capability,
+                           sender=lambda *args: ('accepted', '12345678-1234-1234-1234-123456789abd'),
+                           wall=lambda: self.now)
+            reloaded = store.load(self.now)
+            def unexpected_retry(*args):
+                raise AssertionError('unexpected retry')
+            self.assertEqual(alerts.deliver(store, reloaded, self.capability,
+                             sender=unexpected_retry, wall=lambda: self.now), 0)
+        self.assertEqual(len(reloaded['history']), alerts.HISTORY_LIMIT)
+        self.assertEqual(len(reloaded['outbox']), 3)
+        self.assertTrue(set(events) <= {item['event']['eventId'] for item in reloaded['outbox'] + reloaded['history']})
+        self.assertTrue(alerts.summary(reloaded)['transportDegraded'])
+
+    def test_paused_or_unsupported_response_keeps_original_event_without_inventing_run(self):
+        event = self.fail()
+        with alerts.Store(self.root / 'rejected') as store:
+            alerts.deliver(store, self.state, self.capability,
+                           sender=lambda *args: ('invalid_response', None), wall=lambda: self.now)
+            reloaded = store.load(self.now)
+        self.assertEqual(reloaded['outbox'][0]['event'], event)
+        self.assertEqual(reloaded['outbox'][0]['lastError'], 'invalid_response')
+        self.assertFalse(reloaded['outbox'][0].get('runId'))
+        self.assertEqual(reloaded['history'], [])
+        self.assertTrue(alerts.summary(reloaded)['transportDegraded'])
+
     def test_sender_reuses_exact_body_key_and_redacts_transport_errors(self):
         event = self.fail()
         requests = []

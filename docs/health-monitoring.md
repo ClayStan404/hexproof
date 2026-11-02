@@ -50,7 +50,7 @@ python3 deploy/monitoring/tls_check.py --config "$HEXPROOF_TLS_INVENTORY" \
 minutes. Its credential-mounted private inputs and state are separate from the
 loopback monitor. `health_alerts.py status --state DIRECTORY` refuses stale
 samples (default 15 minutes), future samples, pending/exhausted transport and
-recorded queue loss. Skipped admissions and queue loss remain sticky operator
+recorded queue loss. Skipped admissions, unconfirmed duplicate admissions and queue loss remain sticky operator
 obligations in this local record, including after unrelated successful delivery;
 reconcile their event/run evidence privately rather than clearing history to
 make local status green. Observer offline, observer clock error and its own network
@@ -71,7 +71,7 @@ Each signal retains first/last failure, total/consecutive failures, last success
 and the previous recovery's failure count. Alerts occur on first failure,
 TLS failure counts 12/72/288 or renewal counts 2/4/8, and recovery. Healthy
 samples do not send alerts. Episode UUIDs survive restart. The event UUID and
-entire payload are fsynced **before** sending; every retry sends identical JSON
+entire payload and canonical request-body SHA-256 are fsynced **before** sending; every retry sends identical JSON
 and `Idempotency-Key`. At most six attempts, exponential 60s to 3600s backoff,
 eight events/20s per sender invocation. A crash consumes an attempt before the
 network effect; the same identity is reconciled on retry. Exhausted events
@@ -86,12 +86,28 @@ sudo python3 /usr/local/lib/hexproof-health/health_alerts.py deliver \
 The capability is an HTTPS URL in a root-owned 0600 private file or a systemd
 credential. The sender disables proxy environment use and redirects, verifies
 TLS and bounds DNS/response/deadline. Do not print the URL, put it in arguments
-or send it to a model. HTTP acceptance is distinct from run admission; a skipped
-response remains degraded and cannot be retried into a new run with a new UUID.
+or send it to a model. The health sender uses a flat JSON health event. No
+supported generic envelope that guarantees native payload retention has been
+established: the current native CLI can return `trigger_payload: null` for this
+wire format. Do not borrow the feedback event format or guess a private API.
+
+HTTP acceptance is distinct from run admission. `accepted` and `skipped` require
+a valid original `run_id`. A same-key `duplicate` response also requires that
+run ID and records its association, but says nothing about whether the original
+run was admitted, skipped, failed or remains unknown. It stops automatic retries
+and leaves a sticky `unconfirmedAdmissions` obligation. An optional delivery ID
+is not admission evidence. Neither a duplicate nor an unrelated successful send
+clears degraded state. Rejection, malformed/unsupported responses and paused
+routes may produce **no run**; the original event stays in the bounded outbox
+without a fabricated run/skipped record. Retries always keep the original ID and
+bytes. Never mint a replacement UUID to recover admission.
 
 A single `flock`, atomic replacement, file+directory fsync and 1 MiB state limit
 protect each host's state. Outbox 64, history 32, signals 64 and bounded invocation
-history prevent growth. Queue overflow increments permanent loss evidence and
+history prevent growth. Skipped/duplicate history is pinned; if all 32 history
+slots hold those obligations, additional terminal events remain in the bounded
+outbox without automatic retry. Successful traffic cannot evict those original
+payloads. Queue overflow increments permanent loss evidence and
 degraded status; there is no claim of lossless delivery through arbitrary
 outage. Logs rotate at 1 MiB with four backups. Corrupt state fails closed in
 place, preserving unresolved events for private operator recovery. Never delete
@@ -126,17 +142,18 @@ identity, never a new root CLI identity/credential or on multiple hosts. The hel
 an exact incident marker, writes bounded original event/run/trigger provenance,
 reads metadata back, then admits to fixed Mika. Metadata stores event/run/trigger
 IDs and canonical payload digests; full original payloads remain in the bounded
-private journal and original native run. Native `issue runs` association
+private journal and, only when actually retained, the original native run. Native `issue runs` association
 is required to record a maintenance task ID; status alone is insufficient.
 TLS and renewal episodes for a still-open service group share that issue.
 Late/duplicate recovery changes only its matching episode and never closes
 maintenance or a newer fault.
 
-CLI 0.7.0 supports paginated `autopilot runs` with original `trigger_payload`,
-status and `task_id`. It has no delivery query/replay; manual `autopilot trigger`
-has no payload. The supported **issue fallback** reads the original skipped,
-failed or accepted run, preserves the same event/payload/provenance, reconciles
-the canonical issue, admits that issue and reads its task association:
+CLI 0.7.0 supports paginated `autopilot runs` with status, `task_id` and a
+nullable `trigger_payload`; it has no delivery query/replay, and manual
+`autopilot trigger` has no payload. Native runs with null, invalid or unsupported
+payload remain explicit `original_payload_unavailable` obligations on every
+reconciliation/status read; they never disappear into an empty successful
+report. The ordinary **issue fallback** uses original valid native payloads:
 
 ```sh
 python3 tools/health-incident.py reconcile --operations "$HEXPROOF_OPERATIONS_FILE" \
@@ -145,6 +162,47 @@ python3 tools/health-incident.py status --operations "$HEXPROOF_OPERATIONS_FILE"
   --config "$HEXPROOF_HEALTH_INCIDENT_FILE"
 ```
 
+When the native payload is absent or ingress produced no observed run, the
+operator may use the supported deterministic **original-event fallback**. Copy
+only the exact durable event bytes from the sender outbox/history or its
+pre-request qualification record to `original-events/EVENT_ID.json` beneath the
+same configured `stateDirectory`. Keep that directory 0700 and the regular file
+0600, owned by the existing CLI operator. Do not reconstruct events from a
+summary, alter their IDs, delete the sender journal, or copy a capability file.
+For a sender state entry, its original request body is the UTF-8 result of
+`json.dumps(entry["event"], sort_keys=True, separators=(",", ":"))`, without a
+newline. Back up the original protected source state before extracting it.
+
+```sh
+python3 tools/health-incident.py recover --operations "$HEXPROOF_OPERATIONS_FILE" \
+  --config "$HEXPROOF_HEALTH_INCIDENT_FILE" \
+  --event-file "$HEXPROOF_HEALTH_ORIGINAL_EVENT_FILE" \
+  --trigger-id "$HEXPROOF_HEALTH_ORIGINAL_TRIGGER_ID" \
+  --run-id "$HEXPROOF_HEALTH_ORIGINAL_RUN_ID"
+```
+
+The operator must bind the original event to the original response/run evidence;
+the tool cannot infer that relationship from a null native payload. `--run-id`
+requires a matching actual run from bounded CLI readback (or the journal's
+previously observed native snapshot), fixed route/trigger/source and no
+conflicting native event. Omit it when no run was observed; this admits canonical
+maintenance through the issue fallback while retaining an explicit
+`original_run_unobserved` obligation. A later invocation can bind that **same**
+event to its proved original run. Unknown native status remains
+`original_admission_unverified`; skipped/failed runs are never called admitted.
+The journal stores exact imported bytes and their SHA-256, event/source/sequence,
+original run/task/status and `payloadOrigin=operator_original`; metadata carries
+bounded provenance/digests, never a claim that native retained the payload.
+Conflicting event bytes, trigger mapping or run associations fail closed.
+Existing old `invalid_payload` journal entries remain unresolved and may use
+this same import path; do not reset the original qualification records.
+
+The same lock, canonical marker, metadata readback and real `issue runs` task
+association apply to both fallbacks. Canonical admission does not rewrite the
+original native outcome. A recovery delivered before its failure remains an
+unresolved retained observation, then reassociates by group/source/signal/episode
+and sequence when the failure arrives, including after restart. It cannot clear
+a newer episode or close maintenance.
 This does not replay webhook admission. If no later ingress starts Mika, the
 operator invokes this deterministic helper; no extra AI scheduler is added.
 The activation owner must qualify this fallback on a clearly isolated native
@@ -154,7 +212,18 @@ association. Production fake incidents are forbidden. Mock tests prove helper
 behavior but **do not qualify live native admission**. Lack of an isolated
 qualification target or required CLI readback is an explicit activation gap.
 
-Reads cap at 500 runs/2000 issues and 120s; incomplete discovery fails closed.
+Discovery reads newest-first native pages up to 500 runs/2000 issues and 120s.
+After a complete scan it durably records the newest run boundary only after all
+discovered records are saved. Later scans stop after the page containing that
+exact boundary; already covered history may grow beyond 500 without stopping new
+incidents. Unknown in-flight runs pin the previous boundary until re-read.
+Missing/changed boundaries, non-monotone timestamps, duplicate pagination rows
+or more than 500 newly undiscovered records fail closed before issue writes.
+Legacy journals without a boundary have a one-time scan of at most the 1024
+retained runs (rounded up to whole pages); records beyond the normal 500 window
+must already be proved processed in that journal. This migration does not permit
+a missed unknown history window. Null-payload obligations are stored independently
+of discovery progress, so a coverage boundary never means incident admission.
 A marker conflict stops reconciliation. Uncertain creation first reads all marker
 pages; finding the issue completes reconciliation. Absence does not prove a
 pending create failed, so it never automatically creates again. An operator
@@ -162,9 +231,10 @@ must reconcile the request/result before any repair of that intent. Metadata
 writes read back before retrying the same idempotent value; lost admission is
 read back through issue/task linkage. Journal corruption stops work, keeping
 native/local evidence. Runs/events retain 1024 records, closed incidents 64,
-incidents 128, episodes 32 per incident, journal 2 MiB. Reconcile before older
-native runs fall outside the bounded window; capacity refusal requires operator
-maintenance. This lock provides local serialization, not server uniqueness or
+incidents 128, episodes 32 per incident, journal 2 MiB. Unmatched recovery and unresolved provenance records are pinned rather than
+silently evicted; exceeding their bounds fails closed. Reconcile before more
+than 500 new runs accumulate; a genuine coverage gap or capacity refusal requires
+operator maintenance of the preserved evidence, not a cursor reset. This lock provides local serialization, not server uniqueness or
 cross-host CAS. Maintenance completion requires actual repair evidence.
 
 ## Fresh release promotion

@@ -14,6 +14,7 @@ Alerts are evidence for the fixed native route, never commands or targets.
 import argparse
 import errno
 import fcntl
+import hashlib
 import json
 import logging
 from logging.handlers import RotatingFileHandler
@@ -69,11 +70,16 @@ utc = tls_check.utc
 parse_utc = tls_check.parse_utc
 
 
+def event_bytes(event):
+    return json.dumps(event, sort_keys=True, separators=(",", ":")).encode()
+
+
 def empty_state():
     return {"schemaVersion": SCHEMA, "sequence": 0, "signals": {}, "outbox": [], "history": [],
             "invocations": [], "latest": None,
             "transport": {"degraded": False, "consecutiveFailures": 0, "lastError": "", "lastErrorAt": None},
-            "counters": {"droppedEvents": 0, "skippedAdmissions": 0, "exhausted": 0, "stateRecoveries": 0}}
+            "counters": {"droppedEvents": 0, "skippedAdmissions": 0, "unconfirmedAdmissions": 0,
+                         "exhausted": 0, "stateRecoveries": 0}}
 
 
 def valid_state(state):
@@ -98,10 +104,12 @@ def valid_state(state):
             if record["status"] == "failing" and not UUID.fullmatch(record["episodeId"]):
                 return False
         for entry in state["outbox"] + state["history"]:
-            if (entry["status"] not in ("pending", "exhausted", "accepted", "skipped")
+            if (entry["status"] not in ("pending", "exhausted", "accepted", "skipped", "duplicate")
                     or type(entry["attempts"]) is not int or entry["attempts"] < 0
                     or not UUID.fullmatch(entry["event"]["eventId"])
                     or not UUID.fullmatch(entry["event"]["episodeId"])):
+                return False
+            if entry.get("payloadSha256") not in (None, hashlib.sha256(event_bytes(entry["event"])).hexdigest()):
                 return False
             parse_utc(entry["nextAttemptAt"])
         if (type(state["transport"]["degraded"]) is not bool
@@ -172,6 +180,8 @@ class Store:
                 data = stream.read(MAX_STATE + 1)
             if len(data) <= MAX_STATE:
                 state = json.loads(data)
+                if isinstance(state, dict) and isinstance(state.get("counters"), dict):
+                    state["counters"].setdefault("unconfirmedAdmissions", 0)
                 if valid_state(state):
                     return state
         except FileNotFoundError:
@@ -204,7 +214,8 @@ def emit(state, now, source, group, signal, kind, record, errors, endpoints=(), 
              "minRemainingSeconds": remaining,
              "droppedEvents": state["counters"]["droppedEvents"],
              "stateRecoveries": state["counters"]["stateRecoveries"]}
-    state["outbox"].append({"event": event, "status": "pending", "attempts": 0,
+    state["outbox"].append({"event": event, "payloadSha256": hashlib.sha256(event_bytes(event)).hexdigest(),
+                            "status": "pending", "attempts": 0,
                             "nextAttemptAt": utc(now), "lastError": "", "runId": None})
     return event
 
@@ -297,7 +308,7 @@ def bounded(function, timeout):
 
 
 def post(url, event, timeout):
-    body = json.dumps(event, sort_keys=True, separators=(",", ":")).encode()
+    body = event_bytes(event)
     request = urllib.request.Request(url, data=body, method="POST", headers={
         "Content-Type": "application/json", "Idempotency-Key": event["eventId"],
         "User-Agent": "hexproof-health-alerts/1"})
@@ -321,7 +332,7 @@ def post(url, event, timeout):
             reply = json.loads(data) if len(data) <= MAX_RESPONSE else None
         except (ValueError, UnicodeDecodeError):
             reply = None
-        if (isinstance(reply, dict) and reply.get("status") in ("accepted", "skipped")
+        if (isinstance(reply, dict) and reply.get("status") in ("accepted", "skipped", "duplicate")
                 and isinstance(reply.get("run_id"), str) and UUID.fullmatch(reply["run_id"])):
             return reply["status"], reply["run_id"]
         return "invalid_response", None
@@ -365,6 +376,7 @@ def outstanding_transport(state):
     # Skipped admission and queue loss are sticky operator obligations. An
     # unrelated successful delivery cannot establish their reconciliation.
     return bool(state["counters"]["skippedAdmissions"] or state["counters"]["droppedEvents"]
+                or state["counters"]["unconfirmedAdmissions"]
                 or any(entry["status"] == "exhausted" or entry.get("lastError")
                        for entry in state["outbox"]))
 
@@ -395,16 +407,36 @@ def deliver(store, state, capability, sender=post, clock=time.monotonic, wall=ti
             store.save(state)
             continue
         sent += 1
+        # Migrate retained pre-digest entries without changing event identity/bytes.
+        digest = hashlib.sha256(event_bytes(entry["event"])).hexdigest()
+        if entry.get("payloadSha256", digest) != digest:
+            raise AlertError("event_identity_conflict")
+        entry["payloadSha256"] = digest
         entry["attempts"] += 1
         entry["lastAttemptAt"] = utc(wall())
         store.save(state)  # Count the attempt before any network effect.
         outcome, run_id = sender(url, entry["event"], min(REQUEST_SECONDS, remaining))
-        if outcome in ("accepted", "skipped"):
+        if outcome in ("accepted", "skipped", "duplicate"):
+            if entry.get("runId") and entry["runId"] != run_id:
+                raise AlertError("run_identity_conflict")
             entry.update(status=outcome, runId=run_id, lastError="", completedAt=utc(wall()))
-            state["outbox"].remove(entry)
-            state["history"] = (state["history"] + [entry])[-HISTORY_LIMIT:]
-            transport.update(degraded=outstanding_transport(state) or outcome == "skipped", consecutiveFailures=0,
-                             lastError="admission_skipped" if outcome == "skipped" else "")
+            history = state["history"] + [entry]
+            while len(history) > HISTORY_LIMIT:
+                disposable = next((i for i, item in enumerate(history) if item["status"] == "accepted"), None)
+                if disposable is None:
+                    break
+                del history[disposable]
+            if len(history) <= HISTORY_LIMIT:
+                state["outbox"].remove(entry)
+                state["history"] = history
+            # If all history is unresolved, retain this terminal event in the
+            # bounded outbox. It is not retried or evicted by accepted traffic.
+            transport.update(degraded=outstanding_transport(state) or outcome != "accepted", consecutiveFailures=0,
+                             lastError="admission_unconfirmed" if outcome == "duplicate" else
+                             "admission_skipped" if outcome == "skipped" else "")
+            if outcome == "duplicate":
+                # Same-key reuse identifies the original run, not its admission.
+                state["counters"]["unconfirmedAdmissions"] += 1
             if outcome == "skipped":
                 # This is transport acceptance, not native task admission.
                 # The supported issue fallback still requires qualification.
@@ -449,6 +481,7 @@ def summary(state):
             "exhausted": sum(entry["status"] == "exhausted" for entry in state["outbox"]),
             "transportDegraded": state["transport"]["degraded"] or outstanding_transport(state),
             "skippedAdmissions": state["counters"]["skippedAdmissions"],
+            "unconfirmedAdmissions": state["counters"]["unconfirmedAdmissions"],
             "nativeAdmission": "unverified",
             "failing": sorted(key for key, record in state["signals"].items() if record["status"] == "failing")}
 
