@@ -580,7 +580,13 @@ final class NativeGuiGame implements InvocationHandler {
     }
     private void button(boolean yes) { if (yes) human.selectButtonOk(); else human.selectButtonCancel(); }
     private void select(Card card) {
-        if (!human.selectCard(card.getView(), null, null)) throw new IllegalArgumentException("Native input rejected card");
+        Input current = human.getInputProxy().getInput();
+        boolean selected = human.selectCard(card.getView(), null, null);
+        // Target clicks can fail a native cross-target restriction (for example,
+        // Agadeem's Awakening's different mana values), or remove a target.
+        // Forge refreshes that input; false is not a terminal engine error.
+        if (!selected && !(current instanceof InputSelectTargets))
+            throw new IllegalArgumentException("Native input rejected card");
     }
     private void renderCombat(Input current) {
         Combat combat = session.game.getCombat();
