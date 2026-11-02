@@ -26,6 +26,8 @@ FILES = (
     'deploy/monitoring/health-inventory.example.json',
     'deploy/monitoring/health-renewal.example.json',
     'deploy/monitoring/health-incident.example.json',
+    'deploy/monitoring/health-event.schema.json',
+    'deploy/monitoring/health-runtime-instructions.md',
     'tools/health-incident.py',
     'tools/promote-release.py',
     'docs/health-monitoring.md',

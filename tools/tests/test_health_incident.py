@@ -5,6 +5,8 @@
 """Exercise the supported CLI boundary without creating native test issues."""
 
 import hashlib
+import base64
+from concurrent.futures import ThreadPoolExecutor
 import importlib.util
 import json
 from pathlib import Path
@@ -12,6 +14,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -39,9 +42,16 @@ class NativeCLI:
         self.no_task = False
         self.all_pages = False
         self.calls = []
+        self.route = {'id': trust['autopilotId'], 'workspace_id': trust.get('workspaceId'),
+                      'project_id': trust['projectId'], 'assignee_id': trust['coordinatorId'],
+                      'assignee_type': 'agent', 'execution_mode': 'run_only'}
+        self.triggers = [{'id': key, 'autopilot_id': trust['autopilotId'], 'kind': 'webhook',
+                          'provider': 'generic'} for key in trust['triggers']]
 
     def __call__(self, *args):
         self.calls.append(args)
+        if args[:2] == ('autopilot', 'get'):
+            return 0, {'autopilot': self.route, 'triggers': self.triggers}
         if args[:2] == ('autopilot', 'runs'):
             offset = int(args[args.index('--offset') + 1])
             if self.all_pages:
@@ -83,10 +93,13 @@ class ReconciliationTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.trigger = identifier()
         self.cloud_trigger = identifier()
-        self.trust = {'stateDirectory': self.root, 'projectId': identifier(), 'coordinatorId': identifier(),
+        self.trust = {'stateDirectory': self.root, 'workspaceId': identifier(),
+                      'projectId': identifier(), 'coordinatorId': identifier(),
                       'autopilotId': identifier(), 'triggers': {self.trigger: 'observer-debian',
                                                              self.cloud_trigger: 'renewal-cloud'},
-                      'serviceGroups': {'cloud-a', 'observer'}}
+                      'serviceGroups': {'cloud-a', 'observer'},
+                      'signalBindings': {self.trigger: ['tls'], self.cloud_trigger: ['renewal']},
+                      'configVersion': {'schemaVersion': 1, 'sha256': 'a' * 64}}
         self.native = NativeCLI(self.trust)
         self.state = health_alerts.empty_state()
         self.now = int(time.time())
@@ -95,6 +108,7 @@ class ReconciliationTests(unittest.TestCase):
 
     def run_for(self, event, status='skipped', trigger=None):
         run = {'id': identifier(), 'source': 'webhook', 'trigger_id': trigger or self.trigger,
+               'autopilot_id': self.trust['autopilotId'],
                'status': status, 'task_id': identifier() if status == 'completed' else None,
                'triggered_at': event['occurredAt'], 'trigger_payload': event}
         self.native.runs.append(run)
@@ -366,6 +380,361 @@ class ReconciliationTests(unittest.TestCase):
         with self.assertRaisesRegex(incident.IncidentError, 'journal_corrupt'):
             self.reconcile()
         self.assertEqual(self.native.creates, 1)
+
+
+class RuntimeIngestTests(unittest.TestCase):
+    setUp = ReconciliationTests.setUp
+    run_for = ReconciliationTests.run_for
+    journal = ReconciliationTests.journal
+    reconcile = ReconciliationTests.reconcile
+    original_file = ReconciliationTests.original_file
+
+    def current_run(self, event=None):
+        run = self.run_for(event or self.failure, 'completed')
+        run['trigger_payload'] = None
+        return run
+
+    def ingest(self, run, event=None, raw=None):
+        with mock.patch.dict(incident.os.environ, {'MULTICA_TASK_ID': run['task_id'],
+                             'MULTICA_AGENT_ID': self.trust['coordinatorId']}):
+            return incident.Reconciler(self.trust, runner=self.native).ingest(
+                raw if raw is not None else health_alerts.event_bytes(event or self.failure))
+
+    def test_complete_current_input_null_history_and_cross_run_duplicates(self):
+        run = self.current_run()
+        self.assertTrue(self.reconcile()['unresolved'])  # Historical null is not consumption.
+        raw = json.dumps(self.failure, indent=2).encode()
+        report = self.ingest(run, raw=raw)
+        self.assertFalse(report['unresolved'])
+        digest = hashlib.sha256(health_alerts.event_bytes(self.failure)).hexdigest()
+        self.assertEqual(report['runtimeReceipt']['payloadSha256'], digest)
+        receipt = next(iter(self.journal()['runtimeInputs'].values()))
+        self.assertEqual(base64.b64decode(receipt['rawInputBase64']), raw)
+        self.assertEqual(receipt['payload'], self.failure)
+        self.assertEqual(receipt['nativeRun']['task_id'], run['task_id'])
+        self.assertEqual(receipt['nativeRun']['id'], run['id'])
+        self.assertEqual(receipt['configVersion'], self.trust['configVersion'])
+        self.assertEqual(receipt['historicalPayload'], 'null')
+        self.assertFalse(self.ingest(run, raw=raw)['unresolved'])
+        second = self.current_run()
+        self.assertFalse(self.ingest(second)['unresolved'])
+        self.assertFalse(self.reconcile()['unresolved'])
+        stored = json.loads(next(iter(self.native.metadata.values())))
+        self.assertEqual(stored['eventCount'], 1)
+        self.assertEqual(stored['firstProvenance']['payloadOrigin'], incident.RUNTIME_ORIGIN)
+        self.assertEqual(stored['provenance']['webhookRunId'], second['id'])
+        self.assertIsNotNone(stored['maintenanceTaskId'])
+        self.assertEqual(self.native.creates, 1)
+        self.assertEqual(sum(call[:2] == ('issue', 'update') for call in self.native.calls), 1)
+
+    def test_missing_or_wrong_identity_never_uses_cli_or_owner_profile(self):
+        for values in ({}, {'MULTICA_TASK_ID': identifier()},
+                       {'MULTICA_TASK_ID': 'invalid', 'MULTICA_AGENT_ID': self.trust['coordinatorId']},
+                       {'MULTICA_TASK_ID': identifier(), 'MULTICA_AGENT_ID': identifier()}):
+            with self.subTest(values=values), mock.patch.dict(incident.os.environ, values, clear=True):
+                report = incident.Reconciler(self.trust, runner=self.native).ingest(
+                    health_alerts.event_bytes(self.failure))
+                self.assertIn('runtime_identity_unavailable', [i['phase'] for i in report['unresolved']])
+        self.assertEqual(self.native.calls, [])
+        self.assertEqual(self.native.creates, 0)
+        self.assertTrue(self.journal()['runtimeInputs'])
+
+    def test_wrong_route_workspace_project_agent_mode_and_trigger_fail_closed(self):
+        run = self.current_run()
+        for key, bad in (('id', identifier()), ('workspace_id', identifier()),
+                         ('project_id', identifier()), ('assignee_id', identifier()),
+                         ('assignee_type', 'squad'), ('execution_mode', 'create_issue')):
+            with self.subTest(key=key), mock.patch.dict(self.native.route, {key: bad}):
+                self.assertTrue(self.ingest(run)['unresolved'])
+                self.assertEqual(self.native.creates, 0)
+        for key, bad in (('kind', 'manual'), ('autopilot_id', identifier()), ('provider', 'github')):
+            with self.subTest(key=key), mock.patch.dict(self.native.triggers[0], {key: bad}):
+                self.assertTrue(self.ingest(run)['unresolved'])
+                self.assertEqual(self.native.creates, 0)
+        for key, bad in (('source', 'schedule'), ('trigger_id', identifier()),
+                         ('autopilot_id', identifier()), ('task_id', identifier()), ('status', 'skipped')):
+            with self.subTest(key=key), mock.patch.dict(run, {key: bad}):
+                # Keep the actual environment task fixed when the returned task is wrong.
+                context = dict(run, task_id=identifier()) if key == 'task_id' else run
+                self.assertTrue(self.ingest(context)['unresolved'])
+                self.assertEqual(self.native.creates, 0)
+        final = self.ingest(run)
+        self.assertIsNone(final['runtimeReceipt']['unresolved'])
+        self.assertEqual(self.native.creates, 1)
+
+    def test_task_match_must_be_unique_and_pagination_complete(self):
+        run = self.current_run()
+        self.native.runs.append(dict(run, id=identifier()))
+        self.assertTrue(self.ingest(run)['unresolved'])
+        self.assertEqual(self.native.creates, 0)
+        self.native.runs.pop()
+        self.native.all_pages = True
+        self.assertTrue(self.ingest(run)['unresolved'])
+        self.assertEqual(self.native.creates, 0)
+        receipt = next(iter(self.journal()['runtimeInputs'].values()))
+        self.assertEqual(receipt['payload'], self.failure)  # Saved before incomplete scanning.
+        self.assertEqual(receipt['unresolved'], 'run_pagination_limit')
+
+    def test_untrusted_source_group_signal_and_modified_historical_body(self):
+        for changed in ({'source': 'other'}, {'serviceGroup': 'other'}, {'signal': 'renewal'},
+                        {'sequence': True}, {'occurredAt': '2026-02-30T00:00:00Z'},
+                        {'errors': {'arbitrary_command': 1}}, {'sequence': 2**53}):
+            with self.subTest(changed=changed):
+                run = self.current_run()
+                self.assertTrue(self.ingest(run, dict(self.failure, **changed))['unresolved'])
+                self.assertEqual(self.native.creates, 0)
+        run = self.current_run()
+        run['trigger_payload'] = self.failure
+        self.assertTrue(self.ingest(run, dict(self.failure, sequence=999))['unresolved'])
+        self.assertEqual(self.native.creates, 0)
+
+    def test_absent_malformed_duplicate_keys_oversize_and_extra_fields_are_retained(self):
+        for raw in (b'', b'null', b'{invalid', b'\xff', b'x' * (incident.MAX_EVENT + 1),
+                    b'{"schema":1,"schema":2}',
+                    health_alerts.event_bytes(dict(self.failure, command='do something')),
+                    health_alerts.event_bytes(dict(self.failure, minRemainingSeconds=float('nan')))):
+            with self.subTest(prefix=raw[:20]):
+                run = self.current_run()
+                report = self.ingest(run, raw=raw)
+                self.assertTrue(report['unresolved'])
+                self.assertEqual(self.native.creates, 0)
+        self.assertEqual(len(self.journal()['runtimeInputs']), 8)
+        self.assertTrue(all(row['pending'] for row in self.journal()['runtimeInputs'].values()))
+
+    def test_changed_digest_same_run_or_same_event_cannot_recount(self):
+        run = self.current_run()
+        self.assertFalse(self.ingest(run)['unresolved'])
+        changed = dict(self.failure, totalFailures=999)
+        report = self.ingest(run, changed)
+        self.assertIn('runtime_digest_conflict', [i['phase'] for i in report['unresolved']])
+        second = self.current_run()
+        report = self.ingest(second, changed)
+        self.assertIn('event_identity_conflict', [i['phase'] for i in report['unresolved']])
+        self.assertEqual(self.native.creates, 1)
+        self.assertEqual(next(iter(self.journal()['incidents'].values()))['eventCount'], 1)
+        self.assertEqual(len(self.journal()['runtimeInputs']), 3)
+
+    def test_concurrent_duplicate_inputs_share_lock_count_and_admission(self):
+        run = self.current_run()
+        raw = health_alerts.event_bytes(self.failure)
+        with mock.patch.dict(incident.os.environ, {'MULTICA_TASK_ID': run['task_id'],
+                             'MULTICA_AGENT_ID': self.trust['coordinatorId']}):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                reports = list(pool.map(lambda _: incident.Reconciler(
+                    self.trust, runner=self.native).ingest(raw), range(2)))
+        self.assertTrue(all(not report['unresolved'] for report in reports))
+        self.assertEqual(self.native.creates, 1)
+        self.assertEqual(next(iter(self.journal()['incidents'].values()))['eventCount'], 1)
+
+    def test_fsync_failure_before_file_and_directory_commit_has_no_issue_effects(self):
+        run = self.current_run()
+        fsync = incident.os.fsync
+        for fail_at in (1, 2):
+            calls = []
+            def fail(fd):
+                calls.append(fd)
+                if len(calls) == fail_at:
+                    raise OSError('simulated fsync failure')
+                fsync(fd)
+            with self.subTest(fail_at=fail_at), mock.patch.object(incident.os, 'fsync', side_effect=fail):
+                with self.assertRaises(OSError):
+                    self.ingest(run)
+            self.assertEqual(self.native.creates, 0)
+        self.assertFalse(self.ingest(run)['unresolved'])
+        self.assertEqual(self.native.creates, 1)
+
+    def test_crash_after_bound_fsync_resumes_without_current_carrier(self):
+        class Crash(BaseException):
+            pass
+        run = self.current_run()
+        save = incident.Reconciler.save
+        saves = []
+        def crash_after_bound(reconciler, journal):
+            save(reconciler, journal)
+            saves.append(1)
+            if len(saves) == 2:
+                raise Crash()
+        with mock.patch.object(incident.Reconciler, 'save', crash_after_bound):
+            with self.assertRaises(Crash):
+                self.ingest(run)
+        self.assertEqual(self.native.creates, 0)
+        receipt = next(iter(self.journal()['runtimeInputs'].values()))
+        self.assertTrue(receipt['bindingVerified'])
+        self.assertTrue(receipt['pending'])
+        self.assertFalse(self.reconcile()['unresolved'])
+        self.assertEqual(self.native.creates, 1)
+        self.assertFalse(self.reconcile()['unresolved'])
+        self.assertEqual(self.native.creates, 1)
+
+    def test_crash_before_receipt_retains_null_obligation_and_original_recovery(self):
+        run = self.current_run()
+        with mock.patch.object(incident.os, 'fsync', side_effect=OSError('before persist')):
+            with self.assertRaises(OSError):
+                self.ingest(run)
+        report = self.reconcile()
+        self.assertEqual(report['unresolved'][0]['phase'], 'original_payload_unavailable')
+        self.assertEqual(self.native.creates, 0)
+        path = self.original_file(self.failure)
+        self.assertFalse(incident.Reconciler(self.trust, runner=self.native).reconcile(
+            path, self.trigger, run['id'])['unresolved'])
+        stored = json.loads(next(iter(self.native.metadata.values())))
+        self.assertEqual(stored['provenance']['payloadOrigin'], 'operator_original')
+
+    def test_absent_runtime_body_is_enriched_by_original_recovery_without_erasing_receipt(self):
+        run = self.current_run()
+        self.assertTrue(self.ingest(run, raw=b'null')['unresolved'])
+        path = self.original_file(self.failure)
+        self.assertFalse(incident.Reconciler(self.trust, runner=self.native).reconcile(
+            path, self.trigger, run['id'])['unresolved'])
+        receipt = next(iter(self.journal()['runtimeInputs'].values()))
+        self.assertEqual(base64.b64decode(receipt['rawInputBase64']), b'null')
+        self.assertEqual(receipt['historicalPayload'], 'null')
+        self.assertIsNone(receipt['payload'])
+        self.assertEqual(receipt['recoveredBy']['origin'], 'operator_original')
+        self.assertEqual(receipt['recoveredBy']['eventId'], self.failure['eventId'])
+        self.assertEqual(self.native.creates, 1)
+
+    def test_current_complete_reentry_enriches_absent_input_without_history_reconstruction(self):
+        run = self.current_run()
+        self.assertTrue(self.ingest(run, raw=b'null')['unresolved'])
+        self.assertFalse(self.ingest(run)['unresolved'])
+        receipts = list(self.journal()['runtimeInputs'].values())
+        self.assertEqual(len(receipts), 2)
+        absent = next(row for row in receipts if row['payload'] is None)
+        self.assertEqual(absent['enrichedBy']['origin'], incident.RUNTIME_ORIGIN)
+        self.assertEqual(base64.b64decode(absent['rawInputBase64']), b'null')
+        self.assertEqual(json.loads(next(iter(self.native.metadata.values())))['eventCount'], 1)
+
+    def test_crash_after_first_fsync_is_unbound_until_explicit_original_recovery(self):
+        class Crash(BaseException):
+            pass
+        run = self.current_run()
+        save = incident.Reconciler.save
+        def crash_after_receipt(reconciler, journal):
+            save(reconciler, journal)
+            raise Crash()
+        with mock.patch.object(incident.Reconciler, 'save', crash_after_receipt):
+            with self.assertRaises(Crash):
+                self.ingest(run)
+        self.assertEqual(self.native.calls, [])
+        self.assertTrue(self.reconcile()['unresolved'])
+        self.assertEqual(self.native.creates, 0)
+        path = self.original_file(self.failure)
+        self.assertFalse(incident.Reconciler(self.trust, runner=self.native).reconcile(
+            path, self.trigger, run['id'])['unresolved'])
+        receipt = next(iter(self.journal()['runtimeInputs'].values()))
+        self.assertEqual(receipt['recoveredBy']['origin'], 'operator_original')
+        self.assertFalse(receipt.get('bindingVerified', False))
+
+    def test_configuration_requires_workspace_and_explicit_signal_bindings(self):
+        operations = {'activation': 'active', 'native': {key: self.trust[key] for key in
+                       ('workspaceId', 'projectId', 'coordinatorId')}}
+        config = {'schemaVersion': 1, 'autopilotId': self.trust['autopilotId'],
+                  'triggers': self.trust['triggers'], 'serviceGroups': ['cloud-a'],
+                  'stateDirectory': str(self.root)}
+        ops_path, conf_path = self.root / 'operations.json', self.root / 'incident.json'
+        ops_path.write_text(json.dumps(operations))
+        conf_path.write_text(json.dumps(config))
+        legacy = incident.load_trust(ops_path, conf_path)
+        self.assertIsNone(legacy['signalBindings'])
+        run = self.current_run()
+        receipt = {'payload': self.failure, 'payloadSha256': incident.canonical_digest(self.failure)}
+        with self.assertRaisesRegex(incident.IncidentError, 'runtime_event_untrusted'):
+            incident.Reconciler(legacy, runner=self.native).runtime_event(receipt, run)
+        config['signalBindings'] = self.trust['signalBindings']
+        conf_path.write_text(json.dumps(config))
+        loaded = incident.load_trust(ops_path, conf_path)
+        self.assertNotEqual(loaded['configVersion'], legacy['configVersion'])
+        self.assertEqual(incident.Reconciler(loaded, runner=self.native).runtime_event(receipt, run), self.failure)
+        operations['native'].pop('workspaceId')
+        ops_path.write_text(json.dumps(operations))
+        with self.assertRaisesRegex(incident.IncidentError, 'inactive_operations'):
+            incident.load_trust(ops_path, conf_path)
+
+    def test_uncertain_create_metadata_and_admission_after_runtime_input(self):
+        run = self.current_run()
+        self.native.lost_create = True
+        self.assertTrue(self.ingest(run)['unresolved'])
+        self.native.lost_create = False
+        self.native.fail_metadata = True
+        self.assertTrue(self.reconcile()['unresolved'])
+        self.native.fail_metadata = False
+        self.native.no_task = True
+        self.assertEqual(self.reconcile()['unresolved'][0]['phase'], 'admission_pending')
+        self.native.no_task = False
+        self.assertFalse(self.reconcile()['unresolved'])
+        self.assertEqual(self.native.creates, 1)
+        self.assertEqual(json.loads(next(iter(self.native.metadata.values())))['eventCount'], 1)
+
+    def test_known_history_over_500_and_unknown_gap_do_not_discard_input(self):
+        for _ in range(650):
+            self.current_run()
+        newest = self.native.runs[-1]
+        journal = incident.empty_journal()
+        journal['discovery'] = {'runId': newest['id'], 'triggeredAt': newest['triggered_at']}
+        incident.Reconciler(self.trust, runner=self.native).save(journal)
+        run = self.current_run()
+        self.assertFalse(self.ingest(run)['unresolved'])
+        for _ in range(501):
+            self.current_run()
+        fresh = self.current_run(dict(self.failure, eventId=identifier()))
+        report = self.ingest(fresh, dict(self.failure, eventId=identifier()))
+        self.assertIn('run_pagination_limit', [i['phase'] for i in report['unresolved']])
+        self.assertEqual(len(self.journal()['runtimeInputs']), 2)
+        self.assertEqual(self.native.creates, 1)
+
+    def test_runtime_recovery_before_failure_preserves_episode_sequence(self):
+        recovery = health_alerts.observe(self.state, self.now + 1, 'observer-debian', 'cloud-a', 'tls', True)
+        first = self.current_run(recovery)
+        self.assertTrue(self.ingest(first, recovery)['unresolved'])
+        self.assertEqual(self.native.creates, 0)
+        failure = self.current_run()
+        self.assertFalse(self.ingest(failure)['unresolved'])
+        stored = json.loads(next(iter(self.native.metadata.values())))
+        self.assertTrue(stored['recoveryObserved'])
+        self.assertEqual(stored['eventCount'], 2)
+        self.assertEqual(next(iter(self.native.issues.values()))['status'], 'todo')
+
+    def test_reversed_recovery_retains_full_runtime_receipt_and_native_run_under_pressure(self):
+        recovery = health_alerts.observe(self.state, self.now + 1, 'observer-debian', 'cloud-a', 'tls', True)
+        run = self.current_run(recovery)
+        self.ingest(run, recovery)
+        journal = self.journal()
+        receipt_key = next(iter(journal['runtimeInputs']))
+        for collection in ('runs', 'events', 'runtimeInputs'):
+            journal[collection]['removable'] = {'at': '2099-01-01T00:00:00Z'}
+        with mock.patch.object(incident, 'JOURNAL_LIMIT', 1):
+            incident.Reconciler(self.trust, runner=self.native).save(journal)
+        kept = self.journal()
+        self.assertIn(recovery['eventId'], kept['events'])
+        self.assertIn(run['id'], kept['runs'])
+        self.assertIn(receipt_key, kept['runtimeInputs'])
+
+    def test_capacity_never_evicts_pending_input_or_uncertain_incident(self):
+        first, second, third = self.current_run(), self.current_run(), self.current_run()
+        with mock.patch.object(incident, 'JOURNAL_LIMIT', 2):
+            self.ingest(first, raw=b'null')
+            self.ingest(second, raw=b'null')
+            with self.assertRaisesRegex(incident.IncidentError, 'journal_capacity'):
+                self.ingest(third, raw=b'null')
+        self.assertEqual(len(self.journal()['runtimeInputs']), 2)
+        self.assertEqual(self.native.creates, 0)
+
+    def test_retention_pins_full_event_and_provenance_for_uncertain_issue(self):
+        run = self.current_run()
+        self.native.lost_create = True
+        self.ingest(run)
+        journal = self.journal()
+        original_receipt = next(iter(journal['runtimeInputs']))
+        for collection in ('events', 'runs', 'runtimeInputs'):
+            journal[collection]['removable'] = {'at': '2099-01-01T00:00:00Z'}
+        with mock.patch.object(incident, 'JOURNAL_LIMIT', 1):
+            incident.Reconciler(self.trust, runner=self.native).save(journal)
+        kept = self.journal()
+        self.assertIn(run['id'], kept['runs'])
+        self.assertIn(self.failure['eventId'], kept['events'])
+        self.assertIn(original_receipt, kept['runtimeInputs'])
+        self.assertEqual(next(iter(kept['incidents'].values()))['phase'], 'uncertain')
 
 
 if __name__ == '__main__':

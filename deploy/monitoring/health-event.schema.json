@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hexproof health event v1",
+  "$comment": "SPDX-License-Identifier: GPL-3.0-or-later; SPDX-FileCopyrightText: 2026 Hexproof contributors",
+  "description": "One complete event object, maximum 65536 UTF-8 bytes. Runtime admission additionally requires fixed trusted source/group/signal and actual current-task native binding. Reject duplicate JSON keys and non-finite numbers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "consecutiveFailures",
+    "droppedEvents",
+    "endpoints",
+    "episodeId",
+    "errors",
+    "eventId",
+    "firstFailureAt",
+    "kind",
+    "lastSuccessAt",
+    "minRemainingSeconds",
+    "occurredAt",
+    "schema",
+    "sequence",
+    "serviceGroup",
+    "signal",
+    "source",
+    "stateRecoveries",
+    "totalFailures"
+  ],
+  "properties": {
+    "schema": {
+      "const": "hexproof.health-alert.v1"
+    },
+    "eventId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "source": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "serviceGroup": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "signal": {
+      "enum": [
+        "tls",
+        "renewal"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "failure",
+        "escalation",
+        "recovery"
+      ]
+    },
+    "episodeId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "occurredAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "format": "date-time"
+    },
+    "firstFailureAt": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lastSuccessAt": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "errors": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": {
+        "enum": [
+          "bootstrap_digest_mismatch",
+          "collector_failed",
+          "connect_failure",
+          "deadline_exceeded",
+          "dns_failure",
+          "dns_timeout",
+          "duplicate_bootstrap_id",
+          "duplicate_id",
+          "empty_inventory",
+          "expired",
+          "incomplete_coverage",
+          "invalid_bootstrap",
+          "invalid_config",
+          "invalid_endpoint",
+          "invalid_id",
+          "invalid_origin",
+          "invalid_threshold",
+          "name_mismatch",
+          "near_expiry",
+          "not_yet_valid",
+          "output_limit",
+          "oversized_input",
+          "renewal_core_dump",
+          "renewal_exit_code",
+          "renewal_oom_kill",
+          "renewal_protocol",
+          "renewal_resources",
+          "renewal_signal",
+          "renewal_start_limit_hit",
+          "renewal_timeout",
+          "renewal_watchdog",
+          "timeout",
+          "tls_failure",
+          "too_many_endpoints",
+          "unavailable",
+          "unreadable_input",
+          "untrusted"
+        ]
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "endpoints": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+      }
+    },
+    "minRemainingSeconds": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "consecutiveFailures": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "totalFailures": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "droppedEvents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "stateRecoveries": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  }
+}

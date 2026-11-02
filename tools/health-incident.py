@@ -7,8 +7,10 @@
 Every entry point runs on the fixed Debian operator host under one lock and
 journal. Runs are read through the supported `multica autopilot runs` pages;
 accepted, skipped and failed webhook runs can be reconciled from their
-original payload into an issue fallback with preserved provenance. Missing native
-payloads remain unresolved; protected original bytes can be imported explicitly.
+original payload into an issue fallback with preserved provenance. The normal
+ingest path preserves a current-task-bound, model-forwarded runtime event even
+when native history has no body. Missing input remains unresolved; protected
+original bytes can be imported explicitly for recovery.
 This does not replay webhook admission; isolated native qualification remains required. An incident issue is
 created in backlog with an exact marker, indexed by metadata, read back and
 only then admitted to the coordinator. Uncertain writes are reconciled by
@@ -17,6 +19,7 @@ never close an issue or imply that maintenance is complete.
 """
 
 import argparse
+import base64
 from datetime import datetime, timezone
 import errno
 import fcntl
@@ -65,6 +68,8 @@ MAX_RUN_SECONDS = 120
 LOCK_SECONDS = 120
 JOURNAL_LIMIT = 1024
 CLOSED_INCIDENT_LIMIT = 64
+MAX_EVENT = 65536
+RUNTIME_ORIGIN = "runtime-injected/model-forwarded"
 
 
 class IncidentError(Exception):
@@ -100,12 +105,14 @@ def load_trust(operations_path, config_path):
         raise IncidentError("invalid_configuration")
     native = operations.get("native") if isinstance(operations, dict) else None
     if (not isinstance(native, dict) or operations.get("activation") != "active"
+            or not UUID.fullmatch(str(native.get("workspaceId", "")))
             or not UUID.fullmatch(str(native.get("projectId", "")))
             or not UUID.fullmatch(str(native.get("coordinatorId", "")))):
         raise IncidentError("inactive_operations")
     triggers = config.get("triggers") if isinstance(config, dict) else None
     groups = config.get("serviceGroups") if isinstance(config, dict) else None
     directory = config.get("stateDirectory") if isinstance(config, dict) else None
+    signals = config.get("signalBindings")
     if (config.get("schemaVersion") != SCHEMA or not UUID.fullmatch(str(config.get("autopilotId", "")))
             or not isinstance(triggers, dict) or not triggers
             or not all(UUID.fullmatch(str(key)) and isinstance(value, str) and ID.fullmatch(value)
@@ -114,8 +121,19 @@ def load_trust(operations_path, config_path):
             or not all(isinstance(group, str) and ID.fullmatch(group) for group in groups)
             or not isinstance(directory, str) or not Path(directory).is_absolute()):
         raise IncidentError("invalid_configuration")
-    return {"projectId": native["projectId"], "coordinatorId": native["coordinatorId"],
+    # Legacy configurations remain usable for explicit historical recovery. They
+    # cannot admit runtime input until the operator supplies exact signal bindings.
+    if signals is not None and (not isinstance(signals, dict) or set(signals) != set(triggers)
+            or any(not isinstance(values, list) or not values
+                   or any(value not in ("tls", "renewal") for value in values)
+                   for values in signals.values())):
+        raise IncidentError("invalid_configuration")
+    version = hashlib.sha256(json.dumps({"native": {key: native[key] for key in
+        ("workspaceId", "projectId", "coordinatorId")}, "config": config},
+        sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return {"workspaceId": native["workspaceId"], "projectId": native["projectId"], "coordinatorId": native["coordinatorId"],
             "autopilotId": config["autopilotId"], "triggers": dict(triggers),
+            "signalBindings": signals, "configVersion": {"schemaVersion": SCHEMA, "sha256": version},
             "serviceGroups": set(groups) | {OBSERVER_GROUP}, "stateDirectory": Path(directory)}
 
 
@@ -137,8 +155,10 @@ def multica(*args, stdin=None, cwd=None, timeout=30):
 def validate_event(payload, source):
     if isinstance(payload, str):
         try:
-            payload = json.loads(payload)
-        except ValueError:
+            if len(payload.encode()) > MAX_EVENT:
+                return None
+            payload = strict_json(payload)
+        except (ValueError, RecursionError):
             return None
     if isinstance(payload, dict) and set(payload) <= {"body", "payload"} and len(payload) == 1:
         payload = next(iter(payload.values()))
@@ -150,7 +170,7 @@ def validate_event(payload, source):
                  and UUID.fullmatch(payload["eventId"]) and UUID.fullmatch(payload["episodeId"])
                  and ID.fullmatch(payload["serviceGroup"]) and payload["signal"] in ("tls", "renewal")
                  and payload["kind"] in ("failure", "escalation", "recovery")
-                 and all(type(payload[key]) is int and payload[key] >= 0 for key in integers)
+                 and all(type(payload[key]) is int and 0 <= payload[key] <= 2**53 - 1 for key in integers)
                  and TIME.fullmatch(payload["occurredAt"])
                  and ID.fullmatch(payload["source"])
                  and all(payload[key] is None or TIME.fullmatch(payload[key])
@@ -160,7 +180,8 @@ def validate_event(payload, source):
                          for key, value in payload["errors"].items())
                  and isinstance(payload["endpoints"], list) and len(payload["endpoints"]) <= 32
                  and all(isinstance(item, str) and ID.fullmatch(item) for item in payload["endpoints"])
-                 and (payload["minRemainingSeconds"] is None or type(payload["minRemainingSeconds"]) is int))
+                 and (payload["minRemainingSeconds"] is None or type(payload["minRemainingSeconds"]) is int
+                      and abs(payload["minRemainingSeconds"]) <= 2**53 - 1))
     except TypeError:
         return None
     if valid:
@@ -175,7 +196,24 @@ def validate_event(payload, source):
 
 def empty_journal():
     return {"schemaVersion": SCHEMA, "runs": {}, "events": {}, "incidents": {}, "open": {},
-            "discovery": None}
+            "discovery": None, "runtimeInputs": {}}
+
+
+def canonical_digest(event):
+    return hashlib.sha256(json.dumps(event, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def strict_json(raw):
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError("duplicate key")
+            value[key] = item
+        return value
+    def nonfinite(value):
+        raise ValueError(value)
+    return json.loads(raw, object_pairs_hook=unique, parse_constant=nonfinite)
 
 
 class Reconciler:
@@ -240,15 +278,24 @@ class Reconciler:
         for record in journal["runs"].values():
             if record.get("outcome") == "invalid_payload":
                 record.setdefault("unresolved", "original_payload_unavailable")
+        journal.setdefault("runtimeInputs", {})
+        if not isinstance(journal["runtimeInputs"], dict) or any(
+                not isinstance(item, dict) for item in journal["runtimeInputs"].values()):
+            raise IncidentError("journal_corrupt")
         return journal
 
     def save(self, journal):
-        for name in ("runs", "events"):
+        def pinned(item):
+            event_id = item.get("eventId") or (item.get("payload") or {}).get("eventId")
+            event = journal["events"].get(event_id, {})
+            marker = item.get("marker") or event.get("marker")
+            return (item.get("unresolved") or item.get("pending")
+                    or marker in journal["incidents"] and not journal["incidents"][marker].get("closed")
+                    or event.get("kind") == "recovery" and marker is None)
+        for name in ("runs", "events", "runtimeInputs"):
             if len(journal[name]) > JOURNAL_LIMIT:
                 removable = sorted((key for key, item in journal[name].items()
-                                    if not item.get("unresolved") and not (
-                                        name == "events" and item.get("kind") == "recovery"
-                                        and item.get("marker") is None)),
+                                    if not pinned(item)),
                                    key=lambda key: journal[name][key].get("at", ""))
                 for key in removable[:len(journal[name]) - JOURNAL_LIMIT]:
                     del journal[name][key]
@@ -275,6 +322,142 @@ class Reconciler:
             os.close(directory_fd)
 
     # Native reads ---------------------------------------------------------
+
+    def runtime_binding(self, journal, task_id):
+        """Prove the current task against supported native records, never latest-run selection."""
+        code, reply = self.runner("autopilot", "get", self.trust["autopilotId"])
+        route = reply.get("autopilot") if isinstance(reply, dict) else None
+        expected = {"id": self.trust["autopilotId"], "workspace_id": self.trust.get("workspaceId"),
+                    "project_id": self.trust["projectId"], "assignee_id": self.trust["coordinatorId"],
+                    "assignee_type": "agent", "execution_mode": "run_only"}
+        if (code != 0 or not isinstance(route, dict) or not expected["workspace_id"]
+                or any(route.get(key) != value for key, value in expected.items())
+                or not isinstance(reply.get("triggers"), list)):
+            raise IncidentError("runtime_route_unproven")
+        runs = self.runs(journal)
+        matches = [run for run in runs if run.get("task_id") == task_id]
+        if len(matches) != 1:
+            raise IncidentError("runtime_task_unproven")
+        run = matches[0]
+        triggers = [item for item in reply["triggers"] if isinstance(item, dict)
+                    and item.get("id") == run.get("trigger_id")]
+        if (run.get("autopilot_id") != self.trust["autopilotId"]
+                or run.get("source") != "webhook" or run.get("status") not in ADMITTED
+                or run.get("trigger_id") not in self.trust["triggers"] or len(triggers) != 1
+                or triggers[0].get("autopilot_id") != self.trust["autopilotId"]
+                or triggers[0].get("kind") != "webhook" or triggers[0].get("provider") != "generic"):
+            raise IncidentError("runtime_trigger_unproven")
+        return run
+
+    def runtime_event(self, receipt, run):
+        event = receipt.get("payload")
+        signals = self.trust.get("signalBindings") or {}
+        if (not isinstance(event, dict) or canonical_digest(event) != receipt.get("payloadSha256")
+                or validate_event(event, self.trust["triggers"].get(run.get("trigger_id"))) is None
+                or event["serviceGroup"] not in self.trust["serviceGroups"]
+                or event["signal"] not in signals.get(run.get("trigger_id"), [])):
+            raise IncidentError("runtime_event_untrusted")
+        return event
+
+    def apply_runtime(self, journal, receipt):
+        if receipt.get("configVersion") != self.trust.get("configVersion"):
+            raise IncidentError("runtime_configuration_changed")
+        run = receipt["nativeRun"]
+        event = self.runtime_event(receipt, run)
+        marker = self.process(journal, run, event, RUNTIME_ORIGIN)
+        journal["runs"][run["id"]]["historicalPayload"] = receipt["historicalPayload"]
+        for prior in journal["runtimeInputs"].values():
+            if (prior.get("nativeRun", {}).get("id") == run["id"]
+                    and prior.get("unresolved") == "runtime_input_invalid_or_absent"):
+                prior.update(pending=False, marker=marker, enrichedBy={"origin": RUNTIME_ORIGIN,
+                    "eventId": event["eventId"], "payloadSha256": canonical_digest(event)})
+                prior.pop("unresolved", None)
+        receipt.update(pending=False, marker=marker)
+        receipt.pop("unresolved", None)
+        # Full input and proved native association were fsynced before process;
+        # now persist canonical state before any creation/metadata/admission write.
+        self.save(journal)
+        if marker in journal["incidents"] and not journal["incidents"][marker].get("closed"):
+            self.advance(journal, marker)
+
+    def result(self, journal):
+        report = dict(self.report)
+        report["incidents"] = sorted(report["incidents"].values(), key=lambda item: item["serviceGroup"])
+        report["unresolved"] = [item for item in report["incidents"] if item["phase"] != "admitted"] + self.obligations(journal)
+        report["unresolved"] += [{"issueId": item.get("issueId"), "phase": item["phase"]}
+            for marker, item in journal["incidents"].items() if marker not in self.report["incidents"]
+            and not item.get("closed") and (item["phase"] != "admitted" or item.get("metadataDirty"))]
+        return report
+
+    def ingest(self, raw):
+        """Receive only data on stdin; identity always comes from the runtime environment."""
+        task_id, agent_id = os.environ.get("MULTICA_TASK_ID"), os.environ.get("MULTICA_AGENT_ID")
+        valid_task = isinstance(task_id, str) and UUID.fullmatch(task_id)
+        valid_agent = isinstance(agent_id, str) and UUID.fullmatch(agent_id)
+        digest = hashlib.sha256(raw).hexdigest()
+        key = (task_id if valid_task else "identity-unavailable") + ":" + digest
+        event = None
+        if len(raw) <= MAX_EVENT:
+            try:
+                payload = strict_json(raw)
+                if isinstance(payload, dict):
+                    event = validate_event(payload, payload.get("source"))
+            except (ValueError, UnicodeDecodeError, RecursionError):
+                pass
+        fd = self.lock()
+        try:
+            journal = self.load()
+            receipt = journal["runtimeInputs"].setdefault(key, {
+                "taskId": task_id if valid_task else None, "agentId": agent_id if valid_agent else None,
+                "at": utc(self.wall()), "origin": RUNTIME_ORIGIN, "configVersion": self.trust.get("configVersion"),
+                "rawInputBase64": base64.b64encode(raw[:MAX_EVENT]).decode(), "inputSha256": digest,
+                "inputTruncated": len(raw) > MAX_EVENT, "payload": event,
+                "payloadSha256": canonical_digest(event) if event else None,
+                "pending": True, "unresolved": "runtime_binding_pending"})
+            # The first durable receipt does not wait for a route read or history scan.
+            # No issue side effects are possible if either fsync fails.
+            self.save(journal)
+            try:
+                if not valid_task or not valid_agent or agent_id != self.trust["coordinatorId"]:
+                    raise IncidentError("runtime_identity_unavailable")
+                if receipt.get("taskId") != task_id or receipt.get("agentId") != agent_id:
+                    raise IncidentError("runtime_identity_conflict")
+                run = self.runtime_binding(journal, task_id)
+                receipt["nativeRun"] = {field: run.get(field) for field in
+                    ("id", "autopilot_id", "task_id", "trigger_id", "source", "status", "triggered_at")}
+                receipt["historicalPayload"] = ("absent" if "trigger_payload" not in run else
+                                                 "null" if run["trigger_payload"] is None else "present")
+                if len(raw) > MAX_EVENT:
+                    raise IncidentError("runtime_input_oversized")
+                if not event:
+                    raise IncidentError("runtime_input_invalid_or_absent")
+                self.runtime_event(receipt, run)
+                peers = [item for item in journal["runtimeInputs"].values()
+                         if item.get("taskId") == task_id and item.get("payloadSha256")
+                         and item["payloadSha256"] != receipt["payloadSha256"]]
+                if peers:
+                    for item in peers:
+                        item["unresolved"] = "runtime_digest_conflict"
+                    raise IncidentError("runtime_digest_conflict")
+                historical = run.get("trigger_payload")
+                if historical is not None and validate_event(historical, event["source"]) != event:
+                    raise IncidentError("runtime_historical_payload_conflict")
+                # Only this durable binding can be resumed by a later reconciliation.
+                receipt.update(bindingVerified=True, triggerId=run["trigger_id"])
+                self.save(journal)
+                self.apply_runtime(journal, receipt)
+            except IncidentError as error:
+                receipt["unresolved"] = error.code
+                self.save(journal)
+            report = self.result(journal)
+            report["runtimeReceipt"] = {field: receipt.get(field) for field in
+                ("taskId", "origin", "payloadSha256", "inputSha256", "inputTruncated", "configVersion",
+                 "triggerId", "historicalPayload", "pending", "unresolved")}
+            report["runtimeReceipt"]["runId"] = receipt.get("nativeRun", {}).get("id")
+            return report
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
 
     def runs(self, journal):
         """Read newest-first pages through a previously proved coverage boundary.
@@ -456,8 +639,7 @@ class Reconciler:
         if original_bytes is not None:
             provenance["originalBytesSha256"] = hashlib.sha256(original_bytes.encode()).hexdigest()
         incident["provenance"] = provenance
-        if ("firstProvenance" not in incident
-                or incident["firstProvenance"]["event"]["eventId"] == event["eventId"]):
+        if "firstProvenance" not in incident:
             incident["firstProvenance"] = provenance
         incident.update(eventCount=incident["eventCount"] + int(count), lastEventId=event["eventId"],
                         lastEventAt=max(incident.get("lastEventAt", ""), event["occurredAt"]),
@@ -490,9 +672,8 @@ class Reconciler:
                 previous.update(originalBytes=original_bytes, origin=origin)
                 if run.get("id"):
                     previous.update(runId=run["id"], nativeRun=run, unresolved=record.get("unresolved"))
-                if record["marker"]:
-                    self.attach(journal, record["marker"], previous.get("nativeRun", run), event,
-                                origin, original_bytes, count=False)
+            if record["marker"] in journal["incidents"]:
+                self.attach(journal, record["marker"], run, event, origin, original_bytes, count=False)
             if run.get("id"):
                 journal["runs"][run["id"]] = record
             self.report["duplicates"] += 1
@@ -538,7 +719,7 @@ class Reconciler:
             self.attach(journal, record["marker"], run, event, origin, original_bytes)
         stored = {"runId": run.get("id"), "marker": record["marker"], "kind": event["kind"],
                   "payload": event, "triggerId": run["trigger_id"], "nativeRun": run,
-                  "origin": origin, "at": record["at"]}
+                  "origin": origin, "at": record["at"], "payloadSha256": canonical_digest(event)}
         if original_bytes is not None:
             stored["originalBytes"] = original_bytes
         if run.get("id") is None:
@@ -590,8 +771,8 @@ class Reconciler:
             raise IncidentError("original_event_capacity")
         try:
             original = raw.decode("utf-8")
-            event = validate_event(json.loads(original), self.trust["triggers"][trigger_id])
-        except (ValueError, UnicodeDecodeError):
+            event = validate_event(strict_json(original), self.trust["triggers"][trigger_id])
+        except (ValueError, UnicodeDecodeError, RecursionError):
             event = None
         if event is None or event["serviceGroup"] not in self.trust["serviceGroups"]:
             raise IncidentError("invalid_original_event")
@@ -600,6 +781,9 @@ class Reconciler:
     def obligations(self, journal):
         unresolved = [{"runId": key, "phase": value["unresolved"]}
                       for key, value in journal["runs"].items() if value.get("unresolved")]
+        unresolved += [{"taskId": value.get("taskId"), "phase": value.get("unresolved", "runtime_binding_pending")}
+                       for value in journal.get("runtimeInputs", {}).values()
+                       if value.get("unresolved") or value.get("pending")]
         for key, value in journal["events"].items():
             if value.get("unresolved"):
                 unresolved.append({"eventId": key, "phase": value["unresolved"]})
@@ -614,6 +798,10 @@ class Reconciler:
             original = self.original_event(original_file, trigger_id) if original_file else None
             # Complete discovery before any external mutation; a missing boundary is not success.
             runs = self.runs(journal)
+            for receipt in journal["runtimeInputs"].values():
+                if (receipt.get("pending") and receipt.get("bindingVerified")
+                        and receipt.get("unresolved") == "runtime_binding_pending"):
+                    self.apply_runtime(journal, receipt)
             for marker, incident in list(journal["incidents"].items()):
                 if not incident.get("closed"):
                     self.advance(journal, marker)
@@ -634,22 +822,23 @@ class Reconciler:
                 event = validate_event(run.get("trigger_payload"), self.trust["triggers"][run["trigger_id"]])
                 imported = next((item for item in journal["events"].values()
                                  if item.get("runId") == run["id"]
-                                 and item.get("origin") == "operator_original"), None)
+                                 and item.get("origin") in ("operator_original", RUNTIME_ORIGIN)), None)
                 if imported is not None and event is not None and imported["payload"] != event:
                     raise IncidentError("event_identity_conflict")
                 if event is None and imported is not None:
                     event = imported["payload"]
                 if event is None or event["serviceGroup"] not in self.trust["serviceGroups"]:
                     journal["runs"][run["id"]] = {"outcome": "invalid_payload", "unresolved": "original_payload_unavailable",
-                                                 "nativeRun": snapshot, "at": utc(self.wall())}
+                                                 "nativeRun": snapshot, "at": utc(self.wall()),
+                                                 "historicalPayload": "null" if run.get("trigger_payload") is None else "invalid"}
                     self.report["invalid"] += 1
                     marker = None
                 else:
                     marker = self.process(journal, run, event,
-                                          "operator_original" if imported else "native_payload",
+                                          imported["origin"] if imported else "native_payload",
                                           imported.get("originalBytes") if imported else None)
                 self.save(journal)
-                if marker and not journal["incidents"][marker].get("closed"):
+                if marker in journal["incidents"] and not journal["incidents"][marker].get("closed"):
                     self.advance(journal, marker)
             if original:
                 event, raw = original
@@ -669,19 +858,32 @@ class Reconciler:
                     run = {"id": None, "trigger_id": trigger_id, "source": "operator_original",
                            "status": "unobserved", "task_id": None}
                 marker = self.process(journal, run, event, "operator_original", raw)
+                # Import is recovery/enrichment only. Preserve the absent/malformed
+                # runtime receipt while linking its obligation to the original bytes.
+                for receipt in journal["runtimeInputs"].values():
+                    bound_absence = (receipt.get("nativeRun", {}).get("id") == run.get("id")
+                                     and receipt.get("unresolved") == "runtime_input_invalid_or_absent")
+                    before_binding = (receipt.get("unresolved") == "runtime_binding_pending"
+                                      and not receipt.get("bindingVerified") and run.get("task_id")
+                                      and receipt.get("taskId") == run["task_id"]
+                                      and receipt.get("agentId") == self.trust["coordinatorId"])
+                    if (run.get("id") and (bound_absence or before_binding)
+                            and receipt.get("payload") in (None, event)):
+                        receipt.update(pending=False, recoveredBy={"origin": "operator_original",
+                            "eventId": event["eventId"], "payloadSha256": canonical_digest(event),
+                            "originalBytesSha256": hashlib.sha256(raw.encode()).hexdigest(),
+                            "runId": run["id"]}, marker=marker)
+                        receipt.pop("unresolved", None)
                 self.save(journal)
-                if marker and not journal["incidents"][marker].get("closed"):
+                if marker in journal["incidents"] and not journal["incidents"][marker].get("closed"):
                     self.advance(journal, marker)
             if runs and not pending:
                 journal["discovery"] = {"runId": runs[0]["id"], "triggeredAt": runs[0]["triggered_at"]}
             self.save(journal)
-            obligations = self.obligations(journal)
+            report = self.result(journal)
         finally:
             fcntl.flock(fd, fcntl.LOCK_UN)
             os.close(fd)
-        report = dict(self.report)
-        report["incidents"] = sorted(report["incidents"].values(), key=lambda item: item["serviceGroup"])
-        report["unresolved"] = [item for item in report["incidents"] if item["phase"] != "admitted"] + obligations
         return report
 
 
@@ -738,7 +940,7 @@ def metadata_value(marker, incident):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=("reconcile", "recover", "status"))
+    parser.add_argument("command", choices=("ingest", "reconcile", "recover", "status"))
     parser.add_argument("--operations", type=Path, default=default_operations())
     parser.add_argument("--config", type=Path, default=default_config())
     parser.add_argument("--event-file", type=Path)
@@ -765,6 +967,8 @@ def main(argv=None):
             finally:
                 fcntl.flock(fd, fcntl.LOCK_UN)
                 os.close(fd)
+        elif args.command == "ingest":
+            report = reconciler.ingest(sys.stdin.buffer.read(MAX_EVENT + 1))
         else:
             report = reconciler.reconcile(args.event_file, args.trigger_id, args.run_id)
     except (OSError, ValueError, KeyError, TypeError):
