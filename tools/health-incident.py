@@ -75,6 +75,9 @@ RUNTIME_ORIGIN = "runtime-injected/model-forwarded"
 # Identity, body, binding and configuration conflicts require reconciliation.
 RUNTIME_RETRYABLE = {"runtime_binding_pending", "incident_unreadable",
                      "incident_discovery_incomplete", "reconciliation_deadline"}
+# A fresh lookup attempt cannot revoke or replace a previously saved obligation.
+# Route/body/configuration conflicts are deliberately excluded.
+RUNTIME_LOOKUP_UNAVAILABLE = {"runtime_route_unavailable", "runs_unavailable", "reconciliation_deadline"}
 
 
 class IncidentError(Exception):
@@ -332,15 +335,17 @@ class Reconciler:
     def runtime_binding(self, journal, task_id):
         """Prove the current task against supported native records, never latest-run selection."""
         code, reply = self.runner("autopilot", "get", self.trust["autopilotId"])
-        route = reply.get("autopilot") if isinstance(reply, dict) else None
+        if code != 0 or not isinstance(reply, dict):
+            raise IncidentError("runtime_route_unavailable")
+        route = reply.get("autopilot")
         expected = {"id": self.trust["autopilotId"], "workspace_id": self.trust.get("workspaceId"),
                     "project_id": self.trust["projectId"], "assignee_id": self.trust["coordinatorId"],
                     "assignee_type": "agent", "execution_mode": "run_only"}
-        if (code != 0 or not isinstance(route, dict) or not expected["workspace_id"]
+        if (not isinstance(route, dict) or not expected["workspace_id"]
                 or any(route.get(key) != value for key, value in expected.items())
                 or not isinstance(reply.get("triggers"), list)):
             raise IncidentError("runtime_route_unproven")
-        runs = self.runs(journal)
+        runs = self.runs(journal, current_task=task_id)
         matches = [run for run in runs if run.get("task_id") == task_id]
         if len(matches) != 1:
             raise IncidentError("runtime_task_unproven")
@@ -380,6 +385,7 @@ class Reconciler:
                 prior.pop("unresolved", None)
         receipt.update(pending=False, marker=marker)
         receipt.pop("unresolved", None)
+        receipt.pop("lastAttemptError", None)
         # Full input and proved native association were fsynced before process;
         # now persist canonical state before any creation/metadata/admission write.
         self.save(journal)
@@ -423,12 +429,18 @@ class Reconciler:
             # The first durable receipt does not wait for a route read or history scan.
             # No issue side effects are possible if either fsync fails.
             self.save(journal)
+            looking_up = True
             try:
                 if not valid_task or not valid_agent or agent_id != self.trust["coordinatorId"]:
                     raise IncidentError("runtime_identity_unavailable")
                 if receipt.get("taskId") != task_id or receipt.get("agentId") != agent_id:
                     raise IncidentError("runtime_identity_conflict")
+                if receipt.get("configVersion") != self.trust.get("configVersion"):
+                    raise IncidentError("runtime_configuration_changed")
                 run, runs = self.runtime_binding(journal, task_id)
+                if receipt.get("bindingVerified") and any(receipt["nativeRun"].get(field) != run.get(field)
+                        for field in ("id", "autopilot_id", "task_id", "trigger_id", "source", "triggered_at")):
+                    raise IncidentError("runtime_binding_conflict")
                 receipt["nativeRun"] = {field: run.get(field) for field in
                     ("id", "autopilot_id", "task_id", "trigger_id", "source", "status", "triggered_at")}
                 receipt["historicalPayload"] = ("absent" if "trigger_payload" not in run else
@@ -449,37 +461,48 @@ class Reconciler:
                 if historical is not None and validate_event(historical, event["source"]) != event:
                     raise IncidentError("runtime_historical_payload_conflict")
                 # Only this durable binding can be resumed by a later reconciliation.
-                receipt.update(bindingVerified=True, triggerId=run["trigger_id"])
+                receipt.update(bindingVerified=True, triggerId=run["trigger_id"], unresolved="runtime_binding_pending")
                 self.save(journal)
+                looking_up = False
                 self.apply_runtime(journal, receipt)
                 # The automatic entry point owns incremental discovery too.
                 # Save every intervening run/obligation before advancing coverage.
                 pending = self.reconcile_runs(journal, runs, advanced={receipt.get("marker")})
                 self.checkpoint(journal, runs, pending)
             except IncidentError as error:
-                receipt["unresolved"] = error.code
+                if looking_up and receipt.get("bindingVerified") and error.code in RUNTIME_LOOKUP_UNAVAILABLE:
+                    # Preserve both resumable processing and permanent conflicts.
+                    # This attempt did not establish any new binding authority.
+                    receipt["lastAttemptError"] = error.code
+                else:
+                    receipt["unresolved"] = error.code
+                    receipt.pop("lastAttemptError", None)
                 self.save(journal)
             report = self.result(journal)
             report["runtimeReceipt"] = {field: receipt.get(field) for field in
                 ("taskId", "origin", "payloadSha256", "inputSha256", "inputTruncated", "configVersion",
-                 "triggerId", "historicalPayload", "pending", "unresolved")}
+                 "triggerId", "historicalPayload", "pending", "unresolved", "lastAttemptError")}
             report["runtimeReceipt"]["runId"] = receipt.get("nativeRun", {}).get("id")
             return report
         finally:
             fcntl.flock(fd, fcntl.LOCK_UN)
             os.close(fd)
 
-    def runs(self, journal):
+    def runs(self, journal, current_task=None):
         """Read newest-first pages through a previously proved coverage boundary.
 
         A cursor is committed only after the entire discovered prefix is saved.
         Retained known history can bridge a legacy or stale coverage boundary;
         unknown history beyond the normal window still fails closed.
+        Current-task proof has its own stopping condition: continue past a
+        covered discovery boundary until its actual native page is validated.
         """
         found = []
         boundary = journal.get("discovery")
         previous_time = None
         seen = set()
+        covered = False
+        task_found = current_task is None
         pages = RUN_PAGES if not journal["runs"] else max(RUN_PAGES, (JOURNAL_LIMIT + RUN_PAGE - 1) // RUN_PAGE)
         for page in range(pages):
             code, reply = self.runner("autopilot", "runs", self.trust["autopilotId"], "--limit", str(RUN_PAGE),
@@ -499,16 +522,18 @@ class Reconciler:
                     raise IncidentError("runs_order_unproven")
                 previous_time = at
                 seen.add(run["id"])
+                task_found = task_found or run.get("task_id") == current_task
                 if (boundary is not None and run["id"] == boundary["runId"]
                         and run["triggered_at"] == boundary["triggeredAt"]):
                     reached = True
                 if page >= RUN_PAGES and not reached and run["id"] not in journal["runs"]:
                     raise IncidentError("run_pagination_limit")
             found += rows
-            if reached:
+            covered = covered or reached
+            if covered and task_found:
                 return found
             if len(rows) < RUN_PAGE or reply.get("total") == len(found):
-                if boundary is not None:
+                if boundary is not None and not covered:
                     raise IncidentError("run_boundary_missing")
                 return found
         raise IncidentError("run_pagination_limit")

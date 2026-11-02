@@ -42,6 +42,10 @@ verified receipt with a temporary processing/read error can resume through the
 same helper's reconcile command in a later authorized recovery task without
 copying or replacing that task's identity. Identity/digest/configuration
 conflicts remain blocked for operator reconciliation.
+Same-task reentry keeps the original verified binding and processing obligation
+if a temporary native lookup fails; `lastAttemptError` records that attempt
+separately. Delayed current input may require additional bounded native pages
+past the discovery checkpoint; a retained snapshot alone is insufficient proof.
 Do not retry a webhook, create another issue manually, activate a route or add
 a wakeup/scheduler. A duplicate webhook can return an old run without waking a
 task. Missing or unproved input remains an activation blocker; original-event

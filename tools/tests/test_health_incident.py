@@ -42,6 +42,8 @@ class NativeCLI:
         self.fail_metadata = False
         self.fail_get = False
         self.fail_list = False
+        self.fail_route = False
+        self.fail_run_offsets = set()
         self.no_task = False
         self.all_pages = False
         self.calls = []
@@ -54,9 +56,13 @@ class NativeCLI:
     def __call__(self, *args):
         self.calls.append(args)
         if args[:2] == ('autopilot', 'get'):
+            if self.fail_route:
+                return None, None
             return 0, {'autopilot': self.route, 'triggers': self.triggers}
         if args[:2] == ('autopilot', 'runs'):
             offset = int(args[args.index('--offset') + 1])
+            if offset in self.fail_run_offsets:
+                return None, None
             if self.all_pages:
                 return 0, {'runs': [dict(self.runs[0], id=identifier()) for _ in range(50)], 'total': 501}
             rows = sorted(reversed(self.runs), key=lambda item: item['triggered_at'], reverse=True)
@@ -606,11 +612,101 @@ class RuntimeIngestTests(unittest.TestCase):
         self.assertTrue(receipt['bindingVerified'])
         self.assertFalse(receipt['pending'])
         self.native.fail_list = False
+        self.native.fail_run_offsets = {0}
+        retry = self.ingest(run)['runtimeReceipt']
+        self.assertEqual(retry['unresolved'], 'incident_discovery_incomplete')
+        self.assertEqual(retry['lastAttemptError'], 'runs_unavailable')
+        self.native.fail_run_offsets.clear()
         self.assertFalse(self.reconcile()['unresolved'])
         receipt = next(iter(self.journal()['runtimeInputs'].values()))
         self.assertNotIn('unresolved', receipt)
         self.assertEqual(next(iter(self.journal()['incidents'].values()))['phase'], 'admitted')
         self.assertEqual(next(iter(self.journal()['incidents'].values()))['eventCount'], 1)
+        self.assertEqual(self.native.creates, 1)
+
+    def test_verified_pending_input_survives_same_task_native_lookup_outages(self):
+        self.ingest(self.current_run())
+        event = dict(self.failure, eventId=identifier(), kind='escalation', sequence=2,
+                     consecutiveFailures=12, totalFailures=12)
+        run = self.current_run(event)
+        run['status'] = 'running'
+        raw = json.dumps(event, indent=2).encode()
+        self.native.fail_get = True
+        self.assertEqual(self.ingest(run, raw=raw)['runtimeReceipt']['unresolved'], 'incident_unreadable')
+        self.native.fail_get = False
+        saved = next(row for row in self.journal()['runtimeInputs'].values() if row['taskId'] == run['task_id'])
+        self.assertTrue(saved['bindingVerified'])
+        for failure in ('runs', 'route'):
+            with self.subTest(failure=failure):
+                self.native.fail_run_offsets = {0} if failure == 'runs' else set()
+                self.native.fail_route = failure == 'route'
+                report = self.ingest(run, raw=raw)
+                receipt = next(row for row in self.journal()['runtimeInputs'].values() if row['taskId'] == run['task_id'])
+                self.assertEqual(receipt['unresolved'], 'incident_unreadable')
+                self.assertEqual(report['runtimeReceipt']['lastAttemptError'],
+                                 'runs_unavailable' if failure == 'runs' else 'runtime_route_unavailable')
+                self.assertTrue(receipt['pending'])
+                for field in ('nativeRun', 'payload', 'rawInputBase64', 'payloadSha256', 'configVersion'):
+                    self.assertEqual(receipt[field], saved[field])
+                self.assertNotIn(event['eventId'], self.journal()['events'])
+        self.native.fail_run_offsets.clear()
+        self.native.fail_route = False
+        with mock.patch.dict(incident.os.environ, {'MULTICA_TASK_ID': identifier(),
+                             'MULTICA_AGENT_ID': self.trust['coordinatorId']}):
+            self.assertFalse(self.reconcile()['unresolved'])
+            self.assertFalse(self.reconcile()['unresolved'])
+        receipt = next(row for row in self.journal()['runtimeInputs'].values() if row['taskId'] == run['task_id'])
+        self.assertFalse(receipt['pending'])
+        self.assertNotIn('unresolved', receipt)
+        self.assertNotIn('lastAttemptError', receipt)
+        self.assertEqual(receipt['nativeRun'], saved['nativeRun'])
+        self.assertEqual(next(iter(self.journal()['incidents'].values()))['eventCount'], 2)
+        self.assertEqual(self.native.creates, 1)
+        self.assertEqual(sum(call[:2] == ('issue', 'update') for call in self.native.calls), 1)
+
+    def test_verified_conflicts_survive_subsequent_lookup_outage(self):
+        self.ingest(self.current_run())
+        event = dict(self.failure, eventId=identifier(), kind='escalation', sequence=2)
+        run = self.current_run(event)
+        self.native.fail_get = True
+        self.ingest(run, event)
+        self.native.fail_get = False
+        saved = next(row for row in self.journal()['runtimeInputs'].values() if row['taskId'] == run['task_id'])
+        for field, bad, expected in (
+                ('project_id', identifier(), 'runtime_route_unproven'),
+                ('id', identifier(), 'runtime_binding_conflict')):
+            with self.subTest(field=field):
+                if field == 'id':
+                    # Advance discovery normally before the original run's
+                    # identity changes, so this is a binding conflict, not a gap.
+                    self.ingest(self.current_run())
+                target = self.native.route if field == 'project_id' else run
+                with mock.patch.dict(target, {field: bad}):
+                    self.assertEqual(self.ingest(run, event)['runtimeReceipt']['unresolved'], expected)
+                self.native.fail_run_offsets = {0}
+                report = self.ingest(run, event)
+                self.native.fail_run_offsets.clear()
+                self.assertEqual(report['runtimeReceipt']['unresolved'], expected)
+                with mock.patch.object(incident.Reconciler, 'apply_runtime', side_effect=AssertionError('conflict replayed')):
+                    self.assertTrue(self.reconcile()['unresolved'])
+                receipt = next(row for row in self.journal()['runtimeInputs'].values() if row['taskId'] == run['task_id'])
+                self.assertEqual(receipt['nativeRun'], saved['nativeRun'])
+        # Configuration must be checked even before an unavailable native read.
+        self.trust['configVersion'] = {'schemaVersion': 1, 'sha256': 'b' * 64}
+        self.native.fail_run_offsets = {0}
+        self.assertEqual(self.ingest(run, event)['runtimeReceipt']['unresolved'], 'runtime_configuration_changed')
+        self.native.fail_run_offsets.clear()
+        with mock.patch.object(incident.Reconciler, 'apply_runtime', side_effect=AssertionError('configuration replayed')):
+            self.assertTrue(self.reconcile()['unresolved'])
+        self.trust['configVersion'] = saved['configVersion']
+        changed = dict(event, totalFailures=99)
+        self.assertEqual(self.ingest(run, changed)['runtimeReceipt']['unresolved'], 'runtime_digest_conflict')
+        self.native.fail_run_offsets = {0}
+        self.assertEqual(self.ingest(run, event)['runtimeReceipt']['unresolved'], 'runtime_digest_conflict')
+        self.native.fail_run_offsets.clear()
+        with mock.patch.object(incident.Reconciler, 'apply_runtime', side_effect=AssertionError('digest conflict replayed')):
+            self.assertTrue(self.reconcile()['unresolved'])
+        self.assertNotIn(event['eventId'], self.journal()['events'])
         self.assertEqual(self.native.creates, 1)
 
     def test_verified_identity_and_configuration_conflicts_do_not_replay(self):
@@ -669,6 +765,69 @@ class RuntimeIngestTests(unittest.TestCase):
         self.assertEqual(self.journal()['discovery']['runId'], fresh['id'])
         self.assertIn('original_payload_unavailable', [row['phase'] for row in report['unresolved']])
         self.assertEqual(self.native.creates, 1)
+
+    def test_delayed_current_input_crosses_default_page_without_rewinding_discovery(self):
+        self.ingest(self.current_run())
+        event = dict(self.failure, eventId=identifier(), kind='escalation', sequence=2)
+        delayed = self.current_run(event)
+        delayed.update(status='running', triggered_at=incident.utc(self.now + 1))
+        for index in range(51):
+            newer = self.current_run()
+            newer['triggered_at'] = incident.utc(self.now + 2 + index)
+            self.ingest(newer)
+        before = self.journal()
+        self.assertEqual(before['runs'][delayed['id']]['unresolved'], 'original_payload_unavailable')
+        previous_calls = len(self.native.calls)
+        self.native.fail_get = True
+        self.assertEqual(self.ingest(delayed, event)['runtimeReceipt']['unresolved'], 'incident_unreadable')
+        self.native.fail_get = False
+        self.native.fail_run_offsets = {50}
+        retry = self.ingest(delayed, event)['runtimeReceipt']
+        self.assertEqual(retry['unresolved'], 'incident_unreadable')
+        self.assertEqual(retry['lastAttemptError'], 'runs_unavailable')
+        self.native.fail_run_offsets.clear()
+        with mock.patch.dict(incident.os.environ, {'MULTICA_TASK_ID': identifier(),
+                             'MULTICA_AGENT_ID': self.trust['coordinatorId']}):
+            self.assertFalse(self.reconcile()['unresolved'])
+        self.assertFalse(self.ingest(delayed, event)['unresolved'])
+        journal = self.journal()
+        self.assertEqual(journal['discovery'], before['discovery'])
+        self.assertIn(('autopilot', 'runs', self.trust['autopilotId'], '--limit', '50', '--offset', '50'),
+                      self.native.calls[previous_calls:])
+        receipt = next(row for row in journal['runtimeInputs'].values() if row['taskId'] == delayed['task_id'])
+        self.assertTrue(receipt['bindingVerified'])
+        self.assertEqual(receipt['nativeRun']['id'], delayed['id'])
+        self.assertEqual(receipt['historicalPayload'], 'null')
+        self.assertEqual(receipt['payload'], event)
+        self.assertEqual(journal['events'][event['eventId']]['runId'], delayed['id'])
+        self.assertFalse(self.ingest(delayed, event)['unresolved'])
+        self.assertFalse(self.reconcile()['unresolved'])
+        self.assertEqual(next(iter(self.journal()['incidents'].values()))['eventCount'], 2)
+        self.assertEqual(self.native.creates, 1)
+        self.assertEqual(sum(call[:2] == ('issue', 'update') for call in self.native.calls), 1)
+
+    def test_delayed_current_proof_requires_actual_unique_readable_native_run(self):
+        self.ingest(self.current_run())
+        event = dict(self.failure, eventId=identifier(), kind='escalation', sequence=2)
+        delayed = self.current_run(event)
+        for _ in range(51):
+            self.ingest(self.current_run())
+        before = self.journal()
+        self.assertIn(delayed['id'], before['runs'])
+        self.native.fail_run_offsets = {50}
+        self.assertEqual(self.ingest(delayed, event)['runtimeReceipt']['unresolved'], 'runs_unavailable')
+        self.native.fail_run_offsets.clear()
+        self.native.runs.remove(delayed)
+        self.assertEqual(self.ingest(delayed, event)['runtimeReceipt']['unresolved'], 'runtime_task_unproven')
+        self.native.runs.insert(1, delayed)
+        duplicate = dict(delayed, id=identifier())
+        self.native.runs.insert(1, duplicate)
+        self.assertEqual(self.ingest(delayed, event)['runtimeReceipt']['unresolved'], 'runtime_task_unproven')
+        self.native.runs.remove(duplicate)
+        self.assertNotIn(event['eventId'], self.journal()['events'])
+        self.assertEqual(self.journal()['discovery'], before['discovery'])
+        self.assertEqual(self.native.creates, 1)
+        self.assertFalse(self.ingest(delayed, event)['unresolved'])
 
     def test_bootstrap_inventory_failure_event_and_consumer_share_identifier_contract(self):
         import tls_check

@@ -215,7 +215,11 @@ or creating/admitting another issue.
 After a verified binding is fsynced, `reconcile` resumes its pending receipt
 without the ephemeral carrier. Temporary incident reads, marker discovery or
 processing deadlines retain a retryable obligation, including failures after
-the event was saved but before issue admission. Reconciliation reuses the saved
+the event was saved but before issue admission. If same-task/body reentry hits
+a temporary native route/run lookup outage, `lastAttemptError` records that
+attempt without replacing the saved processing obligation or a permanent
+conflict. A fresh proof cannot replace the original run/task/trigger binding.
+Reconciliation reuses the saved
 verified input and clears that obligation only after processing succeeds;
 identity, digest, historical-body and configuration conflicts are never retried
 as availability failures. Earlier absent/invalid input remains retained
@@ -291,7 +295,12 @@ prefix, saving events or unresolved run obligations before durably recording
 the newest run boundary. Normal automatic ingress maintains this boundary without
 a manual scheduled reconciliation. Later scans stop after the page containing that
 exact boundary; already covered history may grow beyond 500 without stopping new
-incidents. Unknown in-flight runs pin the previous boundary until re-read.
+incidents. Current-task binding has an independent stopping condition: when its
+run predates that boundary page, ingest continues the bounded native scan until
+the actual task association is found. Retained snapshots alone never prove a
+current task. Extra pages do not rewind discovery or reprocess covered history;
+the same ordering, page budget and known-history constraints still apply.
+Unknown in-flight runs pin the previous boundary until re-read.
 Missing/changed boundaries, non-monotone timestamps, duplicate pagination rows
 or more than 500 newly undiscovered records fail closed before issue writes.
 Legacy journals without a boundary, or a stale boundary from an older ingest
