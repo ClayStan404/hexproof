@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 2,
+  "revision": 1,
+  "directoryUrls": [
+    "https://catalog.example.invalid/servers.json"
+  ],
+  "servers": [
+    {
+      "id": "hub-a",
+      "name": "Synthetic hub",
+      "forge": false,
+      "url": "wss://hub.example.invalid/ws"
+    }
+  ]
+}

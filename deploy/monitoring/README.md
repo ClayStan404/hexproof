@@ -3,7 +3,8 @@
 Install optional local recording through the existing release entry point,
 with explicit configured targets and version. Target inventory is operator-owned;
 see [configuration setup](../home/README.md#production-release-upgrades).
-Notification delivery is a separate configuration.
+Notification delivery is a separate configuration. Public TLS and certificate
+renewal alerts use the [external monitoring procedure](../../docs/health-monitoring.md).
 
 ```sh
 HEXPROOF_TARGETS="cloud-a cloud-b" HEXPROOF_VERSION=2.4.0 \
@@ -83,3 +84,11 @@ contains no queue aggregates. Existing private V1 admin statistics must not be
 reported as public V2 outbox monitoring. Check pending publication and native
 recovery separately under the feedback operations procedure. Notification
 delivery remains unconfigured, and a stopped host cannot monitor itself.
+
+## External TLS and certificate renewal
+
+The separate public TLS timer, cloud renewal status hook and bounded native
+alert outbox are described in [the operator procedure](../../docs/health-monitoring.md).
+They preserve this loopback monitor. Public TLS health, certbot success, alert
+transport acceptance, native task admission and maintenance completion are
+separate observations. New units require reviewed activation and private inputs.

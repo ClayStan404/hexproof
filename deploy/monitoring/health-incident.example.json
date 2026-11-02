@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "autopilotId": "00000000-0000-4000-8000-000000000001",
+  "triggers": {
+    "00000000-0000-4000-8000-000000000002": "observer-debian",
+    "00000000-0000-4000-8000-000000000003": "renewal-cloud"
+  },
+  "serviceGroups": [
+    "cloud-a"
+  ],
+  "stateDirectory": "/var/lib/hexproof-health-incident"
+}

@@ -62,7 +62,8 @@ configuration above and its actual activation state:
 > the full local test suite. Follow the draft preparation and evidence checks
 > below, then finish at DRAFT_READY when publishMode=draft-only. When the trusted
 > mode is publish-after-checks, independently assess the final evidence and
-> publish only after every publication gate passes. Use the existing native
+> publish only after every publication gate passes, through the fresh TLS
+> boundary in tools/promote-release.py (never a bare draft promotion). Use the existing native
 > team for repair; do not repeatedly rebuild unchanged candidates. Record exact
 > identities and truthful outcomes in the native task. Never deploy or restart
 > servers, enable feedback intake, overwrite published assets, force-update a
@@ -258,11 +259,25 @@ entry point, explicit targets and occupied-room protection. A missing transition
 or update-readiness result leaves the release at `DRAFT_READY` with a native
 blocker; do not guess readiness or deploy from this task.
 
+The [health monitoring procedure](health-monitoring.md#fresh-release-promotion)
+defines the private independently reviewed readiness receipt and draft snapshot.
+Bind the actual raw `HEXPROOF_PUBLIC_SERVERS_JSON` packaging input digest, every
+intended bootstrap/directory endpoint, exact source/tag/release, notes and assets.
+The wrapper reuses the exact-source qualification engine, checks downloaded
+checksums/attestations and collects fresh complete TLS inside promotion (default
+48h minimum, maximum age 5min). It recomputes remaining lifetime just before
+mutation and reconciles uncertain promotion. Missing private input/qualification
+or failing/stale/incomplete TLS leaves the draft unpublished. Do not reuse a
+previous `check` result to bypass collection in `promote`.
+
 After all gates pass and the trusted publication mode is rechecked, the native
-release agent may run:
+release agent uses the maintained guarded entry point:
 
 ```sh
-gh release edit vX.Y.Z --repo ClayStan404/hexproof --draft=false --latest
+python3 tools/promote-release.py promote --repo "$HEXPROOF_RELEASE_CHECKOUT" \
+  --operations "$HEXPROOF_OPERATIONS_FILE" --inventory "$HEXPROOF_TLS_INVENTORY" \
+  --bootstrap "$HEXPROOF_RELEASE_BOOTSTRAP" --readiness "$HEXPROOF_RELEASE_READINESS" \
+  --assets "$HEXPROOF_RELEASE_ASSETS" --tag vX.Y.Z --release-id "$HEXPROOF_RELEASE_ID"
 ```
 
 Read back the published release and `releases/latest`; require the intended
