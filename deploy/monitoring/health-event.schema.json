@@ -35,11 +35,12 @@
     },
     "source": {
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
     },
     "serviceGroup": {
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+      "description": "observer is reserved for collector/configuration events; external inventory and renewal groups must use another ID.",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
     },
     "signal": {
       "enum": [
@@ -147,7 +148,7 @@
       "maxItems": 32,
       "items": {
         "type": "string",
-        "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+        "pattern": "^[a-z0-9_-]{1,64}$"
       }
     },
     "minRemainingSeconds": {

@@ -11,6 +11,14 @@ completion. No game binary, game unit, DNS rule or renewal command is changed.
 Schema-1 inventory maps unique endpoint `id` to HTTPS/WSS `origin` and
 `serviceGroup`; see the synthetic `health-inventory.example.json` and matching
 `health-bootstrap.example.json`. Keep real inventory outside Git, mode 0600.
+Endpoint IDs follow the packaging bootstrap contract: 1–64 lowercase ASCII
+letters, digits, underscores or hyphens, including a leading underscore/hyphen.
+Source and service-group IDs require a leading letter/digit followed by up to
+63 letters, digits, underscores or hyphens. The external inventory, renewal
+configuration and incident `serviceGroups` list must not use `observer`: that
+group is reserved for collector/configuration failure and recovery events and
+is automatically trusted by the incident consumer. Its events remain valid in
+the event schema. This keeps an endpoint failure separate from collector health.
 The bootstrap is the **actual raw release input** supplied as
 `HEXPROOF_PUBLIC_SERVERS_JSON` to `tools/write-server-directory.py`, not the
 tracked client example or a fetched catalog. `bootstrapSha256` hashes those
@@ -205,7 +213,12 @@ provenance; changed event/run identity or digest fails closed without recounting
 or creating/admitting another issue.
 
 After a verified binding is fsynced, `reconcile` resumes its pending receipt
-without the ephemeral carrier. Earlier absent/invalid input remains retained
+without the ephemeral carrier. Temporary incident reads, marker discovery or
+processing deadlines retain a retryable obligation, including failures after
+the event was saved but before issue admission. Reconciliation reuses the saved
+verified input and clears that obligation only after processing succeeds;
+identity, digest, historical-body and configuration conflicts are never retried
+as availability failures. Earlier absent/invalid input remains retained
 and may be enriched by a later complete input in that same actual task. Before
 binding is saved, rerun ingest only in that same current task; another task
 cannot adopt its identity. A crash before first fsync can lose the sole received
@@ -273,15 +286,18 @@ behavior but **do not qualify live native admission**. Lack of an isolated
 qualification target or required CLI readback is an explicit activation gap.
 
 Discovery reads newest-first native pages up to 500 runs/2000 issues and 120s.
-After a complete scan it durably records the newest run boundary only after all
-discovered records are saved. Later scans stop after the page containing that
+Both normal `ingest` and explicit `reconcile` process the complete discovered
+prefix, saving events or unresolved run obligations before durably recording
+the newest run boundary. Normal automatic ingress maintains this boundary without
+a manual scheduled reconciliation. Later scans stop after the page containing that
 exact boundary; already covered history may grow beyond 500 without stopping new
 incidents. Unknown in-flight runs pin the previous boundary until re-read.
 Missing/changed boundaries, non-monotone timestamps, duplicate pagination rows
 or more than 500 newly undiscovered records fail closed before issue writes.
-Legacy journals without a boundary have a one-time scan of at most the 1024
-retained runs (rounded up to whole pages); records beyond the normal 500 window
-must already be proved processed in that journal. This migration does not permit
+Legacy journals without a boundary, or a stale boundary from an older ingest
+version, may scan up to the 1024 retained runs (rounded up to whole pages);
+records beyond the normal 500 window must already be saved in that journal.
+This bridge does not permit
 a missed unknown history window. Null-payload obligations are stored independently
 of discovery progress, so a coverage boundary never means incident admission.
 A marker conflict stops reconciliation. Uncertain creation first reads all marker
@@ -294,8 +310,8 @@ native/local evidence. Runs/events retain 1024 records, closed incidents 64,
 incidents 128, episodes 32 per incident, journal 2 MiB. Runtime receipts have the
 same 1024-record bound. Pending/unresolved inputs, active incident event/run
 provenance, unmatched recovery and unresolved provenance records are pinned rather than
-silently evicted; exceeding their bounds fails closed. Reconcile before more
-than 500 new runs accumulate; a genuine coverage gap or capacity refusal requires
+silently evicted; exceeding their bounds fails closed. A paused/failed ingress
+must be reconciled before more than 500 unknown runs accumulate; a genuine coverage gap or capacity refusal requires
 operator maintenance of the preserved evidence, not a cursor reset. This lock provides local serialization, not server uniqueness or
 cross-host CAS. Maintenance completion requires actual repair evidence.
 

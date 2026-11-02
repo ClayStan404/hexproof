@@ -34,6 +34,8 @@ MAX_OUTPUT = 64 * 1024
 MAX_INPUT = 64 * 1024
 DEFAULT_FLOOR_HOURS = 48
 ID = re.compile(r"[a-z0-9][a-z0-9_-]{0,63}")
+ENDPOINT_ID = re.compile(r"[a-z0-9_-]{1,64}")
+OBSERVER_GROUP = "observer"
 HEX64 = re.compile(r"[0-9a-f]{64}")
 HOST = re.compile(r"(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*")
 ERRORS = ("dns_failure", "dns_timeout", "connect_failure", "timeout", "untrusted",
@@ -67,10 +69,17 @@ def parse_utc(value):
     return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
 
 
-def sanitized_id(value):
-    if not isinstance(value, str) or not ID.fullmatch(value):
+def sanitized_id(value, pattern=ID):
+    if not isinstance(value, str) or not pattern.fullmatch(value):
         raise ConfigError("invalid_id")
     return value
+
+
+def service_group(value):
+    group = sanitized_id(value)
+    if group == OBSERVER_GROUP:
+        raise ConfigError("invalid_id")
+    return group
 
 
 def origin(value, allow_path=False):
@@ -119,7 +128,7 @@ def bootstrap_origins(data):
     for server in document["servers"]:
         if not isinstance(server, dict):
             raise ConfigError("invalid_bootstrap")
-        identifier = sanitized_id(server.get("id"))
+        identifier = sanitized_id(server.get("id"), ENDPOINT_ID)
         if identifier in servers:
             raise ConfigError("duplicate_bootstrap_id")
         normalized = origin(server.get("url"), allow_path=True)[0]
@@ -162,13 +171,13 @@ def load_inventory(config_data, bootstrap_data):
     for entry in entries:
         if not isinstance(entry, dict) or set(entry) != {"id", "origin", "serviceGroup"}:
             raise ConfigError("invalid_endpoint")
-        identifier = sanitized_id(entry["id"])
+        identifier = sanitized_id(entry["id"], ENDPOINT_ID)
         if identifier in seen:
             raise ConfigError("duplicate_id")
         seen.add(identifier)
         normalized, host, port = origin(entry["origin"])
         endpoints.append({"id": identifier, "origin": normalized, "host": host, "port": port,
-                          "serviceGroup": sanitized_id(entry["serviceGroup"])})
+                          "serviceGroup": service_group(entry["serviceGroup"])})
     required, servers = bootstrap_origins(bootstrap_data)
     mapping = {item["id"]: item["origin"] for item in endpoints}
     if (not required <= set(mapping.values())

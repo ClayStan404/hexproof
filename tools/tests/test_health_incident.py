@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 import importlib.util
 import json
 from pathlib import Path
+import re
 import sys
 import tempfile
 import time
@@ -39,6 +40,8 @@ class NativeCLI:
         self.creates = 0
         self.lost_create = False
         self.fail_metadata = False
+        self.fail_get = False
+        self.fail_list = False
         self.no_task = False
         self.all_pages = False
         self.calls = []
@@ -59,6 +62,8 @@ class NativeCLI:
             rows = sorted(reversed(self.runs), key=lambda item: item['triggered_at'], reverse=True)
             return 0, {'runs': rows[offset:offset + 50], 'total': len(rows)}
         if args[:2] == ('issue', 'list'):
+            if self.fail_list:
+                return None, None
             offset = int(args[args.index('--offset') + 1])
             rows = list(self.issues.values())[offset:offset + 100]
             return 0, {'issues': rows, 'has_more': len(self.issues) > offset + 100}
@@ -76,6 +81,8 @@ class NativeCLI:
                 self.metadata[args[3]] = args[args.index('--value') + 1]
             return None, None  # Even a lost response is reconciled by exact readback.
         if args[:2] == ('issue', 'get'):
+            if self.fail_get:
+                return None, None
             return 0, self.issues[args[2]]
         if args[:2] == ('issue', 'update'):
             self.issues[args[2]].update(status='todo', assignee_id=self.trust['coordinatorId'])
@@ -566,6 +573,145 @@ class RuntimeIngestTests(unittest.TestCase):
         self.assertFalse(self.reconcile()['unresolved'])
         self.assertEqual(self.native.creates, 1)
 
+    def test_transient_issue_read_resumes_verified_input_from_another_task(self):
+        self.ingest(self.current_run())
+        event = dict(self.failure, eventId=identifier(), kind='escalation', sequence=2,
+                     consecutiveFailures=12, totalFailures=12)
+        run = self.current_run(event)
+        self.native.fail_get = True
+        report = self.ingest(run, event)
+        self.assertIn('incident_unreadable', [row['phase'] for row in report['unresolved']])
+        receipt = next(row for row in self.journal()['runtimeInputs'].values() if row['taskId'] == run['task_id'])
+        self.assertTrue(receipt['bindingVerified'])
+        self.assertTrue(receipt['pending'])
+        self.assertEqual(receipt['payload'], event)
+        self.native.fail_get = False
+        with mock.patch.dict(incident.os.environ, {'MULTICA_TASK_ID': identifier(),
+                             'MULTICA_AGENT_ID': self.trust['coordinatorId']}):
+            self.assertFalse(self.reconcile()['unresolved'])
+        receipt = next(row for row in self.journal()['runtimeInputs'].values() if row['taskId'] == run['task_id'])
+        self.assertFalse(receipt['pending'])
+        self.assertNotIn('unresolved', receipt)
+        self.assertIn(event['eventId'], self.journal()['events'])
+        self.assertEqual(next(iter(self.journal()['incidents'].values()))['eventCount'], 2)
+        self.assertEqual(self.native.creates, 1)
+        self.assertFalse(self.reconcile()['unresolved'])
+
+    def test_transient_discovery_clears_processed_receipt_obligation_after_restart(self):
+        run = self.current_run()
+        self.native.fail_list = True
+        report = self.ingest(run)
+        self.assertIn('incident_discovery_incomplete', [row['phase'] for row in report['unresolved']])
+        receipt = next(iter(self.journal()['runtimeInputs'].values()))
+        self.assertTrue(receipt['bindingVerified'])
+        self.assertFalse(receipt['pending'])
+        self.native.fail_list = False
+        self.assertFalse(self.reconcile()['unresolved'])
+        receipt = next(iter(self.journal()['runtimeInputs'].values()))
+        self.assertNotIn('unresolved', receipt)
+        self.assertEqual(next(iter(self.journal()['incidents'].values()))['phase'], 'admitted')
+        self.assertEqual(next(iter(self.journal()['incidents'].values()))['eventCount'], 1)
+        self.assertEqual(self.native.creates, 1)
+
+    def test_verified_identity_and_configuration_conflicts_do_not_replay(self):
+        self.ingest(self.current_run())
+        conflict = dict(self.failure, totalFailures=99)
+        report = self.ingest(self.current_run(conflict), conflict)
+        self.assertIn('event_identity_conflict', [row['phase'] for row in report['unresolved']])
+        with mock.patch.object(incident.Reconciler, 'apply_runtime', side_effect=AssertionError('conflict replayed')):
+            self.assertTrue(self.reconcile()['unresolved'])
+        event = dict(self.failure, eventId=identifier(), kind='escalation', sequence=2)
+        self.native.fail_get = True
+        self.ingest(self.current_run(event), event)
+        self.native.fail_get = False
+        self.trust['configVersion'] = {'schemaVersion': 1, 'sha256': 'b' * 64}
+        with self.assertRaisesRegex(incident.IncidentError, 'runtime_configuration_changed'):
+            self.reconcile()
+        with mock.patch.object(incident.Reconciler, 'apply_runtime', side_effect=AssertionError('configuration replayed')):
+            self.assertTrue(self.reconcile()['unresolved'])
+        self.assertEqual(next(iter(self.journal()['incidents'].values()))['eventCount'], 1)
+        self.assertEqual(self.native.creates, 1)
+
+    def test_continuous_automatic_ingest_crosses_default_discovery_window(self):
+        for _ in range(incident.RUN_PAGE * incident.RUN_PAGES + 1):
+            run = self.current_run()
+            self.assertFalse(self.ingest(run)['unresolved'])
+            self.assertIsNotNone(self.journal()['discovery'])
+            self.assertEqual(self.journal()['discovery']['runId'], run['id'])
+        event = dict(self.failure, eventId=identifier(), kind='escalation', sequence=2)
+        fresh = self.current_run(event)
+        self.assertFalse(self.ingest(fresh, event)['unresolved'])
+        journal = self.journal()
+        self.assertEqual(journal['discovery']['runId'], fresh['id'])
+        self.assertEqual(len(journal['runs']), len(self.native.runs))
+        self.assertEqual(next(iter(journal['incidents'].values()))['eventCount'], 2)
+        self.assertIn(event['eventId'], journal['events'])
+        self.assertEqual(self.native.creates, 1)
+        self.assertFalse(self.reconcile()['unresolved'])
+
+    def test_automatic_discovery_retains_unknown_history_and_pins_inflight_run(self):
+        first = self.current_run()
+        self.ingest(first)
+        boundary = self.journal()['discovery']
+        pending = self.run_for(self.failure, 'pending')
+        missing = self.current_run()
+        fresh = self.current_run()
+        report = self.ingest(fresh)
+        phases = [row['phase'] for row in report['unresolved']]
+        self.assertIn('native_pending', phases)
+        self.assertIn('original_payload_unavailable', phases)
+        journal = self.journal()
+        self.assertEqual(journal['discovery'], boundary)
+        self.assertEqual(journal['runs'][missing['id']]['unresolved'], 'original_payload_unavailable')
+        pending.update(status='failed')
+        report = self.ingest(fresh)
+        self.assertNotIn('native_pending', [row['phase'] for row in report['unresolved']])
+        self.assertEqual(self.journal()['discovery']['runId'], fresh['id'])
+        self.assertIn('original_payload_unavailable', [row['phase'] for row in report['unresolved']])
+        self.assertEqual(self.native.creates, 1)
+
+    def test_bootstrap_inventory_failure_event_and_consumer_share_identifier_contract(self):
+        import tls_check
+        spec = importlib.util.spec_from_file_location('write_directory', ROOT / 'tools/write-server-directory.py')
+        writer = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(writer)
+        schema = json.loads((ROOT / 'deploy/monitoring/health-event.schema.json').read_text())
+        endpoint_pattern = schema['properties']['endpoints']['items']['pattern']
+        for name in ('hub_a', 'a' * 64, '_hub', '-hub'):
+            with self.subTest(name=name):
+                document = {'schemaVersion': 2, 'revision': 1, 'directoryUrls': [],
+                            'servers': [{'id': name, 'name': 'Fixture hub', 'forge': False,
+                                         'url': 'wss://hub.invalid/ws'}]}
+                writer.validate_directory(document)
+                bootstrap = json.dumps(document).encode()
+                config = {'schemaVersion': 1, 'bootstrapSha256': hashlib.sha256(bootstrap).hexdigest(),
+                          'endpoints': [{'id': name, 'origin': 'wss://hub.invalid', 'serviceGroup': 'cloud_a'}]}
+                selected = tls_check.load_inventory(json.dumps(config).encode(), bootstrap)
+                evidence = {'endpoints': [dict(row, result='fail', error='expired', remainingSeconds=-1)
+                                          for row in selected['endpoints']]}
+                event = health_alerts.observe_tls(health_alerts.empty_state(), self.now,
+                                                 'observer-debian', evidence)[0]
+                self.assertEqual(event['endpoints'], [name])
+                self.assertIsNotNone(re.fullmatch(endpoint_pattern, name))
+                self.assertEqual(incident.validate_event(event, 'observer-debian'), event)
+                self.trust['serviceGroups'].add('cloud_a')
+                self.assertFalse(self.ingest(self.current_run(event), event)['unresolved'])
+                self.assertIn(event['eventId'], self.journal()['events'])
+        self.assertEqual(self.native.creates, 1)
+        for name in ('', 'a' * 65, 'hub/a', 'Hub', 'hub\n'):
+            with self.subTest(invalid=name):
+                self.assertIsNone(re.fullmatch(endpoint_pattern, name))
+                self.assertIsNone(incident.validate_event(dict(self.failure, endpoints=[name]), 'observer-debian'))
+                with self.assertRaises(tls_check.ConfigError):
+                    tls_check.sanitized_id(name, tls_check.ENDPOINT_ID)
+        for field in ('source', 'serviceGroup'):
+            pattern = schema['properties'][field]['pattern']
+            for name in ('cloud_a', 'a' * 64):
+                event = dict(self.failure, **{field: name})
+                self.assertIsNotNone(re.fullmatch(pattern, name))
+                self.assertIsNotNone(incident.validate_event(event, event['source']))
+            self.assertIsNone(incident.validate_event(dict(self.failure, **{field: 'a' * 65}), 'observer-debian'))
+
     def test_crash_before_receipt_retains_null_obligation_and_original_recovery(self):
         run = self.current_run()
         with mock.patch.object(incident.os, 'fsync', side_effect=OSError('before persist')):
@@ -646,6 +792,13 @@ class RuntimeIngestTests(unittest.TestCase):
         loaded = incident.load_trust(ops_path, conf_path)
         self.assertNotEqual(loaded['configVersion'], legacy['configVersion'])
         self.assertEqual(incident.Reconciler(loaded, runner=self.native).runtime_event(receipt, run), self.failure)
+        self.assertIn('observer', loaded['serviceGroups'])
+        config['serviceGroups'] = ['observer']
+        conf_path.write_text(json.dumps(config))
+        with self.assertRaisesRegex(incident.IncidentError, 'invalid_configuration'):
+            incident.load_trust(ops_path, conf_path)
+        config['serviceGroups'] = ['cloud-a']
+        conf_path.write_text(json.dumps(config))
         operations['native'].pop('workspaceId')
         ops_path.write_text(json.dumps(operations))
         with self.assertRaisesRegex(incident.IncidentError, 'inactive_operations'):

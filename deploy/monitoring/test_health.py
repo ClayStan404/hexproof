@@ -240,13 +240,63 @@ class AlertTests(unittest.TestCase):
         self.capability.write_text('https://notify.invalid/capability-secret')
         self.capability.chmod(0o600)
 
-    def fail(self, signal='tls', group='cloud-a'):
+    def observe_failure(self, signal='tls', group='cloud-a'):
         return alerts.observe(self.state, self.now, 'observer-debian', group, signal, False, {'timeout': 1})
 
+    def test_reserved_observer_group_reports_config_failure_and_never_recovers_endpoint_failure(self):
+        _, config, bootstrap = inventory('hub.invalid', 443)
+        config['endpoints'][0]['serviceGroup'] = 'observer'
+        config_path, bootstrap_path = self.root / 'inventory.json', self.root / 'bootstrap.json'
+        config_path.write_text(json.dumps(config))
+        bootstrap_path.write_bytes(bootstrap)
+        args = argparse.Namespace(config=config_path, bootstrap=bootstrap_path, state=self.root / 'state',
+                                  source='observer-debian', webhook_file=None)
+        with self.assertRaisesRegex(tls.ConfigError, 'invalid_id'):
+            tls.load_inventory(config_path.read_bytes(), bootstrap)
+        def expired(selected):
+            return {'collectedAt': tls.utc(self.now), 'completedAt': tls.utc(self.now), 'result': 'fail',
+                    'counts': {'endpoints': 1, 'identities': 1, 'passed': 0, 'failed': 1},
+                    'inventorySha256': selected['inventorySha256'],
+                    'endpoints': [dict(row, result='fail', error='expired', remainingSeconds=-1)
+                                  for row in selected['endpoints']]}
+        with patch.object(alerts, 'deliver', return_value=0), redirect_stdout(io.StringIO()):
+            for sample in range(2):
+                self.assertEqual(alerts.run_tls(args, wall=lambda: self.now + sample, collector=expired), 2)
+            state = json.loads((args.state / 'state.json').read_text())
+            observer_episode = state['signals']['observer/tls']['episodeId']
+            self.assertEqual([entry['event']['kind'] for entry in state['outbox']], ['failure'])
+            self.assertEqual(state['signals']['observer/tls']['consecutiveFailures'], 2)
+            self.assertEqual(state['outbox'][0]['event']['errors'], {'invalid_id': 1})
+            config['endpoints'][0]['serviceGroup'] = 'cloud-a'
+            config_path.write_text(json.dumps(config))
+            for sample in range(2):
+                self.assertEqual(alerts.run_tls(args, wall=lambda: self.now + 2 + sample, collector=expired), 2)
+        state = json.loads((args.state / 'state.json').read_text())
+        events = [entry['event'] for entry in state['outbox']]
+        endpoint_events = [event for event in events if event['serviceGroup'] == 'cloud-a']
+        self.assertEqual([event['kind'] for event in endpoint_events], ['failure'])
+        self.assertEqual(state['signals']['cloud-a/tls']['episodeId'], endpoint_events[0]['episodeId'])
+        self.assertEqual(state['signals']['cloud-a/tls']['consecutiveFailures'], 2)
+        self.assertEqual(alerts.summary(state)['failing'], ['cloud-a/tls'])
+        observer_recovery = next(event for event in events if event['kind'] == 'recovery')
+        self.assertEqual(observer_recovery['serviceGroup'], 'observer')
+        self.assertEqual(observer_recovery['episodeId'], observer_episode)
+
+    def test_reserved_observer_group_cannot_enter_renewal_configuration(self):
+        config = self.root / 'renewal.json'
+        config.write_text(json.dumps({'schemaVersion': 1, 'serviceGroup': 'observer'}))
+        args = argparse.Namespace(config=config, state=self.root / 'state', source='renewal-cloud', webhook_file=None)
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(alerts.run_renewal(args, {'INVOCATION_ID': 'a' * 32,
+                             'SERVICE_RESULT': 'exit-code', 'EXIT_CODE': 'exited', 'EXIT_STATUS': '1'}), 0)
+        self.assertEqual(json.loads(output.getvalue()), {'error': 'invalid_id'})
+        self.assertFalse(args.state.exists())
+
     def test_repeated_renewal_failures_are_counted_and_recovery_retains_episode_evidence(self):
-        first = self.fail('renewal')
+        first = self.observe_failure('renewal')
         for _ in range(15):
-            self.fail('renewal')
+            self.observe_failure('renewal')
         self.assertEqual(len(self.state['outbox']), 4)  # first + 2/4/8 escalation
         event = alerts.observe(self.state, self.now + 1, 'observer-debian', 'cloud-a', 'renewal', True)
         self.assertEqual(event['consecutiveFailures'], 16)
@@ -298,7 +348,7 @@ class AlertTests(unittest.TestCase):
             self.assertEqual(store.path.read_text(), '{corrupt')
 
     def test_outbox_capacity_and_immutable_event_retries_exhaustion_and_skipped_admission(self):
-        self.fail()
+        self.observe_failure()
         original = json.dumps(self.state['outbox'][0]['event'], sort_keys=True)
         attempted = []
         def sender(url, event, timeout):
@@ -320,16 +370,16 @@ class AlertTests(unittest.TestCase):
         # Backlog never grows without limit and overflow remains visible.
         self.state = alerts.empty_state()
         for number in range(alerts.OUTBOX_LIMIT + 5):
-            self.fail(group='cloud-a')
+            self.observe_failure(group='cloud-a')
             alerts.observe(self.state, self.now + number + 1, 'observer-debian', 'cloud-a', 'tls', True)
         self.assertEqual(len(self.state['outbox']), alerts.OUTBOX_LIMIT)
         self.assertGreater(self.state['counters']['droppedEvents'], 0)
         self.assertTrue(self.state['transport']['degraded'])
 
     def test_unrelated_accepted_delivery_and_healthy_sample_cannot_clear_exhausted_or_skipped(self):
-        self.fail()
+        self.observe_failure()
         self.state['outbox'][0].update(status='exhausted', attempts=alerts.MAX_ATTEMPTS, lastError='timeout')
-        self.fail(group='cloud-b')
+        self.observe_failure(group='cloud-b')
         with alerts.Store(self.root / 'mixed') as store:
             alerts.deliver(store, self.state, self.capability,
                            sender=lambda *args: ('accepted', '12345678-1234-1234-1234-123456789abc'),
@@ -337,11 +387,11 @@ class AlertTests(unittest.TestCase):
             self.assertTrue(self.state['transport']['degraded'])
             self.assertTrue(alerts.summary(self.state)['transportDegraded'])
             self.state['outbox'].clear()
-            self.fail(group='cloud-c')
+            self.observe_failure(group='cloud-c')
             alerts.deliver(store, self.state, self.capability,
                            sender=lambda *args: ('skipped', '12345678-1234-1234-1234-123456789abc'),
                            wall=lambda: self.now)
-            self.fail(group='cloud-d')
+            self.observe_failure(group='cloud-d')
             alerts.deliver(store, self.state, self.capability,
                            sender=lambda *args: ('accepted', '12345678-1234-1234-1234-123456789abc'),
                            wall=lambda: self.now)
@@ -354,7 +404,7 @@ class AlertTests(unittest.TestCase):
             self.assertTrue(alerts.summary(reloaded)['transportDegraded'])
 
     def test_lost_response_duplicate_preserves_original_run_and_stays_unconfirmed(self):
-        event = self.fail()
+        event = self.observe_failure()
         original = json.dumps(event, sort_keys=True, separators=(',', ':')).encode()
         requests = []
         replies = [None, {'status': 'duplicate',
@@ -397,12 +447,12 @@ class AlertTests(unittest.TestCase):
         events = []
         with alerts.Store(self.root / 'pinned') as store:
             for index in range(alerts.HISTORY_LIMIT + 3):
-                event = self.fail(group='cloud-' + str(index))
+                event = self.observe_failure(group='cloud-' + str(index))
                 events.append(event['eventId'])
                 alerts.deliver(store, self.state, self.capability,
                                sender=lambda *args: ('duplicate', '12345678-1234-1234-1234-123456789abc'),
                                wall=lambda: self.now)
-            self.fail(group='cloud-extra')
+            self.observe_failure(group='cloud-extra')
             alerts.deliver(store, self.state, self.capability,
                            sender=lambda *args: ('accepted', '12345678-1234-1234-1234-123456789abd'),
                            wall=lambda: self.now)
@@ -417,7 +467,7 @@ class AlertTests(unittest.TestCase):
         self.assertTrue(alerts.summary(reloaded)['transportDegraded'])
 
     def test_paused_or_unsupported_response_keeps_original_event_without_inventing_run(self):
-        event = self.fail()
+        event = self.observe_failure()
         with alerts.Store(self.root / 'rejected') as store:
             alerts.deliver(store, self.state, self.capability,
                            sender=lambda *args: ('invalid_response', None), wall=lambda: self.now)
@@ -429,7 +479,7 @@ class AlertTests(unittest.TestCase):
         self.assertTrue(alerts.summary(reloaded)['transportDegraded'])
 
     def test_sender_reuses_exact_body_key_and_redacts_transport_errors(self):
-        event = self.fail()
+        event = self.observe_failure()
         requests = []
         class Response:
             def __enter__(self):

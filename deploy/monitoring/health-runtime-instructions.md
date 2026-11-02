@@ -36,6 +36,12 @@ Collect the foreground result. Exit 0 requires no unresolved obligations; exit
 2 means unresolved work, and exit 1 means a hard error. Report the actual code
 and bounded helper JSON; never treat model completion or a webhook HTTP 200 as
 delivery. Keep the input file until journal readback confirms the full receipt.
+Normal ingest also saves the discovered run prefix and advances its coverage
+boundary; it does not require a separate scheduled reconciliation. A saved,
+verified receipt with a temporary processing/read error can resume through the
+same helper's reconcile command in a later authorized recovery task without
+copying or replacing that task's identity. Identity/digest/configuration
+conflicts remain blocked for operator reconciliation.
 Do not retry a webhook, create another issue manually, activate a route or add
 a wakeup/scheduler. A duplicate webhook can return an old run without waking a
 task. Missing or unproved input remains an activation blocker; original-event

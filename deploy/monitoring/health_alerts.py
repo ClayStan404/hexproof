@@ -36,7 +36,7 @@ import tls_check  # noqa: E402
 
 SCHEMA = 1
 EVENT_SCHEMA = "hexproof.health-alert.v1"
-OBSERVER_GROUP = "observer"
+OBSERVER_GROUP = tls_check.OBSERVER_GROUP
 # Consecutive failed observations that trigger the bounded escalations: about
 # 1h/6h/24h for the 5-minute TLS timer and 12h/24h/48h for 6-hour renewal.
 ESCALATE = {"tls": (12, 72, 288), "renewal": (2, 4, 8)}
@@ -529,7 +529,7 @@ def run_renewal(args, environ=os.environ, wall=time.time, sender=post):
         config = json.loads(Path(args.config).read_text(encoding="utf-8"))
         if not isinstance(config, dict) or config.get("schemaVersion") != SCHEMA:
             raise AlertError("invalid_config")
-        group = tls_check.sanitized_id(config.get("serviceGroup"))
+        group = tls_check.service_group(config.get("serviceGroup"))
         invocation, ok, failure = renewal_outcome(environ)
         now = wall()
         with Store(args.state) as store:
