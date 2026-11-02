@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+[Unit]
+Description=Deliver durable cloud certificate renewal alerts
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+StateDirectory=hexproof-health-cloud
+StateDirectoryMode=0700
+LoadCredential=webhook-url:/etc/hexproof-health/webhook-url
+ExecStart=/usr/bin/python3 /usr/local/lib/hexproof-health/health_alerts.py deliver --state /var/lib/hexproof-health-cloud
+TimeoutStartSec=55
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=128M
+TasksMax=16

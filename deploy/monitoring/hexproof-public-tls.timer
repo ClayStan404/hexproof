@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+[Unit]
+Description=Observe public TLS every five minutes
+
+[Timer]
+OnBootSec=45s
+OnUnitInactiveSec=5min
+AccuracySec=5s
+Persistent=yes
+Unit=hexproof-public-tls.service
+
+[Install]
+WantedBy=timers.target

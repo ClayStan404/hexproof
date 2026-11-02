@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+[Unit]
+Description=Retry due renewal alert transport with bounded backoff
+
+[Timer]
+OnBootSec=60s
+OnUnitInactiveSec=1min
+AccuracySec=5s
+Unit=hexproof-health-send.service
+
+[Install]
+WantedBy=timers.target

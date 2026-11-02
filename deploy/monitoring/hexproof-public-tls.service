@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Hexproof contributors
+[Unit]
+Description=Observe intended public Hexproof TLS identities from Debian
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+DynamicUser=yes
+StateDirectory=hexproof-health-observer
+StateDirectoryMode=0700
+LoadCredential=inventory.json:/etc/hexproof-health/inventory.json
+LoadCredential=bootstrap.json:/etc/hexproof-health/bootstrap.json
+LoadCredential=webhook-url:/etc/hexproof-health/webhook-url
+ExecStart=/usr/bin/python3 /usr/local/lib/hexproof-health/health_alerts.py tls --source observer-debian --config %d/inventory.json --bootstrap %d/bootstrap.json --state /var/lib/hexproof-health-observer
+SuccessExitStatus=2
+TimeoutStartSec=115
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=128M
+TasksMax=16

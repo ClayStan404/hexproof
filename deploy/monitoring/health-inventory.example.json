@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "bootstrapSha256": "e9a75a7a7e2f671fe70f4fcf9f2c141e5701f76f57e7e9a392277052ae18cbd0",
+  "minimumRemainingHours": 48,
+  "endpoints": [
+    {
+      "id": "hub-a",
+      "origin": "wss://hub.example.invalid",
+      "serviceGroup": "cloud-a"
+    },
+    {
+      "id": "catalog-a",
+      "origin": "https://catalog.example.invalid",
+      "serviceGroup": "cloud-a"
+    }
+  ]
+}
