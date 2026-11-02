@@ -232,6 +232,13 @@ supported original-event recovery below therefore remains necessary. Never
 call import, prompt completion or HTTP acceptance normal automatic delivery.
 Changed trusted configuration on a saved receipt requires operator
 reconciliation; it does not silently rebind authority.
+Canonical incidents pin their original configuration before external effects.
+Creation, metadata updates and admission/resume enforce that pin and linked
+receipt conflicts even when the input was already counted (`pending=false`).
+New input or historical recovery cannot overwrite an existing intent's
+provenance under a changed configuration. Restoring a configuration alone does
+not clear a recorded permanent conflict. Legacy incidents without a saved pin
+remain recoverable, subject to any retained runtime receipt's original binding.
 
 When the native payload is absent or ingress produced no observed run, the
 operator may use the supported deterministic **original-event recovery**. Copy

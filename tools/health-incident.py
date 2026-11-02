@@ -460,6 +460,9 @@ class Reconciler:
                 historical = run.get("trigger_payload")
                 if historical is not None and validate_event(historical, event["source"]) != event:
                     raise IncidentError("runtime_historical_payload_conflict")
+                marker = receipt.get("marker") or journal["events"].get(event["eventId"], {}).get("marker")
+                if receipt.get("bindingVerified") and marker in journal["incidents"]:
+                    self.check_incident_authority(journal, marker)
                 # Only this durable binding can be resumed by a later reconciliation.
                 receipt.update(bindingVerified=True, triggerId=run["trigger_id"], unresolved="runtime_binding_pending")
                 self.save(journal)
@@ -573,6 +576,27 @@ class Reconciler:
 
     # Incident lifecycle ---------------------------------------------------
 
+    def check_incident_authority(self, journal, marker):
+        """Saved intent remains bound even after a receipt is accounted or conflicted."""
+        for receipt in journal["runtimeInputs"].values():
+            if not receipt.get("bindingVerified") and not receipt.get("marker"):
+                continue
+            event = journal["events"].get((receipt.get("payload") or {}).get("eventId"), {})
+            run = journal["runs"].get(receipt.get("nativeRun", {}).get("id"), {})
+            event_marker = event.get("marker") if event.get("payloadSha256") == receipt.get("payloadSha256") else None
+            if marker not in (receipt.get("marker"), event_marker, run.get("marker")):
+                continue
+            if receipt.get("configVersion") != self.trust.get("configVersion"):
+                raise IncidentError("runtime_configuration_changed")
+            conflict = receipt.get("unresolved")
+            if conflict and conflict not in RUNTIME_RETRYABLE:
+                raise IncidentError(conflict)
+        version = journal["incidents"][marker].get("configVersion")
+        if version is not None and version != self.trust.get("configVersion"):
+            raise IncidentError("incident_configuration_changed")
+        # Legacy native-only incidents have no saved configuration. Do not invent
+        # a new binding for them; retained runtime receipts above remain binding.
+
     def open_incident(self, journal, group):
         marker = journal["open"].get(group)
         if not marker:
@@ -582,15 +606,26 @@ class Reconciler:
             issue = self.issue(incident["issueId"])
             if issue is None:
                 raise IncidentError("incident_unreadable")
+            self.check_incident_authority(journal, marker)
             if issue.get("status") in CLOSED:
                 # Maintenance closed this incident; a later failure is new work.
                 incident["closed"] = True
                 del journal["open"][group]
                 return None
+        else:
+            self.check_incident_authority(journal, marker)
         return marker
 
     def advance(self, journal, marker):
         incident = journal["incidents"][marker]
+        try:
+            self.check_incident_authority(journal, marker)
+        except IncidentError as error:
+            # Report the gate without changing phase, provenance or retry state.
+            # Every lifecycle write/resume enters here, not just receipt replay.
+            self.report["incidents"][marker] = {"serviceGroup": incident["serviceGroup"],
+                                                "phase": error.code, "issueId": incident.get("issueId")}
+            return
         now = self.wall()
         if incident["phase"] == "uncertain":
             found = self.find_marker(marker)
@@ -703,6 +738,8 @@ class Reconciler:
                 # Preserve multiple native delivery records without changing the first association.
                 if origin == "operator_original":
                     raise IncidentError("run_identity_conflict")
+            if previous.get("marker") in journal["incidents"]:
+                self.check_incident_authority(journal, previous["marker"])
             record.update(outcome="duplicate_event", marker=previous.get("marker"))
             # A supported import can bind previously unobserved ingress without new incident work.
             if origin == "operator_original":
@@ -740,7 +777,8 @@ class Reconciler:
                 marker = f"hexproof-health-incident:{group}:{event['eventId']}"
                 journal["incidents"][marker] = {"serviceGroup": group, "phase": "pending", "issueId": None,
                                                 "createdAt": utc(self.wall()), "episodes": {}, "runIds": [],
-                                                "eventCount": 0, "firstEventAt": event["occurredAt"]}
+                                                "eventCount": 0, "firstEventAt": event["occurredAt"],
+                                                "configVersion": self.trust.get("configVersion")}
                 journal["open"][group] = marker
             if (event["episodeId"] not in journal["incidents"][marker]["episodes"]
                     and len(journal["incidents"][marker]["episodes"]) >= MAX_EPISODES):

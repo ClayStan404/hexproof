@@ -664,6 +664,148 @@ class RuntimeIngestTests(unittest.TestCase):
         self.assertEqual(self.native.creates, 1)
         self.assertEqual(sum(call[:2] == ('issue', 'update') for call in self.native.calls), 1)
 
+    def test_accounted_input_configuration_conflict_blocks_canonical_reconcile(self):
+        operations = {'activation': 'active', 'native': {key: self.trust[key] for key in
+                      ('workspaceId', 'projectId', 'coordinatorId')}}
+        config = {'schemaVersion': 1, 'autopilotId': self.trust['autopilotId'],
+                  'triggers': self.trust['triggers'], 'signalBindings': self.trust['signalBindings'],
+                  'serviceGroups': ['cloud-a'], 'stateDirectory': str(self.root)}
+        ops_path, config_path = self.root / 'operations.json', self.root / 'incident.json'
+        ops_path.write_text(json.dumps(operations))
+        config_path.write_text(json.dumps(config))
+        self.trust.update(incident.load_trust(ops_path, config_path))
+        original_trust = dict(self.trust)
+        run = self.current_run()
+        self.native.fail_list = True
+        self.assertEqual(self.ingest(run)['runtimeReceipt']['unresolved'], 'incident_discovery_incomplete')
+        self.native.fail_list = False
+        original = self.journal()
+        receipt = next(iter(original['runtimeInputs'].values()))
+        marker, intent = next(iter(original['incidents'].items()))
+        self.assertFalse(receipt['pending'])
+        self.assertEqual(intent['phase'], 'pending')
+        self.assertIsNone(intent['issueId'])
+        self.assertEqual(intent['eventCount'], 1)
+        operations['native']['projectId'] = identifier()
+        ops_path.write_text(json.dumps(operations))
+        self.trust.update(incident.load_trust(ops_path, config_path))
+        self.native.route['project_id'] = self.trust['projectId']
+        self.assertNotEqual(self.trust['configVersion'], receipt['configVersion'])
+        self.assertEqual(self.ingest(run)['runtimeReceipt']['unresolved'], 'runtime_configuration_changed')
+        self.native.fail_route = True
+        self.assertEqual(self.ingest(run)['runtimeReceipt']['unresolved'], 'runtime_configuration_changed')
+        self.native.fail_route = False
+        for restore_config in (False, True):
+            if restore_config:
+                self.trust.update(original_trust)
+                self.native.route['project_id'] = self.trust['projectId']
+            with self.subTest(restore_config=restore_config), mock.patch.dict(incident.os.environ, {
+                    'MULTICA_TASK_ID': identifier(), 'MULTICA_AGENT_ID': self.trust['coordinatorId']}):
+                start = len(self.native.calls)
+                for _ in range(2):
+                    self.assertIn('runtime_configuration_changed', [row['phase'] for row in self.reconcile()['unresolved']])
+                self.assertFalse(any(call[:2] in (('issue', 'create'), ('issue', 'update'))
+                                     or call[:3] == ('issue', 'metadata', 'set')
+                                     for call in self.native.calls[start:]))
+                saved = self.journal()
+                self.assertEqual(saved['incidents'][marker], intent)
+                stored = next(iter(saved['runtimeInputs'].values()))
+                self.assertEqual(stored['unresolved'], 'runtime_configuration_changed')
+                for field in ('configVersion', 'payload', 'nativeRun', 'rawInputBase64', 'payloadSha256'):
+                    self.assertEqual(stored[field], receipt[field])
+        # Restoring a config is not explicit reconciliation of the saved conflict.
+        self.assertEqual(self.ingest(run)['runtimeReceipt']['unresolved'], 'runtime_configuration_changed')
+        self.assertEqual(self.native.creates, 0)
+        self.assertEqual(self.journal()['incidents'][marker], intent)
+
+    def test_direct_advance_configuration_gate_covers_all_delivery_phases(self):
+        for phase in ('pending', 'uncertain', 'created', 'indexed', 'admission_pending', 'admitted'):
+            for binding in ('runtime', 'legacy_runtime', 'native_pin'):
+                with self.subTest(phase=phase, binding=binding):
+                    case = RuntimeIngestTests()
+                    case.setUp()
+                    self.addCleanup(case.doCleanups)
+                    run = case.current_run()
+                    case.native.fail_list = phase == 'pending'
+                    case.native.lost_create = phase == 'uncertain'
+                    case.native.fail_metadata = phase == 'created'
+                    case.native.fail_get = phase == 'indexed'
+                    case.native.no_task = phase == 'admission_pending'
+                    case.ingest(run)
+                    journal = case.journal()
+                    marker, intent = next(iter(journal['incidents'].items()))
+                    self.assertEqual(intent['phase'], phase)
+                    if binding == 'legacy_runtime':
+                        # Old schema-1 incidents have a receipt but no incident pin.
+                        intent.pop('configVersion', None)
+                    elif binding == 'native_pin':
+                        journal['runtimeInputs'].clear()
+                    if phase == 'admitted':
+                        intent['metadataDirty'] = True
+                    before = json.loads(json.dumps(journal))
+                    case.native.fail_list = case.native.fail_metadata = case.native.fail_get = False
+                    case.native.lost_create = case.native.no_task = False
+                    original_trust = dict(case.trust)
+                    case.trust.update(projectId=identifier(), coordinatorId=identifier(),
+                                      configVersion={'schemaVersion': 1, 'sha256': 'b' * 64})
+                    reconciler = incident.Reconciler(case.trust, runner=case.native)
+                    start = len(case.native.calls)
+                    reconciler.advance(journal, marker)
+                    self.assertEqual(reconciler.report['incidents'][marker]['phase'],
+                                     'incident_configuration_changed' if binding == 'native_pin' else 'runtime_configuration_changed')
+                    self.assertEqual(case.native.calls[start:], [])
+                    self.assertEqual(journal, before)
+                    if binding != 'native_pin':
+                        case.trust.update(original_trust)
+                        next(iter(journal['runtimeInputs'].values()))['unresolved'] = 'runtime_digest_conflict'
+                        before = json.loads(json.dumps(journal))
+                        reconciler.advance(journal, marker)
+                        self.assertEqual(reconciler.report['incidents'][marker]['phase'], 'runtime_digest_conflict')
+                        self.assertEqual(case.native.calls[start:], [])
+                        self.assertEqual(journal, before)
+
+    def test_existing_intent_rejects_changed_config_before_attaching_any_provenance(self):
+        run = self.current_run()
+        self.native.fail_list = True
+        self.ingest(run)
+        self.native.fail_list = False
+        for legacy in (False, True):
+            for origin in ('native_payload', 'operator_original', incident.RUNTIME_ORIGIN):
+                for duplicate in (False, True):
+                    with self.subTest(legacy=legacy, origin=origin, duplicate=duplicate):
+                        journal = self.journal()
+                        if legacy:
+                            next(iter(journal['incidents'].values())).pop('configVersion', None)
+                        before = json.loads(json.dumps(journal))
+                        changed_trust = dict(self.trust, projectId=identifier(),
+                                             configVersion={'schemaVersion': 1, 'sha256': 'b' * 64})
+                        reconciler = incident.Reconciler(changed_trust, runner=self.native)
+                        event = self.failure if duplicate else dict(self.failure, eventId=identifier(), sequence=2)
+                        with self.assertRaisesRegex(incident.IncidentError, 'runtime_configuration_changed'):
+                            reconciler.process(journal, run if duplicate else dict(run, id=identifier()), event, origin)
+                        self.assertEqual(journal, before)
+        self.assertEqual(self.native.creates, 0)
+
+    def test_native_intent_pin_and_unbound_legacy_recovery_remain_distinct(self):
+        self.run_for(self.failure)
+        self.native.fail_list = True
+        with self.assertRaisesRegex(incident.IncidentError, 'incident_discovery_incomplete'):
+            self.reconcile()
+        self.native.fail_list = False
+        journal = self.journal()
+        marker, intent = next(iter(journal['incidents'].items()))
+        self.assertFalse(journal['runtimeInputs'])
+        self.trust['configVersion'] = {'schemaVersion': 1, 'sha256': 'b' * 64}
+        self.assertIn('incident_configuration_changed', [row['phase'] for row in self.reconcile()['unresolved']])
+        self.assertEqual(self.native.creates, 0)
+        # A historical incident with no saved runtime authority remains recoverable.
+        intent.pop('configVersion')
+        (self.root / 'journal.json').write_text(json.dumps(journal))
+        self.assertFalse(self.reconcile()['unresolved'])
+        self.assertFalse(self.reconcile()['unresolved'])
+        self.assertEqual(self.native.creates, 1)
+        self.assertEqual(sum(call[:2] == ('issue', 'update') for call in self.native.calls), 1)
+
     def test_verified_conflicts_survive_subsequent_lookup_outage(self):
         self.ingest(self.current_run())
         event = dict(self.failure, eventId=identifier(), kind='escalation', sequence=2)
