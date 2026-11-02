@@ -384,6 +384,14 @@ input must show its mana-value limit, exclude a four-mana creature, and return
 only the explicitly selected legal creature. These are bounded prompt and
 resolution checks on constructed boards, not completed games.
 
+`NativeTargetClickRegressionTest` uses Agadeem's Awakening's actual graveyard
+targeting with X=4. After selecting Grizzly Bears, selecting Silvercoat Lion
+must retain Forge's different-mana-value rejection without failing the session.
+Selecting Hill Giant and finishing then returns exactly Bears and Giant to the
+battlefield, leaving Lion in the graveyard. Malformed candidate/count responses
+still fail validation without consuming the prompt. This is a constructed
+targeting/resolution regression, not a full cast, match or native Qt test.
+
 `NativePriorityRegressionTest` drives actual `InputPassPriority` with empty,
 mana-only, land-play, payable/unpayable burn, mixed permanent abilities,
 exile-casting, and optional-payment boards. Automatic-pass metadata uses the
