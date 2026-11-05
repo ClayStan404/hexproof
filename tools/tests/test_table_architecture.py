@@ -48,12 +48,10 @@ class TableArchitectureTests(unittest.TestCase):
 
     def test_ci_automatically_races_gameplay_and_control_plane(self) -> None:
         text = self.source(".github/workflows/ci.yml")
-        self.assertIn("go test -race ./internal/room ./internal/server ./internal/tournament", text)
+        self.assertIn("run: ../../tools/check-shared.sh race", text)
         race_step = next(step for step in text.split("      - name:")
-                         if "run: go test -race" in step)
+                         if "run: ../../tools/check-shared.sh race" in step)
         self.assertNotIn("if:", race_step)
-        for package in ("accounts", "cluster", "syncutil"):
-            self.assertIn(f"./internal/{package}", race_step)
 
     def test_ci_jobs_without_server_exclude_the_integration_label(self) -> None:
         text = self.source(".github/workflows/ci.yml")

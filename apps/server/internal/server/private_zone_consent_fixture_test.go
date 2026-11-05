@@ -54,11 +54,18 @@ func newPrivateZoneConsentSetup(t *testing.T) privateZoneConsentSetup {
 		h.unregisterSession(spectator)
 	})
 
-	r, _, _, operation, err := h.hub.CreateRoom(
-		"Consent room", protocol.FormatModern, protocol.MatchBO1,
-		protocol.CardLoadPreload, 2, true, false, "", host)
+	r, _, _, operation, err := h.hub.createRoom(roomCreateOptions{
+		name:            "Consent room",
+		format:          protocol.FormatModern,
+		deckFormat:      protocol.DefaultDeckFormatForTableMode(protocol.FormatModern),
+		matchMode:       protocol.MatchBO1,
+		cardLoadMode:    protocol.CardLoadPreload,
+		rulesMode:       protocol.RulesModeManual,
+		maxSeats:        2,
+		allowSpectators: true,
+	}, host)
 	if err != nil {
-		t.Fatalf("CreateRoom: %v", err)
+		t.Fatalf("createRoom: %v", err)
 	}
 	operation.opMu.Unlock()
 	joinPrivateZoneMember(t, h, r, guest, false)

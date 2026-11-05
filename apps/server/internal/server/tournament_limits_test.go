@@ -314,9 +314,20 @@ func TestOccupiedPairingRoomKeepsAbandonedRunningTournament(t *testing.T) {
 		now.Add(-48*time.Hour))
 
 	host := testTournamentSession("host", "192.0.2.23")
-	_, _, _, operation, createErr := handler.hub.createTournamentRoom(
-		"Pairing", protocol.FormatModern, protocol.DeckFormatModern, protocol.MatchBO3,
-		protocol.CardLoadBackground, protocol.RulesModeManual, 2, event.ID, "r1-m1", "p-host", host)
+	_, _, _, operation, createErr := handler.hub.createRoom(roomCreateOptions{
+		name:                    "Pairing",
+		format:                  protocol.FormatModern,
+		deckFormat:              protocol.DeckFormatModern,
+		matchMode:               protocol.MatchBO3,
+		cardLoadMode:            protocol.CardLoadBackground,
+		rulesMode:               protocol.RulesModeManual,
+		hostingMode:             "server",
+		maxSeats:                2,
+		allowSpectators:         true,
+		tournamentID:            event.ID,
+		tournamentPairing:       "r1-m1",
+		tournamentParticipantID: "p-host",
+	}, host)
 	if createErr != nil {
 		t.Fatalf("create pairing room: %v", createErr)
 	}

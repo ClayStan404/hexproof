@@ -29,10 +29,15 @@ func validatePublicManifestFor(raw []byte, id, parent string, now time.Time, c P
 	if m.ParentSubmissionID != parent || parent == "" && (m.QuestionID != "" || m.QuestionRevision != 0) || parent != "" && (!validID(parent) || m.QuestionID != "" && (!validID(m.QuestionID) || m.QuestionRevision < 1) || m.QuestionID == "" && m.QuestionRevision != 0) {
 		return m, ErrInvalid
 	}
-	// Reuse the same diagnostic/category/date bounds without adding a private lane.
-	old := Manifest{SchemaVersion: 1, SubmissionID: m.SubmissionID, CreatedAt: m.CreatedAt, Category: m.Category, Description: m.Description, Context: m.Context, Attachments: m.Attachments}
-	legacy, _ := json.Marshal(old)
-	if _, err := validateManifest(legacy, id, now); err != nil {
+	// Keep the historical encoded-size bound on the shared content: JSON HTML
+	// escaping can exceed MaxManifest even when the original public bytes fit.
+	// This compatibility projection is never decoded or used as a private upload.
+	content := Manifest{SchemaVersion: 1, SubmissionID: m.SubmissionID, CreatedAt: m.CreatedAt, Category: m.Category, Description: m.Description, Context: m.Context, Attachments: m.Attachments}
+	encoded, err := json.Marshal(content)
+	if err != nil || len(encoded) > MaxManifest {
+		return m, ErrInvalid
+	}
+	if err := validateManifestContent(content, id, now); err != nil {
 		return m, err
 	}
 	var fields map[string]json.RawMessage

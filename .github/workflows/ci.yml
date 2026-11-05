@@ -90,19 +90,8 @@ jobs:
             echo "Changed C/C++ lines must be clang-formatted." >&2
             exit 1
           fi
-      - name: Check license headers
-        run: ./tools/check-license-headers.sh
-      - name: Check shell scripts
-        shell: bash
-        run: ./tools/check-shell-scripts.sh
-      - name: Check QML text safety
-        run: ./tools/check-qml-text-safety.sh
-      - name: Check protocol parity
-        run: python3 tools/check-protocol-parity.py
-      - name: Check Simplified Chinese translations
-        run: python3 tools/check-i18n.py --strict
-      - name: Report module size review hints
-        run: python3 tools/check-module-size.py
+      - name: Run shared static checks
+        run: ./tools/check-shared.sh static
       - name: Test quality checks
         if: needs.changes.outputs.full == 'true'
         shell: bash
@@ -135,7 +124,7 @@ jobs:
       - name: Test
         run: go test ./...
       - name: Test gameplay and control-plane race safety
-        run: go test -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode ./internal/accounts ./internal/cluster ./internal/syncutil ./internal/feedback
+        run: ../../tools/check-shared.sh race
       - name: Fuzz protocol, reducer, and retention boundaries
         if: github.event_name == 'workflow_dispatch'
         shell: bash

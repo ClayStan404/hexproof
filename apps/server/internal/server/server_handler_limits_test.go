@@ -78,9 +78,16 @@ func TestRandomIDGenerationFailureReturnsInternalError(t *testing.T) {
 		DisplayName:  "Alice",
 		Send:         make(chan []byte, 1),
 	}
-	_, _, _, _, err := hub.CreateRoom(
-		"Room", protocol.FormatModern, protocol.MatchBO1,
-		protocol.CardLoadPreload, 2, true, false, "", host)
+	_, _, _, _, err := hub.createRoom(roomCreateOptions{
+		name:            "Room",
+		format:          protocol.FormatModern,
+		deckFormat:      protocol.DefaultDeckFormatForTableMode(protocol.FormatModern),
+		matchMode:       protocol.MatchBO1,
+		cardLoadMode:    protocol.CardLoadPreload,
+		rulesMode:       protocol.RulesModeManual,
+		maxSeats:        2,
+		allowSpectators: true,
+	}, host)
 	code, ok := ErrCode(err)
 	if !ok || code != protocol.ErrInternal {
 		t.Fatalf("CreateRoom error = %v code %q, want %q",
@@ -178,9 +185,16 @@ func TestRemoveRoomClearsRoomScopedTransientState(t *testing.T) {
 		DisplayName:  "Alice",
 		Send:         make(chan []byte, 1),
 	}
-	r, _, _, operation, err := handler.hub.CreateRoom(
-		"Room", protocol.FormatModern, protocol.MatchBO1,
-		protocol.CardLoadPreload, 2, true, false, "", host)
+	r, _, _, operation, err := handler.hub.createRoom(roomCreateOptions{
+		name:            "Room",
+		format:          protocol.FormatModern,
+		deckFormat:      protocol.DefaultDeckFormatForTableMode(protocol.FormatModern),
+		matchMode:       protocol.MatchBO1,
+		cardLoadMode:    protocol.CardLoadPreload,
+		rulesMode:       protocol.RulesModeManual,
+		maxSeats:        2,
+		allowSpectators: true,
+	}, host)
 	if err != nil {
 		t.Fatalf("create room: %v", err)
 	}
@@ -232,9 +246,16 @@ func TestReconnectHoldRejectsDepartedMembership(t *testing.T) {
 		ResumeToken:  "guest-resume",
 		Send:         make(chan []byte, 1),
 	}
-	r, _, _, operation, err := handler.hub.CreateRoom(
-		"Room", protocol.FormatModern, protocol.MatchBO1,
-		protocol.CardLoadPreload, 2, true, false, "", host)
+	r, _, _, operation, err := handler.hub.createRoom(roomCreateOptions{
+		name:            "Room",
+		format:          protocol.FormatModern,
+		deckFormat:      protocol.DefaultDeckFormatForTableMode(protocol.FormatModern),
+		matchMode:       protocol.MatchBO1,
+		cardLoadMode:    protocol.CardLoadPreload,
+		rulesMode:       protocol.RulesModeManual,
+		maxSeats:        2,
+		allowSpectators: true,
+	}, host)
 	if err != nil {
 		t.Fatalf("create room: %v", err)
 	}

@@ -34,8 +34,20 @@ func TestCubeTableViewReentryReleasesRoomBeforeRetention(t *testing.T) {
 				// An offline occupied seat is retained during transport recovery,
 				// even when the event's unattended grace has already expired.
 				host := &Session{ConnectionID: "offline-player", DisplayName: "Offline player"}
-				r, _, _, table, err := h.hub.createTournamentRoom("Retained table", format, deckFormat,
-					protocol.MatchBO1, protocol.CardLoadBackground, protocol.RulesModeManual, 2, event.ID, "pairing", "player", host)
+				r, _, _, table, err := h.hub.createRoom(roomCreateOptions{
+					name:                    "Retained table",
+					format:                  format,
+					deckFormat:              deckFormat,
+					matchMode:               protocol.MatchBO1,
+					cardLoadMode:            protocol.CardLoadBackground,
+					rulesMode:               protocol.RulesModeManual,
+					hostingMode:             "server",
+					maxSeats:                2,
+					allowSpectators:         true,
+					tournamentID:            event.ID,
+					tournamentPairing:       "pairing",
+					tournamentParticipantID: "player",
+				}, host)
 				if err != nil {
 					t.Fatal(err)
 				}

@@ -254,11 +254,27 @@ func TestCubeRoomCodesShareRoomCapacityAndCannotCollide(t *testing.T) {
 		t.Fatal("Cube rooms bypassed room capacity")
 	}
 	host := testTournamentSession("capacity-host", "192.0.2.90")
-	if _, _, _, _, err := hub.CreateRoom("Table", "modern", "bo1", "background", 2, false, false, "", host); err == nil {
+	if _, _, _, _, err := hub.createRoom(roomCreateOptions{
+		name:         "Table",
+		format:       "modern",
+		deckFormat:   protocol.DefaultDeckFormatForTableMode("modern"),
+		matchMode:    "bo1",
+		cardLoadMode: "background",
+		rulesMode:    protocol.RulesModeManual,
+		maxSeats:     2,
+	}, host); err == nil {
 		t.Fatal("normal table ignored reserved Cube room capacity")
 	}
 	hub.releaseCubeRoomID("ABCDEF")
-	r, _, _, operation, err := hub.CreateRoom("Table", "modern", "bo1", "background", 2, false, false, "", host)
+	r, _, _, operation, err := hub.createRoom(roomCreateOptions{
+		name:         "Table",
+		format:       "modern",
+		deckFormat:   protocol.DefaultDeckFormatForTableMode("modern"),
+		matchMode:    "bo1",
+		cardLoadMode: "background",
+		rulesMode:    protocol.RulesModeManual,
+		maxSeats:     2,
+	}, host)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +289,16 @@ func TestCubeMembershipRequiresExplicitLeaveBeforeCrossRoomNavigation(t *testing
 	host := sessions[0]
 	guest, guestToken := joinCubeRoomHarness(t, h, entry, 1)
 	outOfPod := cubeTestSession(h, 20)
-	otherRoom, _, _, operation, err := h.hub.CreateRoom("Another table", "modern", "bo1", "background", 2, true, false, "", outOfPod)
+	otherRoom, _, _, operation, err := h.hub.createRoom(roomCreateOptions{
+		name:            "Another table",
+		format:          "modern",
+		deckFormat:      protocol.DefaultDeckFormatForTableMode("modern"),
+		matchMode:       "bo1",
+		cardLoadMode:    "background",
+		rulesMode:       protocol.RulesModeManual,
+		maxSeats:        2,
+		allowSpectators: true,
+	}, outOfPod)
 	if err != nil {
 		t.Fatal(err)
 	}

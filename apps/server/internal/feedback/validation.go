@@ -51,60 +51,70 @@ func cleanText(v string, max int, multiline bool) bool {
 
 func validateManifest(raw []byte, id string, now time.Time) (Manifest, error) {
 	var m Manifest
-	if len(raw) > MaxManifest || decodeClosed(raw, &m) != nil || m.SchemaVersion != 1 || m.SubmissionID != id || !validID(id) || !oneOf(m.Category, "problem", "suggestion", "other") || strings.TrimSpace(m.Description) == "" || !cleanText(m.Description, 8192, true) || (m.ReplyEmail != "" && !validEmail(m.ReplyEmail)) || m.Attachments == nil || len(m.Attachments) > 4 {
+	if len(raw) > MaxManifest || decodeClosed(raw, &m) != nil || m.SchemaVersion != 1 || (m.ReplyEmail != "" && !validEmail(m.ReplyEmail)) {
 		return m, ErrInvalid
 	}
 	var required map[string]json.RawMessage
 	if json.Unmarshal(raw, &required) != nil || required["context"] == nil || string(required["context"]) == "null" {
 		return m, ErrInvalid
 	}
+	return m, validateManifestContent(m, id, now)
+}
+
+// validateManifestContent checks shared submission fields without decoding a wire
+// schema. Callers retain their own schema, required-field and disclosure checks;
+// private replyEmail validation belongs only to validateManifest.
+func validateManifestContent(m Manifest, id string, now time.Time) error {
+	if m.SubmissionID != id || !validID(id) || !oneOf(m.Category, "problem", "suggestion", "other") || strings.TrimSpace(m.Description) == "" || !cleanText(m.Description, 8192, true) || m.Attachments == nil || len(m.Attachments) > 4 {
+		return ErrInvalid
+	}
 	created, err := time.Parse(time.RFC3339Nano, m.CreatedAt)
 	if err != nil || !strings.HasSuffix(m.CreatedAt, "Z") || len(m.CreatedAt) > 40 || created.Before(now.Add(-7*24*time.Hour)) || created.After(now.Add(10*time.Minute)) {
-		return m, ErrInvalid
+		return ErrInvalid
 	}
 	c := m.Context
 	if !oneOf(c.OSFamily, "", "windows", "macos", "linux", "other") || !oneOf(c.GameMode, "", "manual", "forge") {
-		return m, ErrInvalid
+		return ErrInvalid
 	}
 	for _, v := range []string{c.AppVersion, c.Architecture, c.UILanguage, c.Feature, c.Format, c.PriorityMode, c.CatalogVersion} {
 		if !token(v, 64) {
-			return m, ErrInvalid
+			return ErrInvalid
 		}
 	}
 	if !token(c.RuntimeID, 256) {
-		return m, ErrInvalid
+		return ErrInvalid
 	}
 	seen := map[string]bool{}
 	kinds := map[string]int{}
 	for _, a := range m.Attachments {
 		if !attachmentPattern.MatchString(a.ID) || seen[a.ID] || !validHash(a.SHA256) || a.ByteLength < 1 {
-			return m, ErrInvalid
+			return ErrInvalid
 		}
 		seen[a.ID] = true
 		kinds[a.Kind]++
 		switch a.Kind {
 		case "screenshot":
 			if kinds[a.Kind] > 2 || !oneOf(a.MediaType, "image/png", "image/jpeg") || a.ByteLength > MaxImage || a.ReportID != "" || a.Revision != 0 || a.CapturedAt != "" {
-				return m, ErrInvalid
+				return ErrInvalid
 			}
 		case "forge_crash":
 			if kinds[a.Kind] > 1 || a.MediaType != "application/json" || a.ByteLength > MaxCrash {
-				return m, ErrInvalid
+				return ErrInvalid
 			}
 		case "hosting_diagnostics":
 			if kinds[a.Kind] > 1 || a.MediaType != "application/json" || a.ByteLength > MaxHosting || a.ReportID != "" || a.Revision != 0 {
-				return m, ErrInvalid
+				return ErrInvalid
 			}
 		default:
-			return m, ErrInvalid
+			return ErrInvalid
 		}
 		if a.CapturedAt != "" {
 			if _, err := time.Parse(time.RFC3339Nano, a.CapturedAt); err != nil || len(a.CapturedAt) > 40 {
-				return m, ErrInvalid
+				return ErrInvalid
 			}
 		}
 	}
-	return m, nil
+	return nil
 }
 
 func partType(p *multipart.Part) string {

@@ -120,11 +120,18 @@ func newRunningManualJoinTestRoom(t *testing.T, cardLoadMode string) (
 		h.unregisterSession(guest)
 	})
 
-	r, _, _, operation, err := h.hub.CreateRoom(
-		"Manual table", protocol.FormatModern, protocol.MatchBO1,
-		cardLoadMode, 2, true, false, "", host)
+	r, _, _, operation, err := h.hub.createRoom(roomCreateOptions{
+		name:            "Manual table",
+		format:          protocol.FormatModern,
+		deckFormat:      protocol.DefaultDeckFormatForTableMode(protocol.FormatModern),
+		matchMode:       protocol.MatchBO1,
+		cardLoadMode:    cardLoadMode,
+		rulesMode:       protocol.RulesModeManual,
+		maxSeats:        2,
+		allowSpectators: true,
+	}, host)
 	if err != nil {
-		t.Fatalf("CreateRoom: %v", err)
+		t.Fatalf("createRoom: %v", err)
 	}
 	operation.opMu.Unlock()
 

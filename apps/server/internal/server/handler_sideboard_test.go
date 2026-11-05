@@ -136,11 +136,18 @@ func newHandlerSideboardRoom(t *testing.T) (*Handler, *room.Room, *Session, *Ses
 		handler.unregisterSession(guest)
 	})
 
-	r, _, _, operation, err := handler.hub.CreateRoom(
-		"BO3 table", protocol.FormatModern, protocol.MatchBO3,
-		protocol.CardLoadBackground, 2, true, false, "", host)
+	r, _, _, operation, err := handler.hub.createRoom(roomCreateOptions{
+		name:            "BO3 table",
+		format:          protocol.FormatModern,
+		deckFormat:      protocol.DefaultDeckFormatForTableMode(protocol.FormatModern),
+		matchMode:       protocol.MatchBO3,
+		cardLoadMode:    protocol.CardLoadBackground,
+		rulesMode:       protocol.RulesModeManual,
+		maxSeats:        2,
+		allowSpectators: true,
+	}, host)
 	if err != nil {
-		t.Fatalf("CreateRoom: %v", err)
+		t.Fatalf("createRoom: %v", err)
 	}
 	operation.opMu.Unlock()
 

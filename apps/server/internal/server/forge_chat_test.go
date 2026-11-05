@@ -20,9 +20,16 @@ func TestForgeChatPublishesMetadataWithoutQueryingAnEngine(t *testing.T) {
 	t.Cleanup(func() { _ = h.Close() })
 	host := &Session{ConnectionID: "host", DisplayName: "Alice", Send: make(chan []byte, 16)}
 	observer := &Session{ConnectionID: "observer", DisplayName: "Observer", Send: make(chan []byte, 16)}
-	r, _, _, entry, err := h.hub.CreateRoomWithRulesMode("Rules chat",
-		protocol.FormatModern, protocol.DeckFormatCustom, protocol.MatchBO1,
-		protocol.CardLoadBackground, protocol.RulesModeForge, 2, true, false, "", host)
+	r, _, _, entry, err := h.hub.createRoom(roomCreateOptions{
+		name:            "Rules chat",
+		format:          protocol.FormatModern,
+		deckFormat:      protocol.DeckFormatCustom,
+		matchMode:       protocol.MatchBO1,
+		cardLoadMode:    protocol.CardLoadBackground,
+		rulesMode:       protocol.RulesModeForge,
+		maxSeats:        2,
+		allowSpectators: true,
+	}, host)
 	if err != nil {
 		t.Fatal(err)
 	}

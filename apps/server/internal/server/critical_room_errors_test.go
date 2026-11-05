@@ -19,11 +19,18 @@ func newCriticalErrorRoom(t *testing.T, h *Handler,
 		RemoteIP:     "127.0.0.1",
 		Send:         make(chan []byte, 8),
 	}
-	r, _, _, operation, err := h.hub.CreateRoom(
-		"Critical error room", protocol.FormatModern, protocol.MatchBO1,
-		protocol.CardLoadPreload, 2, allowSpectators, false, "", host)
+	r, _, _, operation, err := h.hub.createRoom(roomCreateOptions{
+		name:            "Critical error room",
+		format:          protocol.FormatModern,
+		deckFormat:      protocol.DefaultDeckFormatForTableMode(protocol.FormatModern),
+		matchMode:       protocol.MatchBO1,
+		cardLoadMode:    protocol.CardLoadPreload,
+		rulesMode:       protocol.RulesModeManual,
+		maxSeats:        2,
+		allowSpectators: allowSpectators,
+	}, host)
 	if err != nil {
-		t.Fatalf("CreateRoom: %v", err)
+		t.Fatalf("createRoom: %v", err)
 	}
 	operation.opMu.Unlock()
 	return r, host

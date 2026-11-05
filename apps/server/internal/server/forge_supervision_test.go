@@ -284,9 +284,16 @@ func newWaitingSupervisedRoom(t *testing.T, handler *Handler, name, mode string,
 		{ConnectionID: name + "-host", DisplayName: "Alice", Send: make(chan []byte, 32)},
 		{ConnectionID: name + "-guest", DisplayName: "Bob", Send: make(chan []byte, 32)},
 	}
-	r, _, _, entry, err := handler.hub.CreateRoomWithRulesMode(name, protocol.FormatModern,
-		protocol.DeckFormatCustom, protocol.MatchBO1, protocol.CardLoadBackground,
-		mode, 2, true, false, "", members[0])
+	r, _, _, entry, err := handler.hub.createRoom(roomCreateOptions{
+		name:            name,
+		format:          protocol.FormatModern,
+		deckFormat:      protocol.DeckFormatCustom,
+		matchMode:       protocol.MatchBO1,
+		cardLoadMode:    protocol.CardLoadBackground,
+		rulesMode:       mode,
+		maxSeats:        2,
+		allowSpectators: true,
+	}, members[0])
 	if err != nil {
 		t.Fatal(err)
 	}

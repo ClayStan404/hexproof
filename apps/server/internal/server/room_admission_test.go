@@ -84,9 +84,17 @@ func TestHubAdmitsEDHForgeRooms(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/%d", hosting, seats), func(t *testing.T) {
 				hub := NewHub()
 				host := &Session{ConnectionID: "host", DisplayName: "Host"}
-				r, _, _, entry, err := hub.CreateRoomWithHostingMode("EDH", protocol.FormatEDH,
-					protocol.DeckFormatCommander, protocol.MatchBO1, protocol.CardLoadBackground,
-					protocol.RulesModeForge, hosting, seats, true, false, "", host)
+				r, _, _, entry, err := hub.createRoom(roomCreateOptions{
+					name:            "EDH",
+					format:          protocol.FormatEDH,
+					deckFormat:      protocol.DeckFormatCommander,
+					matchMode:       protocol.MatchBO1,
+					cardLoadMode:    protocol.CardLoadBackground,
+					rulesMode:       protocol.RulesModeForge,
+					hostingMode:     hosting,
+					maxSeats:        seats,
+					allowSpectators: true,
+				}, host)
 				if entry != nil {
 					entry.opMu.Unlock()
 				}
