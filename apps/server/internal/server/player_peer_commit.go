@@ -40,8 +40,8 @@ func (h *Handler) savePeerReceipt(roomID string, game forgeRoomGame, connection 
 		return
 	}
 	publicationHash := remote.PublicationHash()
-	h.forgeMu.Lock()
-	defer h.forgeMu.Unlock()
+	h.forge.mu.Lock()
+	defer h.forge.mu.Unlock()
 	state := h.playerPeers[roomID]
 	if state == nil || state.history[request.PeerBinding] == nil {
 		return
@@ -50,8 +50,8 @@ func (h *Handler) savePeerReceipt(roomID string, game forgeRoomGame, connection 
 }
 
 func (h *Handler) peerReceipt(roomID, connection, operationID string, request protocol.RulesRespond) *peerReceipt {
-	h.forgeMu.Lock()
-	defer h.forgeMu.Unlock()
+	h.forge.mu.Lock()
+	defer h.forge.mu.Unlock()
 	state := h.playerPeers[roomID]
 	if state == nil || state.receipt == nil {
 		return nil
@@ -106,14 +106,14 @@ func (h *Handler) commitPlayerPeer(r *room.Room, link *forgehost.Link, commit fo
 	defer func() { _ = link.SendPeer(forgehost.Frame{Type: "peer_reply", PeerReply: reply}) }()
 	defer h.refreshPlayerHostStatus(r)
 	members := h.peerMembers(r)
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	state := h.playerPeers[r.ID]
 	primary := h.playerHosts[r.ID]
 	var binding *playerPeerBinding
 	if state != nil {
 		binding = state.history[commit.BindingID]
 	}
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	if primary != link || link.Seat < 0 || link.Seat > 1 || commit.OperationID == "" || len(commit.OperationID) > 128 {
 		return
 	}
@@ -162,9 +162,9 @@ func (h *Handler) commitPlayerPeer(r *room.Room, link *forgehost.Link, commit fo
 		return
 	}
 	game.diagnostics.action(view.Kind, seat, false)
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	direct := state.binding == binding && binding.connections == members && sess != nil
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	if result := h.publishRulesDecision(r, game, connection, commit.OperationID, commit.Request, direct, true); result != nil {
 		reply = result
 	}

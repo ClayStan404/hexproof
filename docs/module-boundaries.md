@@ -101,6 +101,18 @@ failure rolls back immediately; success ends request correlation but leaves
 the overlay until the authoritative snapshot reconciles it. Unreconciled
 overlays have a bounded 2,500 ms fallback and never become durable game state.
 
+Manual snapshots commit synchronously: `GameSessionState` first updates its
+scalar state and publishes data to `GameTableModel`, then notifies scalar
+bindings, and finally publishes `snapshotCommitted` through the existing
+`WsClient.gameSnapshotChanged` notification. The table reconciles once at that
+final boundary, including snapshots whose typed zones are unchanged. Initial composition,
+optimistic changes and deferred active drags keep their separate presentation
+lifecycles; they do not introduce another authoritative snapshot owner.
+Reentrant updates wait in a synchronous pending-operation queue until the
+current publication returns, so its later subscribers cannot overwrite newer
+typed state with an older payload. The queue is drained before the outermost
+update returns and is not durable game state.
+
 ## Client service and build boundaries
 
 - `hexproof_deck_core` owns deck data, parsing, format mapping, and mutation
@@ -161,6 +173,15 @@ overlays have a bounded 2,500 ms fallback and never become durable game state.
   projection. They contain no network I/O or wall-clock reads.
 - `server` handlers decode commands and fan out reducer results. Hub methods may
   coordinate locks but should not reimplement reducer behavior.
+- `forgeRuntimeLifecycle` owns runtime configuration, startup admission,
+  reservations, cooldown, cancellation and runtime tracking/reaping. The
+  handler retains game and player-host state; atomic operations spanning that
+  state and runtime tracking use the lifecycle owner's same mutex and its
+  locked operations. This extraction does not split the lock or change its
+  order. `Handler.Close` owns service shutdown orchestration: it begins runtime
+  closure under that mutex, then releases it before waiting for startup and
+  child cleanup. Runtime shutdown never closes unrelated account or tournament
+  services itself.
 - `limited` owns product validation, pack generation, sealed pools, draft
   queues, pool-contained deck construction, and role-specific projection. It
   has no network I/O and does not own Swiss pairing or tabletop state.

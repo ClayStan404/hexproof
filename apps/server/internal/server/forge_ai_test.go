@@ -190,10 +190,10 @@ func TestForgeAIRejectedCardNamePreservesDecisionUnlessNativeFailed(t *testing.T
 			if err != nil {
 				t.Fatal(err)
 			}
-			handler.forgeMu.Lock()
+			handler.forge.mu.Lock()
 			handler.forgeGames[r.ID] = game
-			handler.forgeMu.Unlock()
-			defer func() { handler.forgeMu.Lock(); delete(handler.forgeGames, r.ID); handler.forgeMu.Unlock() }()
+			handler.forge.mu.Unlock()
+			defer func() { handler.forge.mu.Lock(); delete(handler.forgeGames, r.ID); handler.forge.mu.Unlock() }()
 			env, _ := protocol.NewEnvelope(protocol.TypeRulesRespond, protocol.RulesRespond{PromptID: promptID, ResponseID: "$submit", Name: "Not a legal card name"})
 			env.ID = "bad-name"
 			if err := handler.handleRulesRespond(host, env); err != nil {

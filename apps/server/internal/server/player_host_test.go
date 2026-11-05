@@ -87,9 +87,9 @@ func TestPlayerHostingBindingRejectsOtherRoomsVersionsAndRevokedTokens(t *testin
 	barrier.ID = "barrier"
 	host.send(barrier)
 	host.recvType(protocol.TypeSessionPong)
-	handler.forgeMu.Lock()
+	handler.forge.mu.Lock()
 	remaining := len(handler.playerHosts)
-	handler.forgeMu.Unlock()
+	handler.forge.mu.Unlock()
 	if remaining != 0 {
 		t.Fatal("creator leave retained hosting capability")
 	}
@@ -122,9 +122,9 @@ func TestPlayerHostingCapacityRejectsCreationWithoutLeavingAnUnusableRoom(t *tes
 		host.send(env)
 		host.recvType(protocol.TypeRoomCreated)
 	}
-	handler.forgeMu.Lock()
+	handler.forge.mu.Lock()
 	count := len(handler.playerHosts)
-	handler.forgeMu.Unlock()
+	handler.forge.mu.Unlock()
 	if count != 1 {
 		t.Fatal("wrong number of reserved bindings")
 	}

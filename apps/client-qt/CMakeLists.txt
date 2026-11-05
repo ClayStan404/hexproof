@@ -1165,6 +1165,7 @@ target_compile_definitions(hexproof_wsclient_test PRIVATE
     HEXPROOF_PROTOCOL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../testdata/protocol/v2")
 target_link_libraries(hexproof_wsclient_test PRIVATE
     hexproof_session
+    hexproof_table_models
     Qt6::Core
     Qt6::Gui
     Qt6::Network

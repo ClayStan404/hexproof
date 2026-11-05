@@ -14,7 +14,7 @@ import (
 	"hexproof/server/internal/room"
 )
 
-// All fields are protected by forgeMu. Consent belongs to a live authenticated
+// All fields are protected by forge.mu. Consent belongs to a live authenticated
 // seat connection; reconnection requires the consenting client to opt in again.
 type playerPeerState struct {
 	history     map[string]*playerPeerBinding
@@ -55,9 +55,9 @@ func (h *Handler) handleForgePeerRequest(sess *Session, env protocol.Envelope) e
 		h.sendError(sess, env.ID, protocol.ErrNotPlayer, "direct transport requires a player-hosted seat")
 		return nil
 	}
-	h.forgeMu.Lock()
-	if h.forgeClosed {
-		h.forgeMu.Unlock()
+	h.forge.mu.Lock()
+	if h.forge.closed {
+		h.forge.mu.Unlock()
 		return nil
 	}
 	state := h.playerPeers[r.ID]
@@ -66,7 +66,7 @@ func (h *Handler) handleForgePeerRequest(sess *Session, env protocol.Envelope) e
 		h.playerPeers[r.ID] = state
 	}
 	if request.Enabled && state.consent[seat] == sess.ConnectionID && request.Retry && time.Since(state.lastAttempt) < 5*time.Second {
-		h.forgeMu.Unlock()
+		h.forge.mu.Unlock()
 		h.sendPeerStatus(r, sess, env.ID)
 		return nil
 	}
@@ -77,7 +77,7 @@ func (h *Handler) handleForgePeerRequest(sess *Session, env protocol.Envelope) e
 	old := state.binding
 	state.binding = nil
 	state.lastAttempt = time.Now()
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	if old != nil {
 		old.cancel()
 		_ = old.link.SendPeer(forgehost.Frame{Type: "peer_context"})
@@ -123,7 +123,7 @@ func (h *Handler) sendPeerStatus(r *room.Room, sess *Session, id string) {
 		return
 	}
 	status := protocol.ForgePeerStatus{RoomID: r.ID, Available: h.config.AllowPlayerHosting && !r.HasAI()}
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	if state := h.playerPeers[r.ID]; state != nil {
 		if state.binding != nil {
 			status.BindingID = state.binding.id
@@ -131,7 +131,7 @@ func (h *Handler) sendPeerStatus(r *room.Room, sess *Session, id string) {
 		status.Enabled = state.consent[seat] == sess.ConnectionID
 		status.OtherEnabled = members[1-seat] != "" && state.consent[1-seat] == members[1-seat]
 	}
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	env, _ := protocol.NewEnvelope(protocol.TypeForgePeerStatus, status)
 	env.ID = id
 	h.send(sess, env)
@@ -141,14 +141,14 @@ func (h *Handler) sendPeerStatus(r *room.Room, sess *Session, id string) {
 // opMu. A new native engine, room membership or game rotates the capability.
 func (h *Handler) refreshPeerBinding(r *room.Room) {
 	members := h.peerMembers(r)
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	state := h.playerPeers[r.ID]
 	game, exists := h.forgeGames[r.ID]
 	link := h.playerHosts[r.ID]
 	remote, remoteOK := game.client.(*forgehost.Runtime)
 	backup := h.playerBackups[r.ID]
 	migrating := backup != nil && backup.migrationID != ""
-	eligible := state != nil && exists && remoteOK && link != nil && !h.forgeClosed && !migrating && link.Ready() &&
+	eligible := state != nil && exists && remoteOK && link != nil && !h.forge.closed && !migrating && link.Ready() &&
 		members[0] != "" && members[1] != "" && state.consent == members
 	var old *playerPeerBinding
 	if state != nil && state.binding != nil && (!eligible || state.binding.runtime != remote || state.binding.connections != members) {
@@ -181,7 +181,7 @@ func (h *Handler) refreshPeerBinding(r *room.Room) {
 			created = true
 		}
 	}
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	if old != nil {
 		old.cancel()
 		_ = old.link.SendPeer(forgehost.Frame{Type: "peer_context"})
@@ -207,7 +207,7 @@ func (h *Handler) refreshPeerBinding(r *room.Room) {
 		_ = link.SendPeer(forgehost.Frame{Type: "peer_context"})
 		return
 	}
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	if state == h.playerPeers[r.ID] {
 		binding.authorizedRevision = revision
 		for id, prior := range state.history {
@@ -216,7 +216,7 @@ func (h *Handler) refreshPeerBinding(r *room.Room) {
 			}
 		}
 	}
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	publicPrompt, err := h.publicForgePromptID(game, nativePrompt)
 	if err != nil {
 		return
@@ -257,10 +257,10 @@ func (h *Handler) handleForgePeerSignal(sess *Session, env protocol.Envelope) er
 		return nil
 	}
 	members := h.peerMembers(r)
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	state := h.playerPeers[r.ID]
 	if state == nil || state.binding == nil || state.binding.id != request.BindingID || state.binding.connections != members {
-		h.forgeMu.Unlock()
+		h.forge.mu.Unlock()
 		return nil
 	}
 	binding := state.binding
@@ -271,12 +271,12 @@ func (h *Handler) handleForgePeerSignal(sess *Session, env protocol.Envelope) er
 		}
 	}
 	if seat < 0 || binding.signals[seat] >= 66 {
-		h.forgeMu.Unlock()
+		h.forge.mu.Unlock()
 		return nil
 	}
 	binding.signals[seat]++
 	target := binding.connections[1-seat]
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	if other := h.sessionByConn(target); other != nil {
 		out, _ := protocol.NewEnvelope(protocol.TypeForgePeerSignaled, request)
 		h.send(other, out)
@@ -285,7 +285,7 @@ func (h *Handler) handleForgePeerSignal(sess *Session, env protocol.Envelope) er
 }
 
 func (h *Handler) revokePlayerPeer(roomID string, forget bool) {
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	state := h.playerPeers[roomID]
 	var binding *playerPeerBinding
 	if state != nil {
@@ -295,7 +295,7 @@ func (h *Handler) revokePlayerPeer(roomID string, forget bool) {
 			delete(h.playerPeers, roomID)
 		}
 	}
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	if binding != nil {
 		binding.cancel()
 		_ = binding.link.SendPeer(forgehost.Frame{Type: "peer_context"})

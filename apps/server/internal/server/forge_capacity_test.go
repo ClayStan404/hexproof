@@ -94,9 +94,9 @@ func TestForgeCapacityCountsStartupAndRecoversAfterCancellation(t *testing.T) {
 	if err := os.Remove(filepath.Join(dir, "hang")); err != nil {
 		t.Fatal(err)
 	}
-	handler.forgeMu.Lock()
-	handler.forgeRetryAfter = time.Time{}
-	handler.forgeMu.Unlock()
+	handler.forge.mu.Lock()
+	handler.forge.retryAfter = time.Time{}
+	handler.forge.mu.Unlock()
 	if _, err := handler.startForgeRuntime(context.Background(), ""); err != nil {
 		t.Fatalf("failed startup leaked its slot: %v", err)
 	}

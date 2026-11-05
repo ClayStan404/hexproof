@@ -20,8 +20,8 @@ import (
 const forgeSnapshotTimeout = 5 * time.Second
 
 func (h *Handler) forgeGame(roomID string) (forgeRoomGame, bool) {
-	h.forgeMu.Lock()
-	defer h.forgeMu.Unlock()
+	h.forge.mu.Lock()
+	defer h.forge.mu.Unlock()
 	game, ok := h.forgeGames[roomID]
 	return game, ok
 }

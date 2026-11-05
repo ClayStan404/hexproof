@@ -4,6 +4,7 @@
 #pragma once
 
 #include <QObject>
+#include <QQueue>
 #include <QString>
 #include <QVariantList>
 #include <QVariantMap>
@@ -59,8 +60,27 @@ class GameSessionState : public QObject
   signals:
     void snapshotChanged();
     void snapshotDataChanged(const QVariantMap &snapshot);
+    // Published after typed consumers and scalar property bindings have updated.
+    void snapshotCommitted();
 
   private:
+    enum class UpdateKind
+    {
+        Snapshot,
+        Clear,
+        ClearSideboard
+    };
+    struct PendingUpdate
+    {
+        UpdateKind kind;
+        QVariantMap snapshot;
+    };
+    void publishUpdate(UpdateKind kind, const QVariantMap &snapshot = {});
+
+    // Reentrant direct slots enqueue work until the current notification cycle
+    // returns. The queue is drained synchronously, never across event-loop turns.
+    QQueue<PendingUpdate> m_pendingUpdates;
+    bool m_publishing = false;
     int m_gameNumber = 0;
     int m_startingSeat = -1;
     QVariantList m_turnOrder;

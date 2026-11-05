@@ -155,6 +155,9 @@ class TestWsClient : public QObject
     void sendsActionClockConfiguration() const;
     void sessionStatesRestoreAndClearActionClockConfiguration() const;
     void gameSessionStateExposesQmlBindableSnapshot() const;
+    void gameSnapshotCompletionFollowsTypedAndScalarUpdates() const;
+    void gameSnapshotPublicationSerializesReentrantUpdates_data();
+    void gameSnapshotPublicationSerializesReentrantUpdates() const;
     void rulesSessionStateExposesTypedSnapshot() const;
     void rulesSessionStateExposesCurrentPersistentChoices() const;
     void rulesSnapshotModelsPreserveUnchangedRows() const;

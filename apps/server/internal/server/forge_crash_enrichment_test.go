@@ -44,9 +44,9 @@ func TestForgeCrashRecoveryCollectsIndependentlyWithoutReplacingPrimary(t *testi
 	recovery := &crashTestRuntime{info: forgediag.FailureInfo{ProducerID: "recovery-1", Boundary: &forgediag.Boundary{Code: "protocol_eof", RequestFamily: "restore"}}}
 	game.client = primary
 	op, _ := h.hub.lockRoomOperation(r.ID)
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	h.forgeGames[r.ID] = game
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	h.terminateForgeGame(r, game, recovery)
 	op.opMu.Unlock()
 	initial := nextCrashReport(t, members[0], 1)
@@ -115,9 +115,9 @@ func TestForgeCrashCollectorCapacityFinalizesInitialReport(t *testing.T) {
 	game, _ := h.forgeGame(r.ID)
 	game.client = &crashTestRuntime{Runtime: game.client, info: forgediag.FailureInfo{ProducerID: "pending"}}
 	op, _ := h.hub.lockRoomOperation(r.ID)
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	h.forgeGames[r.ID] = game
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	h.terminateForgeGame(r, game)
 	op.opMu.Unlock()
 	report := nextCrashReport(t, members[0], 1)

@@ -18,7 +18,7 @@ func TestForgeTournamentCreationRequiresAvailableRuntime(t *testing.T) {
 		h := retentionHandler(t, DefaultConfig())
 		// No game is started here; advertise a configured runtime for admission.
 		if available {
-			h.forgeRuntime = &forge.ProcessConfig{}
+			h.forge.config = &forge.ProcessConfig{}
 		}
 		owner := retentionSession(h, "owner")
 		env, _ := protocol.NewEnvelope(protocol.TypeTournamentCreate, protocol.TournamentCreate{
@@ -56,7 +56,7 @@ func TestForgeLimitedPairingPreservesModeLockedPoolAndNativeVariant(t *testing.T
 		protocol.LimitedEventSetDraft, protocol.LimitedEventCubeDraft} {
 		t.Run(eventType, func(t *testing.T) {
 			h := retentionHandler(t, DefaultConfig())
-			h.forgeRuntime = &forge.ProcessConfig{}
+			h.forge.config = &forge.ProcessConfig{}
 			host, guest := retentionSession(h, "host"), retentionSession(h, "guest")
 			event, err := tournament.New("LIMITED", tournament.Config{
 				Name: "Pairing fixture", Format: "Modern", MatchMode: protocol.MatchBO3,
@@ -99,18 +99,18 @@ func TestForgeLimitedPairingPreservesModeLockedPoolAndNativeVariant(t *testing.T
 			}
 			open, _ := protocol.NewEnvelope(protocol.TypeTournamentOpenMatch,
 				protocol.TournamentPairingCommand{PairingID: pair.ID})
-			h.forgeMu.Lock()
-			h.forgeRetryAfter = time.Now().Add(time.Minute)
-			h.forgeMu.Unlock()
+			h.forge.mu.Lock()
+			h.forge.retryAfter = time.Now().Add(time.Minute)
+			h.forge.mu.Unlock()
 			if err := h.handleTournamentOpenMatch(host, open); err != nil {
 				t.Fatal(err)
 			}
 			if payload := readWireError(t, host); payload.Code != protocol.ErrRulesUnavailable || host.Room() != nil {
 				t.Fatalf("unavailable Forge opened or downgraded a pairing: %+v", payload)
 			}
-			h.forgeMu.Lock()
-			h.forgeRetryAfter = time.Time{}
-			h.forgeMu.Unlock()
+			h.forge.mu.Lock()
+			h.forge.retryAfter = time.Time{}
+			h.forge.mu.Unlock()
 			for _, sess := range []*Session{host, guest} {
 				if err := h.handleTournamentOpenMatch(sess, open); err != nil {
 					t.Fatal(err)
@@ -120,13 +120,13 @@ func TestForgeLimitedPairingPreservesModeLockedPoolAndNativeVariant(t *testing.T
 				}
 				// A launch backoff must not prevent the other participant from
 				// entering the already-created table or resuming a live game.
-				h.forgeMu.Lock()
-				h.forgeRetryAfter = time.Now().Add(time.Minute)
-				h.forgeMu.Unlock()
+				h.forge.mu.Lock()
+				h.forge.retryAfter = time.Now().Add(time.Minute)
+				h.forge.mu.Unlock()
 			}
-			h.forgeMu.Lock()
-			h.forgeRetryAfter = time.Time{}
-			h.forgeMu.Unlock()
+			h.forge.mu.Lock()
+			h.forge.retryAfter = time.Time{}
+			h.forge.mu.Unlock()
 			r := host.Room()
 			if r != guest.Room() || r.RulesMode != protocol.RulesModeForge || r.HostingMode != "server" ||
 				r.DeckFormat != protocol.DeckFormatLimited || !r.LimitedDeckLocked {

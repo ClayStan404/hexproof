@@ -322,6 +322,11 @@ TestCase {
 
     function test_reconcilesSnapshotAcrossControllers() {
         fakeGameTable.snapshotChanged()
+        // Typed notifications alone must not render a partially updated session.
+        compare(projectionController.battlefieldCount, 0)
+        compare(projectionController.handCount, 0)
+        compare(zoneController.reconcileCount, 0)
+        fakeWs.gameSnapshotChanged()
         compare(projectionController.battlefieldCount, 1)
         compare(projectionController.handCount, 1)
         compare(cardMoveController.clearCount, 1)
@@ -337,7 +342,7 @@ TestCase {
         compare(presentationController.prioritizeCount, 1)
     }
 
-    function test_wsSnapshotFinalizesSessionStateWithoutRebuildingTable() {
+    function test_commitWithoutTypedChangesStillReconcilesOnce() {
         fakeWs.gameSnapshotChanged()
 
         compare(projectionController.handCount, 1)
@@ -346,8 +351,8 @@ TestCase {
         compare(sessionController.counterCount, 1)
         compare(transientController.reconcileCount, 1)
         compare(projectionController.battlefieldCount, 1)
-        compare(zoneController.reconcileCount, 0)
-        compare(sceneController.refreshCount, 0)
+        compare(zoneController.reconcileCount, 1)
+        compare(sceneController.refreshCount, 1)
     }
 
     function test_finalSessionSignalAppliesRolledVisualOrder_data() {
@@ -369,11 +374,11 @@ TestCase {
         fakeRoomSession.role = data.viewer < 0 ? "spectator" : "player"
         fakeTable.authoritativeSeats = data.order.slice().sort().map(
                     seat => ({seat: seat}))
-        // GameSessionState emits typed snapshotDataChanged first. Its scalar
-        // QML bindings notify later through WsClient.gameSnapshotChanged.
+        // The commit follows typed data and scalar QML bindings. No visual
+        // projection should be rebuilt while only the first half is ready.
         fakeGameTable.snapshotChanged()
-        compare(zoneController.reconcileCount, 1)
-        compare(actualProjection.battlefieldSeats.length, data.order.length)
+        compare(zoneController.reconcileCount, 0)
+        compare(actualProjection.battlefieldSeats.length, 0)
 
         // No typed zone/seat data changes here: only the rolled turn order
         // becomes visible at the final session signal.
@@ -399,6 +404,7 @@ TestCase {
             {seat: 0}, {seat: 1}, {seat: 2}, {seat: 3}
         ]
         fakeGameTable.snapshotChanged()
+        fakeWs.gameSnapshotChanged()
         const originalStates = actualProjection.battlefieldSeats.slice()
         actualProjection.activeBattlefieldDragCardId = "dragged-card"
         fakeGameSession.turnOrder = [2, 1, 3, 0]
@@ -416,7 +422,7 @@ TestCase {
         compare(actualProjection.activeBattlefieldDragCardId, "")
         compare(actualProjection.battlefieldSeats.map(state => state.seat),
                 [2, 1, 0, 3])
-        compare(zoneController.reconcileCount, 1)
+        compare(zoneController.reconcileCount, 2)
     }
 
     function test_restartWithIdenticalTypedZonesFinalizesProjectionOnce() {
@@ -427,7 +433,7 @@ TestCase {
 
         fakeWs.gameSnapshotChanged()
         compare(projectionController.battlefieldCount, 1)
-        compare(zoneController.reconcileCount, 0)
+        compare(zoneController.reconcileCount, 1)
         compare(fakeTable.restartResetCount, 1)
     }
 
@@ -437,7 +443,7 @@ TestCase {
         fakeWs.gameSnapshotChanged()
         compare(fakeTable.restartResetCount, 1)
         compare(projectionController.battlefieldCount, 1)
-        compare(zoneController.reconcileCount, 0)
+        compare(zoneController.reconcileCount, 1)
         compare(controller.observedGameNumber, 2)
     }
 
@@ -484,6 +490,7 @@ TestCase {
     function test_catalogCacheHitsDoNotReprioritizeInALoop() {
         presentationController.emitRevisionOnPrioritize = true
         fakeGameTable.snapshotChanged()
+        fakeWs.gameSnapshotChanged()
         compare(presentationController.prioritizeCount, 1)
         fakeCatalog.imageRevisionChanged()
         compare(presentationController.prioritizeCount, 1)
@@ -516,6 +523,7 @@ TestCase {
         compare(projectionController.battlefieldCount, 1)
 
         fakeGameTable.snapshotChanged()
+        fakeWs.gameSnapshotChanged()
         compare(projectionController.battlefieldCount, 2)
         compare(sessionController.resultCount, 1)
 

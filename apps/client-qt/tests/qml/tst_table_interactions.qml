@@ -1098,6 +1098,7 @@ TestCase {
         seats[0].handCount = 7
         seats[0].libraryCount = 53
         testGameTable.applySnapshot({"seats": seats})
+        mockWs.gameSnapshotChanged()
 
         tryVerify(() => table.ownSeatData.libraryCount === 53)
         compare(table.ownSeatData.handCount, 7)
@@ -1112,6 +1113,7 @@ TestCase {
         updatedSeats[0].handCount = 8
         updatedSeats[0].libraryCount = 52
         testGameTable.applySnapshot({"seats": updatedSeats})
+        mockWs.gameSnapshotChanged()
 
         tryVerify(() => table.ownSeatData.libraryCount === 52)
         compare(table.ownSeatData.handCount, 8)
@@ -1119,6 +1121,7 @@ TestCase {
         compare(table.ownHand[7].id, "drawn-card")
 
         testGameTable.clear()
+        mockWs.gameSnapshotChanged()
         tryVerify(() => table.ownSeatData.libraryCount === undefined)
         tryVerify(() => table.ownHand.length === 0)
         table.destroy()
