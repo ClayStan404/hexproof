@@ -82,7 +82,7 @@ func TestForgeTerminalReviewRetainsPublicBoardWithoutEngine(t *testing.T) {
 			}
 		}
 	}
-	if len(h.forgeClients) != 0 || len(h.forgeGames) != 0 {
+	if len(h.forge.clients) != 0 || len(h.forgeGames) != 0 {
 		t.Fatal("board review started an engine")
 	}
 	// Room reuse cannot replay the previous game's board.

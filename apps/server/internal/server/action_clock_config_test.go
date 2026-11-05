@@ -38,7 +38,7 @@ func TestRoomActionClockChoiceAndAdmission(t *testing.T) {
 			config := DefaultConfig()
 			config.AllowPlayerHosting = true
 			h := retentionHandler(t, config)
-			h.forgeRuntime, h.forgeNativeAI = &forge.ProcessConfig{}, true
+			h.forge.config, h.forge.nativeAI = &forge.ProcessConfig{}, true
 			host := retentionSession(h, "host")
 			env, _ := protocol.NewEnvelope(protocol.TypeRoomCreate, protocol.RoomCreate{
 				Name: "Clock choice", Format: test.format, MatchMode: protocol.MatchBO1,
@@ -96,7 +96,7 @@ func TestTournamentActionClockChoiceReachesProjectionAndPairedRoom(t *testing.T)
 	for _, enabled := range []bool{false, true} {
 		t.Run(map[bool]string{false: "disabled", true: "enabled"}[enabled], func(t *testing.T) {
 			h := retentionHandler(t, DefaultConfig())
-			h.forgeRuntime = &forge.ProcessConfig{}
+			h.forge.config = &forge.ProcessConfig{}
 			host, guest := retentionSession(h, "host"), retentionSession(h, "guest")
 			event, err := tournament.New("CLOCK", tournament.Config{
 				Name: "Clock pairing", Format: "Modern", MatchMode: protocol.MatchBO3,

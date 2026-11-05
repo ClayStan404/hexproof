@@ -4,7 +4,6 @@
 package server
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -17,7 +16,6 @@ import (
 	"hexproof/server/internal/forgehost"
 	"hexproof/server/internal/peerlink"
 	"hexproof/server/internal/protocol"
-	"hexproof/server/internal/rulesengine/forge"
 	"hexproof/server/internal/syncutil"
 )
 
@@ -98,23 +96,13 @@ type Handler struct {
 	playerBackups           map[string]*playerBackup
 	playerPeers             map[string]*playerPeerState
 	playerHostStateMu       sync.Mutex
-	forgeRuntime            *forge.ProcessConfig
 	modelMu                 sync.Mutex
 	modelWorkers            map[string]*modelWorker
-	forgeNativeAI           bool
-	forgeNativeDuelAI       bool
-	forgePool               *forge.Pool
-	forgeMu                 sync.Mutex
-	forgeClients            map[forge.Runtime]struct{}
-	forgeReservations       map[string]forge.Runtime
 	forgeGames              map[string]forgeRoomGame
 	forgePromptSequence     atomic.Int64
-	forgeClosed             bool
-	forgeStarting           chan struct{}
-	forgeStartCancel        context.CancelFunc
-	forgeRetryAfter         time.Time
-	forgeCloseOnce          sync.Once
-	forgeCloseErr           error
+	forge                   *forgeRuntimeLifecycle
+	closeOnce               sync.Once
+	closeErr                error
 	// marshalEnvelope, when set, replaces Envelope.Marshal for send/fan-out tests.
 	marshalEnvelope func(protocol.Envelope) ([]byte, error)
 }
@@ -157,38 +145,9 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 			_ = accountStore.Close()
 		}
 	}()
-	var forgeRuntime *forge.ProcessConfig
-	var forgeNativeAI, forgeNativeDuelAI bool
-	var forgePool *forge.Pool
-	if config.ForgeRuntime != nil {
-		var probe *forge.Client
-		var probeErr error
-		if config.ForgeGamesPerJVM > 1 {
-			forgePool, probeErr = forge.NewPool(*config.ForgeRuntime, config.ForgeGamesPerJVM)
-			if probeErr == nil {
-				probe, probeErr = forgePool.Acquire(context.Background())
-			}
-		} else {
-			probe, probeErr = forge.Start(context.Background(), *config.ForgeRuntime)
-		}
-		if probeErr != nil {
-			if forgePool != nil {
-				_ = forgePool.Close()
-			}
-			return nil, fmt.Errorf("configure Forge runtime: %w", probeErr)
-		}
-		forgeNativeAI = probe.SupportsAI()
-		forgeNativeDuelAI = probe.SupportsDuelAI()
-		if closeErr := probe.Close(); closeErr != nil {
-			if forgePool != nil {
-				_ = forgePool.Close()
-			}
-			return nil, fmt.Errorf("close Forge runtime probe: %w", closeErr)
-		}
-		copy := *config.ForgeRuntime
-		copy.Args = append([]string(nil), config.ForgeRuntime.Args...)
-		copy.Env = append([]string(nil), config.ForgeRuntime.Env...)
-		forgeRuntime = &copy
+	runtimeLifecycle, err := newForgeRuntimeLifecycle(config)
+	if err != nil {
+		return nil, err
 	}
 	accountConfigured = true
 	h := &Handler{
@@ -219,13 +178,8 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 		playerHosts:             make(map[string]*forgehost.Link),
 		playerBackups:           make(map[string]*playerBackup),
 		playerPeers:             make(map[string]*playerPeerState),
-		forgeRuntime:            forgeRuntime,
-		forgeNativeAI:           forgeNativeAI,
-		forgeNativeDuelAI:       forgeNativeDuelAI,
 		modelWorkers:            make(map[string]*modelWorker),
-		forgePool:               forgePool,
-		forgeClients:            make(map[forge.Runtime]struct{}),
-		forgeReservations:       make(map[string]forge.Runtime),
+		forge:                   runtimeLifecycle,
 		forgeGames:              make(map[string]forgeRoomGame),
 	}
 	if err := h.configureCluster(); err != nil {
@@ -236,20 +190,16 @@ func NewHandlerWithConfig(config Config) (*Handler, error) {
 }
 
 func (h *Handler) forgeRulesAvailable() bool {
-	h.forgeMu.Lock()
-	defer h.forgeMu.Unlock()
-	return !h.forgeClosed && h.forgeRuntime != nil &&
-		!time.Now().Before(h.forgeRetryAfter)
+	rules, _, _ := h.forge.capabilities()
+	return rules
 }
 
 func (h *Handler) forgeAIAvailable() bool {
-	h.forgeMu.Lock()
-	defer h.forgeMu.Unlock()
-	return !h.forgeClosed && h.forgeRuntime != nil && h.forgeNativeAI && !time.Now().Before(h.forgeRetryAfter)
+	_, ai, _ := h.forge.capabilities()
+	return ai
 }
 
 func (h *Handler) forgeDuelAIAvailable() bool {
-	h.forgeMu.Lock()
-	defer h.forgeMu.Unlock()
-	return !h.forgeClosed && h.forgeRuntime != nil && h.forgeNativeAI && h.forgeNativeDuelAI && !time.Now().Before(h.forgeRetryAfter)
+	_, _, duelAI := h.forge.capabilities()
+	return duelAI
 }

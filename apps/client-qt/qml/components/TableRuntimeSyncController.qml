@@ -81,6 +81,11 @@ Item {
 
     function reconcileSnapshot() {
         ++initializationGeneration
+        if (observedGameNumber > 0 && tableRoot.gameSession.gameNumber > 0
+                && observedGameNumber !== tableRoot.gameSession.gameNumber) {
+            tableRoot.resetGameInteractions()
+        }
+        reconcileConsent()
         projectionController.syncBattlefieldSeats()
         if (cardMoveController.pendingBattlefieldMoveCommitted())
             cardMoveController.clearPendingBattlefieldMove()
@@ -96,28 +101,6 @@ Item {
         sharedController.reconcileSelection()
         transientController.reconcile()
         presentationController.prioritizeVisibleCards()
-    }
-
-    function reconcileSessionSnapshot() {
-        // WsClient owns scalar match state that is intentionally not copied
-        // into GameTableModel: phase, score, result, sideboarding, and room
-        // lifecycle. Its notification follows snapshotDataChanged, so use it
-        // as the final synchronization point without rebuilding typed zones.
-        if (observedGameNumber > 0 && tableRoot.gameSession.gameNumber > 0
-                && observedGameNumber !== tableRoot.gameSession.gameNumber) {
-            tableRoot.resetGameInteractions()
-        }
-        reconcileConsent()
-        // turnOrder bindings notify after the typed snapshot. Finalize the
-        // visual seat order here even when the typed zones are unchanged.
-        // This also restores delegates cleared by a restart; unchanged order
-        // retains seat objects and active battlefield drags defer this sync.
-        projectionController.syncBattlefieldSeats()
-        projectionController.syncDisplayedOwnHand()
-        gameValueController.reconcile()
-        sessionController.maybeShowGameResult()
-        sessionController.syncOwnCounterCount()
-        transientController.reconcile()
     }
 
     function handleLibraryDumped(cards, sourceSeat, approvalId, topCount) {
@@ -215,7 +198,8 @@ Item {
         }
 
         function onGameSnapshotChanged() {
-            root.reconcileSessionSnapshot()
+            // Typed zones and scalar QML bindings have both finished updating.
+            root.reconcileSnapshot()
         }
 
         function onGameRestarted() {
@@ -230,14 +214,6 @@ Item {
         function onCommandFailed(requestId, commandType, payload, error) {
             root.handleCommandFailed(
                         requestId, commandType, payload, error)
-        }
-    }
-
-    Connections {
-        target: root.tableRoot ? root.tableRoot.gameTableModel : null
-
-        function onSnapshotChanged() {
-            root.reconcileSnapshot()
         }
     }
 

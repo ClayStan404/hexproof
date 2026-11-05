@@ -11,7 +11,6 @@ import (
 	"log"
 	"math/big"
 	"strings"
-	"sync"
 	"time"
 
 	"hexproof/server/internal/protocol"
@@ -23,8 +22,6 @@ const (
 	forgeGameStartTimeout = 45 * time.Second
 	forgeCleanupTimeout   = 5 * time.Second
 )
-
-var errForgeCapacity = errors.New("Forge game capacity is full")
 
 // forgeRoomGame is private lifecycle metadata. Decks and private projections
 // are never cached here; reconnect always asks Forge for a fresh viewer view.
@@ -47,95 +44,8 @@ type forgeStartState struct {
 	sideboardDeadline time.Time
 }
 
-// startForgeRuntime reserves an isolated game lease: a fresh process by
-// default, or a slot in an explicitly configured shared worker. Serialize
-// admission/cold startups while established games run independently.
 func (h *Handler) startForgeRuntime(ctx context.Context, roomID string, dedicated ...bool) (*forge.Client, error) {
-	for {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		h.forgeMu.Lock()
-		if h.forgeClosed || h.forgeRuntime == nil || time.Now().Before(h.forgeRetryAfter) {
-			h.forgeMu.Unlock()
-			return nil, errForgeRuntimeUnavailable
-		}
-		// Reserve capacity before spawning Java. A process remains charged
-		// until Wait has reaped it, even if it is unhealthy or closing. Check
-		// Done directly so a next game need not wait for its old watcher.
-		occupied := h.forgeOccupiedLocked()
-		if previous, reserved := h.forgeReservations[roomID]; reserved {
-			// Keep the same match's slot across sideboarding/restart, but
-			// never overlap its previous JVM with the replacement.
-			select {
-			case <-previous.Done():
-				occupied--
-			default:
-				h.forgeMu.Unlock()
-				select {
-				case <-previous.Done():
-					continue
-				case <-ctx.Done():
-					return nil, ctx.Err()
-				}
-			}
-		}
-		if occupied >= h.config.MaxForgeGames {
-			h.forgeMu.Unlock()
-			return nil, errForgeCapacity
-		}
-		if starting := h.forgeStarting; starting != nil {
-			h.forgeMu.Unlock()
-			select {
-			case <-starting:
-				continue
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			}
-		}
-		starting := make(chan struct{})
-		delete(h.forgeReservations, roomID)
-		h.forgeStarting = starting
-		startCtx, cancel := context.WithCancel(ctx)
-		h.forgeStartCancel = cancel
-		config := *h.forgeRuntime
-		h.forgeMu.Unlock()
-
-		var client *forge.Client
-		var err error
-		if h.forgePool != nil && (len(dedicated) == 0 || !dedicated[0]) {
-			client, err = h.forgePool.Acquire(startCtx)
-		} else {
-			client, err = forge.Start(startCtx, config)
-		}
-		cancel()
-		h.forgeMu.Lock()
-		closed := h.forgeClosed
-		if err == nil && !closed && client.Healthy() {
-			h.forgeClients[client] = struct{}{}
-			go h.watchForgeRuntime(client)
-		} else {
-			if err == nil {
-				err = errForgeRuntimeUnavailable
-			}
-			h.forgeRetryAfter = time.Now().Add(forgeRestartCooldown)
-		}
-		if err != nil && client != nil {
-			// Close must not return while a canceled startup still owns a
-			// child. Keep the single-flight notification open until cleanup.
-			h.forgeMu.Unlock()
-			_ = client.Close()
-			h.forgeMu.Lock()
-		}
-		h.forgeStarting = nil
-		h.forgeStartCancel = nil
-		close(starting)
-		h.forgeMu.Unlock()
-		if err != nil {
-			return nil, fmt.Errorf("%w: %w", errForgeRuntimeUnavailable, err)
-		}
-		return client, nil
-	}
+	return h.forge.start(ctx, roomID, len(dedicated) > 0 && dedicated[0], h.watchForgeRuntime)
 }
 
 // startForgeGame starts one authoritative engine session and prepares the
@@ -159,9 +69,9 @@ func (h *Handler) startForgeGame(r *room.Room) (forgeStartState, error) {
 	defer cancel()
 	client, err := h.startRoomForgeRuntime(ctx, r)
 	if err != nil {
-		h.forgeMu.Lock()
-		delete(h.forgeReservations, r.ID)
-		h.forgeMu.Unlock()
+		h.forge.mu.Lock()
+		h.forge.releaseReservationLocked(r.ID)
+		h.forge.mu.Unlock()
 		return forgeStartState{}, err
 	}
 	handle, err := client.StartGame(ctx, request)
@@ -175,21 +85,20 @@ func (h *Handler) startForgeGame(r *room.Room) (forgeStartState, error) {
 		return forgeStartState{}, err
 	}
 
-	h.forgeMu.Lock()
-	_, tracked := h.forgeClients[client]
-	if h.forgeClosed || !tracked || !client.Healthy() {
-		h.forgeMu.Unlock()
+	h.forge.mu.Lock()
+	if !h.forge.acceptsGameLocked(client) {
+		h.forge.mu.Unlock()
 		h.abortUntrackedForgeGame(client, handle.SessionID)
 		return forgeStartState{}, errors.New("Forge rules runtime is shutting down")
 	}
 	if _, exists := h.forgeGames[r.ID]; exists {
-		h.forgeMu.Unlock()
+		h.forge.mu.Unlock()
 		h.abortUntrackedForgeGame(client, handle.SessionID)
 		return forgeStartState{}, errors.New("Forge game already exists for room")
 	}
 	game.nativeAI = request.HasAI()
 	h.forgeGames[r.ID] = game
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	h.pauseModelWorker(r.ID, "", false)
 
 	if err := waitForInitialForgePrompt(game); err != nil {
@@ -353,35 +262,34 @@ func (h *Handler) closeForgeGame(roomID string, keepSlot bool) {
 	}
 	h.pauseModelWorker(roomID, "", false)
 	h.cancelPlayerHostMigration(roomID)
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	game, ok := h.forgeGames[roomID]
 	if ok {
 		delete(h.forgeGames, roomID)
 	}
-	_, localProcess := game.client.(*forge.Client)
-	if keepSlot && ok && localProcess {
-		h.forgeReservations[roomID] = game.client
+	if keepSlot && ok {
+		h.forge.reserveLocked(roomID, game.client)
 	} else if !keepSlot {
-		delete(h.forgeReservations, roomID)
+		h.forge.releaseReservationLocked(roomID)
 	}
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	if ok {
 		h.abortUntrackedForgeGame(game.client, game.sessionID)
 	}
 }
 
 func (h *Handler) finishForgeGame(roomID string, game forgeRoomGame, keepSlot bool) {
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	current, ok := h.forgeGames[roomID]
 	if ok && current.sessionID == game.sessionID {
 		delete(h.forgeGames, roomID)
-		if _, local := game.client.(*forge.Client); keepSlot && local {
-			h.forgeReservations[roomID] = game.client
+		if keepSlot {
+			h.forge.reserveLocked(roomID, game.client)
 		}
 	} else {
 		ok = false
 	}
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	if !ok {
 		return
 	}
@@ -395,102 +303,4 @@ func (h *Handler) finishForgeGame(roomID string, game forgeRoomGame, keepSlot bo
 	if err := game.client.EndGame(ctx, game.sessionID); err != nil {
 		log.Printf("end completed Forge game %s failed", roomID)
 	}
-}
-
-// Close stops tournament cleanup timers and reaps every owned Forge process,
-// including processes reserved by a startGame call. HTTP shutdown closes
-// WebSocket sessions separately.
-func (h *Handler) Close() error {
-	h.forgeCloseOnce.Do(func() {
-		h.cancelAllActionClocks()
-		if h.forgeCrashes != nil {
-			h.forgeCrashes.close()
-		}
-		if h.clusterAgent != nil {
-			h.clusterAgent.Close()
-		}
-		if h.accountStore != nil {
-			_ = h.accountStore.Close()
-		}
-		h.closeModelWorkers()
-		h.tournaments.close()
-		h.forgeMu.Lock()
-		h.forgeClosed = true
-		if h.forgeStartCancel != nil {
-			h.forgeStartCancel()
-		}
-		starting := h.forgeStarting
-		links := h.playerHosts
-		h.playerHosts = nil
-		peers := h.playerPeers
-		h.playerPeers = nil
-		backups := h.playerBackups
-		h.playerBackups = nil
-		clients := h.forgeClients
-		h.forgeClients = make(map[forge.Runtime]struct{})
-		h.forgeReservations = make(map[string]forge.Runtime)
-		h.forgeGames = make(map[string]forgeRoomGame)
-		h.forgeMu.Unlock()
-		for _, peer := range peers {
-			if peer.binding != nil {
-				peer.binding.cancel()
-			}
-		}
-		for _, link := range links {
-			link.Close()
-		}
-		for _, backup := range backups {
-			if backup.cancel != nil {
-				backup.cancel()
-			}
-			backup.link.Close()
-		}
-		if starting != nil {
-			<-starting
-		}
-		var children sync.WaitGroup
-		results := make(chan error, len(clients))
-		for client := range clients {
-			children.Add(1)
-			go func() {
-				defer children.Done()
-				results <- client.Close()
-			}()
-		}
-		children.Wait()
-		close(results)
-		for err := range results {
-			h.forgeCloseErr = errors.Join(h.forgeCloseErr, err)
-		}
-		if h.forgePool != nil {
-			h.forgeCloseErr = errors.Join(h.forgeCloseErr, h.forgePool.Close())
-		}
-	})
-	return h.forgeCloseErr
-}
-
-// Caller holds forgeMu. Count each live/cold/reserved lease exactly once.
-func (h *Handler) forgeOccupiedLocked() int {
-	occupied := len(h.forgeReservations)
-	reservedClients := make(map[forge.Runtime]bool, occupied)
-	for _, client := range h.forgeReservations {
-		reservedClients[client] = true
-	}
-	for client := range h.forgeClients {
-		if _, local := client.(*forge.Client); !local {
-			continue
-		}
-		if reservedClients[client] {
-			continue
-		}
-		select {
-		case <-client.Done():
-		default:
-			occupied++
-		}
-	}
-	if h.forgeStarting != nil {
-		occupied++
-	}
-	return occupied
 }

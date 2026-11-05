@@ -5,23 +5,20 @@ package server
 
 import (
 	"log"
-	"time"
 
 	"hexproof/server/internal/protocol"
 	"hexproof/server/internal/room"
 	"hexproof/server/internal/rulesengine/forge"
 )
 
-const forgeRestartCooldown = time.Second
-
 // watchForgeRuntime responds to actual child exit, including an idle crash.
 // There is no automatic restart loop: only a new game can launch a replacement.
 func (h *Handler) watchForgeRuntime(client forge.Runtime) {
 	<-client.Done()
-	h.forgeMu.Lock()
-	delete(h.forgeClients, client)
-	if h.forgeClosed {
-		h.forgeMu.Unlock()
+	h.forge.mu.Lock()
+	h.forge.forgetLocked(client)
+	if h.forge.closed {
+		h.forge.mu.Unlock()
 		return
 	}
 	affected := make(map[string]forgeRoomGame)
@@ -30,7 +27,7 @@ func (h *Handler) watchForgeRuntime(client forge.Runtime) {
 			affected[roomID] = game
 		}
 	}
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	for roomID, game := range affected {
 		operation, err := h.hub.lockRoomOperation(roomID)
 		if err != nil {
@@ -62,15 +59,15 @@ func (h *Handler) terminateForgeGame(r *room.Room, expected forgeRoomGame, recov
 	if r == nil || r.RulesMode != protocol.RulesModeForge {
 		return
 	}
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	current, ok := h.forgeGames[r.ID]
-	if h.forgeClosed || !ok || current.client != expected.client ||
+	if h.forge.closed || !ok || current.client != expected.client ||
 		current.sessionID != expected.sessionID || current.gameID != expected.gameID {
-		h.forgeMu.Unlock()
+		h.forge.mu.Unlock()
 		return
 	}
 	delete(h.forgeGames, r.ID)
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	h.pauseActionClockLocked(r)
 	report := h.captureForgeCrash(r, current, recovery...)
 	h.pauseModelWorker(r.ID, "engine_unavailable", false)

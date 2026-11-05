@@ -38,13 +38,13 @@ func (h *Handler) handleForgeHostRequest(sess *Session, env protocol.Envelope) e
 	}
 	defer operation.opMu.Unlock()
 	operation.mu.Lock()
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	link := h.playerHosts[r.ID]
 	hostSeat := 0
 	if link != nil {
 		hostSeat = link.Seat
 	}
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	allowed := h.config.AllowPlayerHosting && r.HostingMode == "player" &&
 		r.FindSeatByConnection(sess.ConnectionID) == hostSeat && r.Phase == protocol.RoomPhaseWaiting && !r.Disbanded
 	operation.mu.Unlock()
@@ -64,9 +64,9 @@ func (h *Handler) handleForgeHostRequest(sess *Session, env protocol.Envelope) e
 func (h *Handler) allocatePlayerHost(r *room.Room, seat ...int) *forgehost.Link {
 	h.playerHostStateMu.Lock()
 	defer h.playerHostStateMu.Unlock()
-	h.forgeMu.Lock()
-	defer h.forgeMu.Unlock()
-	if h.forgeClosed || len(h.playerHosts) >= h.config.MaxPlayerHostedGames {
+	h.forge.mu.Lock()
+	defer h.forge.mu.Unlock()
+	if h.forge.closed || len(h.playerHosts) >= h.config.MaxPlayerHostedGames {
 		return nil
 	}
 	grace := min(h.config.ReconnectWindow, 10*time.Minute)
@@ -82,10 +82,10 @@ func (h *Handler) allocatePlayerHost(r *room.Room, seat ...int) *forgehost.Link 
 }
 
 func (h *Handler) sendPlayerHostGrant(sess *Session, link *forgehost.Link, requestID string) {
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	backup := h.playerBackups[link.RoomID]
 	standby := backup != nil && backup.link == link
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	grant, _ := protocol.NewEnvelope(protocol.TypeForgeHostGrant, protocol.ForgeHostGrant{
 		RoomID: link.RoomID, Token: link.Token, RuntimeID: forgehost.RuntimeID,
 		GraceSeconds: int(link.Grace / time.Second),
@@ -99,12 +99,12 @@ func (h *Handler) revokePlayerHost(roomID string) {
 	h.revokePlayerPeer(roomID, true)
 	h.playerHostStateMu.Lock()
 	defer h.playerHostStateMu.Unlock()
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	link := h.playerHosts[roomID]
 	backup := h.playerBackups[roomID]
 	delete(h.playerHosts, roomID)
 	delete(h.playerBackups, roomID)
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	if backup != nil {
 		if backup.cancel != nil {
 			backup.cancel()
@@ -123,11 +123,11 @@ func (h *Handler) publishPlayerHostState(r *room.Room, link *forgehost.Link, con
 	// Serialize binding replacement with state publication. A callback from the
 	// previous helper must not overwrite the new binding's connected state.
 	h.playerHostStateMu.Lock()
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	backup := h.playerBackups[r.ID]
-	current := (h.playerHosts[r.ID] == link || backup != nil && backup.link == link) && !h.forgeClosed
+	current := (h.playerHosts[r.ID] == link || backup != nil && backup.link == link) && !h.forge.closed
 	primary := h.playerHosts[r.ID] == link
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	if current {
 		h.sendPlayerHostState(r)
 	}
@@ -143,9 +143,9 @@ func (h *Handler) publishPlayerHostState(r *room.Room, link *forgehost.Link, con
 				return
 			}
 			defer operation.opMu.Unlock()
-			h.forgeMu.Lock()
-			current := h.playerHosts[r.ID] == link && !h.forgeClosed
-			h.forgeMu.Unlock()
+			h.forge.mu.Lock()
+			current := h.playerHosts[r.ID] == link && !h.forge.closed
+			h.forge.mu.Unlock()
 			if current {
 				h.refreshForgeActionClock(r)
 			}
@@ -179,11 +179,11 @@ func (h *Handler) playerHostPaused(r *room.Room) bool {
 	if r.HostingMode != "player" {
 		return false
 	}
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	link := h.playerHosts[r.ID]
 	backup := h.playerBackups[r.ID]
 	migrating := backup != nil && backup.migrationID != ""
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	return migrating || link == nil || !link.Ready()
 }
 
@@ -206,12 +206,12 @@ func (h *Handler) servePlayerHost(w http.ResponseWriter, request *http.Request) 
 		hello.RuntimeID != forgehost.RuntimeID || len(hello.HelperID) != 64 || len(hello.Token) != 64 {
 		return
 	}
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	link := h.playerHosts[hello.RoomID]
 	if backup := h.playerBackups[hello.RoomID]; backup != nil && subtle.ConstantTimeCompare([]byte(backup.link.Token), []byte(hello.Token)) == 1 {
 		link = backup.link
 	}
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	if link == nil || subtle.ConstantTimeCompare([]byte(link.Token), []byte(hello.Token)) != 1 {
 		return
 	}
@@ -226,17 +226,17 @@ func (h *Handler) startRoomForgeRuntime(ctx context.Context, r *room.Room) (forg
 	if r.HostingMode != "player" {
 		return h.startForgeRuntime(ctx, r.ID, r.AIDifficulty != "")
 	}
-	h.forgeMu.Lock()
-	defer h.forgeMu.Unlock()
+	h.forge.mu.Lock()
+	defer h.forge.mu.Unlock()
 	link := h.playerHosts[r.ID]
-	if h.forgeClosed || link == nil || !link.Ready() {
+	if h.forge.closed || link == nil || !link.Ready() {
 		return nil, forgehost.ErrUnavailable
 	}
 	engine, err := link.NewRuntime()
 	if err != nil {
 		return nil, err
 	}
-	h.forgeClients[engine] = struct{}{}
+	h.forge.trackLocked(engine)
 	go h.watchForgeRuntime(engine)
 	return engine, nil
 }

@@ -693,6 +693,7 @@ Item {
             "attachments": mockWs.gameAttachments,
             "log": mockWs.gameLog
         })
+        mockWs.gameSnapshotChanged()
     }
 
     Connections {

@@ -14,7 +14,7 @@ import (
 )
 
 // One explicitly consenting successor is bounded to each two-player room.
-// Protected by forgeMu; long replay work never holds the room operation lock.
+// Protected by forge.mu; long replay work never holds the room operation lock.
 type playerBackup struct {
 	link         *forgehost.Link
 	connectionID string
@@ -26,8 +26,8 @@ type playerBackup struct {
 }
 
 func (h *Handler) playerHostingStatus(roomID string) protocol.ForgeHostStatus {
-	h.forgeMu.Lock()
-	defer h.forgeMu.Unlock()
+	h.forge.mu.Lock()
+	defer h.forge.mu.Unlock()
 	status := protocol.ForgeHostStatus{RoomID: roomID}
 	if link := h.playerHosts[roomID]; link != nil {
 		status.HostSeat, status.Connected = link.Seat, link.Ready()
@@ -48,8 +48,8 @@ func (h *Handler) playerHostingStatus(roomID string) protocol.ForgeHostStatus {
 }
 
 func (h *Handler) playerHostMigrating(roomID string) bool {
-	h.forgeMu.Lock()
-	defer h.forgeMu.Unlock()
+	h.forge.mu.Lock()
+	defer h.forge.mu.Unlock()
 	backup := h.playerBackups[roomID]
 	return backup != nil && backup.migrationID != ""
 }
@@ -99,17 +99,17 @@ func (h *Handler) handlePlayerHostMigration(sess *Session, env protocol.Envelope
 		return nil
 	}
 	defer h.refreshPlayerHostStatus(r)
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	primary, backup := h.playerHosts[r.ID], h.playerBackups[r.ID]
-	if primary == nil || h.forgeClosed {
-		h.forgeMu.Unlock()
+	if primary == nil || h.forge.closed {
+		h.forge.mu.Unlock()
 		h.sendError(sess, env.ID, protocol.ErrRulesUnavailable, "hosting is unavailable")
 		return nil
 	}
 	busy := backup != nil && backup.migrationID != ""
 	switch action {
 	case "refresh":
-		h.forgeMu.Unlock()
+		h.forge.mu.Unlock()
 		h.sendHostingReply(sess, env.ID, r.ID)
 		return nil
 	case "offer":
@@ -121,7 +121,7 @@ func (h *Handler) handlePlayerHostMigration(sess *Session, env protocol.Envelope
 		link.OnPeerCommit = func(commit forgehost.PeerCommit) { h.commitPlayerPeer(r, link, commit) }
 		link.OnState = func(connected bool) { h.publishPlayerHostState(r, link, connected) }
 		h.playerBackups[r.ID] = &playerBackup{link: link, connectionID: sess.ConnectionID}
-		h.forgeMu.Unlock()
+		h.forge.mu.Unlock()
 		if backup != nil {
 			backup.link.Close()
 		}
@@ -135,7 +135,7 @@ func (h *Handler) handlePlayerHostMigration(sess *Session, env protocol.Envelope
 			break
 		}
 		delete(h.playerBackups, r.ID)
-		h.forgeMu.Unlock()
+		h.forge.mu.Unlock()
 		backup.link.Close()
 		h.sendHostingReply(sess, env.ID, r.ID)
 		return nil
@@ -144,7 +144,7 @@ func (h *Handler) handlePlayerHostMigration(sess *Session, env protocol.Envelope
 			break
 		}
 		backup.approved = true
-		h.forgeMu.Unlock()
+		h.forge.mu.Unlock()
 		h.sendHostingReply(sess, env.ID, r.ID)
 		return nil
 	case "migrate":
@@ -156,7 +156,7 @@ func (h *Handler) handlePlayerHostMigration(sess *Session, env protocol.Envelope
 		if seat != primary.Seat && primary.Ready() {
 			break
 		}
-		h.forgeMu.Unlock()
+		h.forge.mu.Unlock()
 		if !h.beginPlayerHostMigration(r) {
 			h.sendError(sess, env.ID, protocol.ErrRulesActionRejected, "This position cannot be migrated")
 		} else {
@@ -164,7 +164,7 @@ func (h *Handler) handlePlayerHostMigration(sess *Session, env protocol.Envelope
 		}
 		return nil
 	}
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	h.sendError(sess, env.ID, protocol.ErrRulesActionRejected, "Hosting request is not available in this state")
 	return nil
 }
@@ -178,19 +178,19 @@ func (h *Handler) sendHostingReply(sess *Session, id, roomID string) {
 // Requires opMu. The old engine remains the current one until a fully verified
 // replacement is installed. During replay both direct and relay actions pause.
 func (h *Handler) beginPlayerHostMigration(r *room.Room) bool {
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	backup, primary, game := h.playerBackups[r.ID], h.playerHosts[r.ID], h.forgeGames[r.ID]
-	if backup == nil || !backup.approved || !backup.link.Ready() || h.forgeClosed {
-		h.forgeMu.Unlock()
+	if backup == nil || !backup.approved || !backup.link.Ready() || h.forge.closed {
+		h.forge.mu.Unlock()
 		return false
 	}
 	if backup.migrationID != "" {
-		h.forgeMu.Unlock()
+		h.forge.mu.Unlock()
 		return true
 	}
 	remote, ok := game.client.(*forgehost.Runtime)
 	backupConnectionID := backup.connectionID
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	if !ok {
 		return false
 	}
@@ -213,17 +213,17 @@ func (h *Handler) beginPlayerHostMigration(r *room.Room) bool {
 		return false
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), forgehost.ReplayTimeout)
-	h.forgeMu.Lock()
-	if h.forgeClosed || h.playerBackups[r.ID] != backup {
-		h.forgeMu.Unlock()
+	h.forge.mu.Lock()
+	if h.forge.closed || h.playerBackups[r.ID] != backup {
+		h.forge.mu.Unlock()
 		cancel()
 		next.Invalidate()
 		return false
 	}
 	migrationID := forgehost.NewID()
 	backup.migrationID, backup.cancel, backup.failure, backup.replacement = migrationID, cancel, "", next
-	h.forgeClients[next] = struct{}{}
-	h.forgeMu.Unlock()
+	h.forge.trackLocked(next)
+	h.forge.mu.Unlock()
 	h.revokePlayerPeer(r.ID, false)
 	h.refreshPlayerHostStatus(r)
 	go func() {
@@ -237,20 +237,20 @@ func (h *Handler) beginPlayerHostMigration(r *room.Room) bool {
 func (h *Handler) finishPlayerHostMigration(r *room.Room, game forgeRoomGame, primary *forgehost.Link, backup *playerBackup, migrationID string, next *forgehost.Runtime, replayErr error) {
 	operation, err := h.hub.lockRoomOperation(r.ID)
 	if err != nil {
-		h.forgeMu.Lock()
-		delete(h.forgeClients, next)
-		h.forgeMu.Unlock()
+		h.forge.mu.Lock()
+		h.forge.forgetLocked(next)
+		h.forge.mu.Unlock()
 		next.Invalidate()
 		return
 	}
 	defer operation.opMu.Unlock()
 	h.playerHostStateMu.Lock()
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	current, ok := h.forgeGames[r.ID]
-	valid := !h.forgeClosed && h.playerBackups[r.ID] == backup && backup.migrationID == migrationID && h.playerHosts[r.ID] == primary && ok && current.client == game.client
-	delete(h.forgeClients, next)
+	valid := !h.forge.closed && h.playerBackups[r.ID] == backup && backup.migrationID == migrationID && h.playerHosts[r.ID] == primary && ok && current.client == game.client
+	h.forge.forgetLocked(next)
 	if !valid {
-		h.forgeMu.Unlock()
+		h.forge.mu.Unlock()
 		h.playerHostStateMu.Unlock()
 		next.Invalidate()
 		return
@@ -258,7 +258,7 @@ func (h *Handler) finishPlayerHostMigration(r *room.Room, game forgeRoomGame, pr
 	backup.migrationID, backup.cancel, backup.replacement = "", nil, nil
 	if replayErr != nil || !next.Healthy() {
 		backup.failure = "verification_failed"
-		h.forgeMu.Unlock()
+		h.forge.mu.Unlock()
 		h.playerHostStateMu.Unlock()
 		next.Invalidate()
 		if !game.client.Healthy() {
@@ -275,8 +275,8 @@ func (h *Handler) finishPlayerHostMigration(r *room.Room, game forgeRoomGame, pr
 	h.forgeGames[r.ID] = game
 	h.playerHosts[r.ID] = backup.link
 	delete(h.playerBackups, r.ID)
-	h.forgeClients[next] = struct{}{}
-	h.forgeMu.Unlock()
+	h.forge.trackLocked(next)
+	h.forge.mu.Unlock()
 	h.playerHostStateMu.Unlock()
 	primary.Close()
 	go h.watchForgeRuntime(next)
@@ -292,7 +292,7 @@ func (h *Handler) finishPlayerHostMigration(r *room.Room, game forgeRoomGame, pr
 // The caller already owns the room operation lock. Clearing the migration ID
 // also fences a late replay result from a restarted or explicitly closed game.
 func (h *Handler) cancelPlayerHostMigration(roomID string) {
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	backup := h.playerBackups[roomID]
 	var cancel context.CancelFunc
 	var replacement *forgehost.Runtime
@@ -300,7 +300,7 @@ func (h *Handler) cancelPlayerHostMigration(roomID string) {
 		cancel, replacement = backup.cancel, backup.replacement
 		backup.migrationID, backup.cancel, backup.replacement = "", nil, nil
 	}
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	if cancel != nil {
 		cancel()
 	}

@@ -81,9 +81,9 @@ func TestForgeCrashPublicEvidenceAndResumeEligibility(t *testing.T) {
 	game.diagnostics.observe(protocol.RulesGameSnapshot{Turn: 7, Step: "main1", ActiveSeat: 0}, 42)
 	game.diagnostics.action("chooseAction", 0, true)
 	op, _ := h.hub.lockRoomOperation(r.ID)
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	h.forgeGames[r.ID] = game
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	h.terminateForgeGame(r, game)
 	op.opMu.Unlock()
 	report := nextCrashReport(t, members[0], 1)
@@ -122,9 +122,9 @@ func TestForgeCrashLateEvidenceUpdatesSameIncident(t *testing.T) {
 	runtime := &crashTestRuntime{Runtime: game.client, info: forgediag.FailureInfo{ProducerID: "supervisor-1", Boundary: &forgediag.Boundary{Code: "protocol_eof", RequestFamily: "submitAction", Dispatched: true}}}
 	game.client = runtime
 	op, _ := h.hub.lockRoomOperation(r.ID)
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	h.forgeGames[r.ID] = game
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 	h.terminateForgeGame(r, game)
 	op.opMu.Unlock()
 	initial := nextCrashReport(t, members[0], 1)

@@ -69,7 +69,7 @@ func TestForgeChatPublishesMetadataWithoutQueryingAnEngine(t *testing.T) {
 			}
 		}
 	}
-	if len(h.forgeClients) != 0 || len(h.forgeGames) != 0 {
+	if len(h.forge.clients) != 0 || len(h.forgeGames) != 0 {
 		t.Fatal("public chat started or queried an engine")
 	}
 }

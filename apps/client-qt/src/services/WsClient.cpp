@@ -61,7 +61,7 @@ WsClient::WsClient(const QString &modelProfileFile, QObject *parent)
             &WsClient::reconcileModelOpponentStatus);
 
     m_gameSession = new GameSessionState(this);
-    connect(m_gameSession, &GameSessionState::snapshotChanged, this,
+    connect(m_gameSession, &GameSessionState::snapshotCommitted, this,
             &WsClient::gameSnapshotChanged);
     connect(m_gameSession, &GameSessionState::snapshotDataChanged, this,
             &WsClient::gameSnapshotDataChanged);

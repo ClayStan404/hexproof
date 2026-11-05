@@ -114,11 +114,11 @@ func (h *Handler) rebindResumedRoom(sess *Session, hold resumeHold) {
 		entry.mu.Unlock()
 		h.forgeReplays.bindAccount(hold.room, sess.ConnectionID, aid)
 	}
-	h.forgeMu.Lock()
+	h.forge.mu.Lock()
 	if backup := h.playerBackups[hold.room.ID]; backup != nil && backup.connectionID == hold.oldConnectionID {
 		backup.connectionID = sess.ConnectionID
 	}
-	h.forgeMu.Unlock()
+	h.forge.mu.Unlock()
 }
 
 func (h *Handler) sendResumedRoomState(sess *Session, r *room.Room, envelopes []protocol.Envelope) {

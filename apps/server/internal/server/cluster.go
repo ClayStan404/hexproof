@@ -121,9 +121,7 @@ func (h *Handler) clusterReport() cluster.Report {
 		}
 		entry.mu.Unlock()
 	}
-	h.forgeMu.Lock()
-	r.ForgeDemand = max(r.ForgeDemand, h.forgeOccupiedLocked())
-	h.forgeMu.Unlock()
+	r.ForgeDemand = max(r.ForgeDemand, h.forge.occupied())
 	return r
 }
 

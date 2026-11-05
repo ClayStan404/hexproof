@@ -34,10 +34,10 @@ func TestClusterDuelAIIsDisabledWithoutBreakingLegacyOrdinaryRooms(t *testing.T)
 	cfg.Cluster = &cluster.Config{Realm: cfg.AccountRealm, NodeID: "N1", Key: key, Coordinator: coordinator.URL, Nodes: []cluster.Node{node}}
 	srv, handler := newConfiguredTestServer(t, cfg)
 	// Capability metadata only: the test verifies hub admission, not engine play.
-	handler.forgeMu.Lock()
-	handler.forgeRuntime = &forge.ProcessConfig{}
-	handler.forgeNativeAI, handler.forgeNativeDuelAI = true, true
-	handler.forgeMu.Unlock()
+	handler.forge.mu.Lock()
+	handler.forge.config = &forge.ProcessConfig{}
+	handler.forge.nativeAI, handler.forge.nativeDuelAI = true, true
+	handler.forge.mu.Unlock()
 	if err = handler.clusterAgent.Publish(context.Background(), ""); err != nil || !handler.clusterAgent.Status().Ready {
 		t.Fatal("new hub could not report to frozen coordinator", err)
 	}

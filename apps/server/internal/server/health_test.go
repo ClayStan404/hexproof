@@ -31,12 +31,12 @@ func TestHealthCapabilitiesSeparateHostingFromLocalForge(t *testing.T) {
 		{name: "closed local engine", local: true, closed: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			h := &Handler{config: Config{AllowPlayerHosting: test.hosting}, forgeClosed: test.closed}
+			h := &Handler{config: Config{AllowPlayerHosting: test.hosting}, forge: &forgeRuntimeLifecycle{closed: test.closed}}
 			if test.local {
-				h.forgeRuntime = &forge.ProcessConfig{}
+				h.forge.config = &forge.ProcessConfig{}
 			}
 			if test.cooling {
-				h.forgeRetryAfter = time.Now().Add(time.Minute)
+				h.forge.retryAfter = time.Now().Add(time.Minute)
 			}
 			response := httptest.NewRecorder()
 			h.ServeHealth(response, httptest.NewRequest("GET", "/healthz", nil))

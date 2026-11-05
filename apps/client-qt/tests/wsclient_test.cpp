@@ -3,6 +3,8 @@
 
 #include "wsclient_test.h"
 
+#include "models/GameTableModel.h"
+
 #include <QAbstractItemModelTester>
 #include <QJsonDocument>
 #include <QPersistentModelIndex>
@@ -986,6 +988,124 @@ void TestWsClient::gameSessionStateExposesQmlBindableSnapshot() const
     QCOMPARE(session.property("result").toMap().value(u"winnerSeat"_s).toInt(), 0);
     QCOMPARE(session.property("finished").toBool(), true);
     QCOMPARE(session.property("sideboarding").toBool(), true);
+}
+
+void TestWsClient::gameSnapshotCompletionFollowsTypedAndScalarUpdates() const
+{
+    WsClient client;
+    auto *session = client.gameSession();
+    hexproof::client::GameTableModel table;
+    QStringList notifications;
+    int boundGameNumber = -1;
+    QVariantList boundTurnOrder;
+    connect(&client, &WsClient::gameSnapshotDataChanged, &table,
+            &hexproof::client::GameTableModel::applySnapshot);
+    connect(&table, &hexproof::client::GameTableModel::snapshotChanged, &client,
+            [&]() { notifications.append(u"typed"_s); });
+    // Like QML property bindings, this observer is installed after WsClient's
+    // facade forwarding connection and must run before its completion signal.
+    connect(session, &GameSessionState::snapshotChanged, &client, [&]() {
+        boundGameNumber = session->gameNumber();
+        boundTurnOrder = session->turnOrder();
+        notifications.append(u"scalar"_s);
+    });
+    connect(&client, &WsClient::gameSnapshotChanged, &client, [&]() {
+        QCOMPARE(boundGameNumber, session->gameNumber());
+        QCOMPARE(boundTurnOrder, session->turnOrder());
+        QCOMPARE(table.hasSnapshot(), session->gameNumber() != 0);
+        notifications.append(u"committed"_s);
+    });
+    const QVariantMap snapshot{
+        {u"gameNumber"_s, 1},
+        {u"turnOrder"_s, QVariantList{1, 0}},
+        {u"seats"_s, QVariantList{QVariantMap{{u"seat"_s, 0}, {u"life"_s, 20}}}},
+        {u"sideboard"_s, QVariantMap{{u"deadlineMs"_s, 15000}}},
+    };
+    session->applySnapshot(snapshot);
+    QCOMPARE(notifications, QStringList({u"typed"_s, u"scalar"_s, u"committed"_s}));
+    notifications.clear();
+    session->applySnapshot(snapshot);
+    QCOMPARE(notifications, QStringList({u"scalar"_s, u"committed"_s}));
+    notifications.clear();
+    session->clearSideboard();
+    QCOMPARE(notifications, QStringList({u"scalar"_s, u"committed"_s}));
+    QVERIFY(!session->sideboarding());
+    notifications.clear();
+    session->clearSideboard();
+    QVERIFY(notifications.isEmpty());
+    session->clear();
+    QCOMPARE(notifications, QStringList({u"typed"_s, u"scalar"_s, u"committed"_s}));
+    QVERIFY(session->currentPhase().isEmpty());
+}
+
+void TestWsClient::gameSnapshotPublicationSerializesReentrantUpdates_data()
+{
+    QTest::addColumn<QString>("phase");
+    QTest::addColumn<QString>("operation");
+    for (const auto &phase : {u"data"_s, u"scalar"_s, u"commit"_s}) {
+        for (const auto &operation : {u"snapshot"_s, u"clear"_s, u"sideboard"_s}) {
+            QTest::newRow(qPrintable(phase + u'-' + operation)) << phase << operation;
+        }
+    }
+}
+
+void TestWsClient::gameSnapshotPublicationSerializesReentrantUpdates() const
+{
+    QFETCH(QString, phase);
+    QFETCH(QString, operation);
+    GameSessionState session;
+    hexproof::client::GameTableModel table;
+    const QVariantMap first{
+        {u"gameNumber"_s, 1},
+        {u"seats"_s, QVariantList{QVariantMap{{u"seat"_s, 0}, {u"life"_s, 20}}}},
+        {u"sideboard"_s, QVariantMap{{u"deadlineMs"_s, 15000}}},
+    };
+    const QVariantMap second{
+        {u"gameNumber"_s, 2},
+        {u"seats"_s, QVariantList{QVariantMap{{u"seat"_s, 0}, {u"life"_s, 40}}}},
+    };
+    bool requested = false;
+    auto requestUpdate = [&]() {
+        if (requested)
+            return;
+        requested = true;
+        if (operation == u"snapshot"_s)
+            session.applySnapshot(second);
+        else if (operation == u"clear"_s)
+            session.clear();
+        else
+            session.clearSideboard();
+        // Nested calls return before publication; the current cycle remains
+        // stable for every later direct slot, regardless of connection order.
+        QCOMPARE(session.gameNumber(), 1);
+        QVERIFY(session.sideboarding());
+    };
+    if (phase == u"data"_s)
+        connect(&session, &GameSessionState::snapshotDataChanged, &session, requestUpdate);
+    else if (phase == u"scalar"_s)
+        connect(&session, &GameSessionState::snapshotChanged, &session, requestUpdate);
+    else
+        connect(&session, &GameSessionState::snapshotCommitted, &session, requestUpdate);
+    // Deliberately register the typed consumer after the reentrant data slot.
+    connect(&session, &GameSessionState::snapshotDataChanged, &table,
+            &hexproof::client::GameTableModel::applySnapshot);
+    QList<int> committedGames;
+    QList<int> committedLife;
+    QList<bool> committedSideboard;
+    connect(&session, &GameSessionState::snapshotCommitted, &session, [&]() {
+        committedGames.append(session.gameNumber());
+        committedLife.append(table.seatData(0).value(u"life"_s).toInt());
+        committedSideboard.append(session.sideboarding());
+    });
+    session.applySnapshot(first);
+    QVERIFY(requested);
+    const int nextGame = operation == u"clear"_s ? 0 : operation == u"snapshot"_s ? 2 : 1;
+    const int nextLife = operation == u"clear"_s ? 0 : operation == u"snapshot"_s ? 40 : 20;
+    QCOMPARE(committedGames, QList<int>({1, nextGame}));
+    QCOMPARE(committedLife, QList<int>({20, nextLife}));
+    QCOMPARE(committedSideboard, QList<bool>({true, false}));
+    QCOMPARE(session.gameNumber(), nextGame);
+    QCOMPARE(table.seatData(0).value(u"life"_s).toInt(), nextLife);
 }
 
 void TestWsClient::rulesCombatHonorsNativeMultipleBlockCapacity() const

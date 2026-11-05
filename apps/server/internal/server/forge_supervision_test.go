@@ -191,9 +191,9 @@ func TestForgeRuntimeStartsAreIsolatedAndFailedStartsAreThrottled(t *testing.T) 
 	if err := os.Remove(filepath.Join(dir, "fail")); err != nil {
 		t.Fatal(err)
 	}
-	handler.forgeMu.Lock()
-	handler.forgeRetryAfter = time.Now().Add(-time.Second)
-	handler.forgeMu.Unlock()
+	handler.forge.mu.Lock()
+	handler.forge.retryAfter = time.Now().Add(-time.Second)
+	handler.forge.mu.Unlock()
 	client, err := handler.startForgeRuntime(context.Background(), "")
 	if err != nil || client == nil || !client.Healthy() || seen[client] {
 		t.Fatalf("runtime recovery after cooldown: client = %p, error = %v", client, err)
