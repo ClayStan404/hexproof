@@ -77,6 +77,11 @@ Available local scopes:
 
 Every scope runs cheap shared static checks, including ShellCheck through
 `tools/check-shell-scripts.sh`; a missing required checker is an error.
+`tools/check-shared.sh` defines the common static checks and Go race package
+list for local verification and CI. Formatting stays with each caller's
+comparison/toolchain; tool-suite and application scope selection stay with the
+existing verification and CI entry points. Its `static` command runs neither
+the tool suite nor application builds; `race` accepts additional Go test flags.
 `client` and `server` skip unrelated Python tool tests. `static` and the default
 `all` scope run the full tool suite. Add repeatable `--tool-tests test_name.py`
 options when a domain change also needs particular tool checks.

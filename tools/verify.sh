@@ -238,17 +238,7 @@ done
 
 section "Static quality gates"
 check_clang_format
-while IFS= read -r -d '' script; do
-    # bash -n accepts only one script; later arguments would not be checked.
-    bash -n "$script"
-done < <(git ls-files -co --exclude-standard -z -- '*.sh')
-./tools/check-shell-scripts.sh
-./tools/check-license-headers.sh
-./tools/check-qml-text-safety.sh
-python3 tools/check-qml-resources.py
-python3 tools/check-protocol-parity.py
-python3 tools/check-i18n.py --strict
-python3 tools/check-module-size.py
+./tools/check-shared.sh static
 if ((${#tool_test_patterns[@]})); then
     for pattern in "${tool_test_patterns[@]}"; do
         python3 -m unittest discover -s tools/tests -p "$pattern"
@@ -317,7 +307,7 @@ if ((test_server)); then
         go vet ./...
         go test "${go_test_flags[@]}" ./...
         if ((run_race)); then
-            go test "${go_test_flags[@]}" -race ./internal/room ./internal/server ./internal/tournament ./internal/forgehost ./internal/runtimepkg ./internal/peerlink ./internal/homenode ./internal/accounts ./internal/cluster ./internal/syncutil ./internal/feedback
+            ../../tools/check-shared.sh race "${go_test_flags[@]}"
         else
             echo "Skipping Go race tests (--quick)."
         fi

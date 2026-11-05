@@ -20,14 +20,35 @@ func TestTournamentSpectatorDoesNotReceiveDeckLoadManifest(t *testing.T) {
 		t.Cleanup(func() { handler.unregisterSession(session) })
 	}
 
-	r, _, _, createOperation, err := handler.hub.createTournamentRoom(
-		"Round 1 Table 1", protocol.FormatModern, protocol.DeckFormatModern,
-		protocol.MatchBO1, protocol.CardLoadBackground, protocol.RulesModeManual, 2,
-		"tournament-1", "pairing-1", "participant-a", host)
+	r, initialSnapshot, _, createOperation, err := handler.hub.createRoom(roomCreateOptions{
+		name:                    "Round 1 Table 1",
+		format:                  protocol.FormatModern,
+		deckFormat:              protocol.DeckFormatModern,
+		matchMode:               protocol.MatchBO1,
+		cardLoadMode:            protocol.CardLoadBackground,
+		rulesMode:               protocol.RulesModeManual,
+		hostingMode:             "server",
+		maxSeats:                2,
+		allowSpectators:         true,
+		tournamentID:            "tournament-1",
+		tournamentPairing:       "pairing-1",
+		tournamentParticipantID: "participant-a",
+	}, host)
 	if err != nil {
 		t.Fatalf("create tournament room: %v", err)
 	}
 	createOperation.opMu.Unlock()
+	if r.TournamentID != "tournament-1" || r.TournamentPairingID != "pairing-1" ||
+		!r.LimitedDeckLocked || r.Seats[r.HostSeat].TournamentParticipantID != "participant-a" {
+		t.Fatal("pairing identity was not bound at creation")
+	}
+	if initialSnapshot.HostingMode != protocol.HostingModeServer || !initialSnapshot.AllowSpectators ||
+		initialSnapshot.SpectatorsSeeHands || host.Room() != r {
+		t.Fatal("initial pairing room snapshot or host binding changed")
+	}
+	if rooms := handler.hub.ListRooms(); len(rooms) != 0 {
+		t.Fatalf("pairing room leaked into ordinary discovery: %+v", rooms)
+	}
 
 	joinOperation, err := handler.hub.beginJoin(r.ID, "")
 	if err != nil {

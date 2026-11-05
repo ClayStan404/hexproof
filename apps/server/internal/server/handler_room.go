@@ -169,9 +169,21 @@ func (h *Handler) handleRoomCreate(sess *Session, env protocol.Envelope) error {
 	}
 	// Format dictates the multiplayer seat cap (2 or 4); Playtest overrides it
 	// with one private seat. Client MaxSeats is ignored (decisions.md).
-	r, initialSnapshot, initialSeq, operation, err := h.hub.createRoom(
-		rc.Name, rc.Format, rc.DeckFormat, rc.MatchMode, rc.CardLoadMode, rc.RulesMode, rc.HostingMode,
-		maxSeats, rc.AllowSpectators, rc.SpectatorsSeeHands, rc.Password, "", "", "", sess, rc.AIDifficulty, rc.AISource)
+	r, initialSnapshot, initialSeq, operation, err := h.hub.createRoom(roomCreateOptions{
+		name:               rc.Name,
+		format:             rc.Format,
+		deckFormat:         rc.DeckFormat,
+		matchMode:          rc.MatchMode,
+		cardLoadMode:       rc.CardLoadMode,
+		rulesMode:          rc.RulesMode,
+		hostingMode:        rc.HostingMode,
+		maxSeats:           maxSeats,
+		allowSpectators:    rc.AllowSpectators,
+		spectatorsSeeHands: rc.SpectatorsSeeHands,
+		password:           rc.Password,
+		aiDifficulty:       rc.AIDifficulty,
+		aiSource:           rc.AISource,
+	}, sess)
 	if err != nil {
 		code, _ := ErrCode(err)
 		if code == "" {

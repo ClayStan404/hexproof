@@ -50,7 +50,18 @@ func modelTestRoom(t *testing.T) (*Handler, *room.Room, *Session, *Session, *mod
 	t.Cleanup(func() { h.Close() })
 	host := &Session{ConnectionID: "host", DisplayName: "Human", Send: make(chan []byte, 128)}
 	h.registerSession(host)
-	r, _, _, entry, err := h.hub.createRoom("Model", protocol.FormatModern, protocol.DeckFormatCustom, protocol.MatchBO1, protocol.CardLoadBackground, protocol.RulesModeForge, "server", 2, true, false, "", "", "", "", host, "", protocol.AISourceLocal)
+	r, _, _, entry, err := h.hub.createRoom(roomCreateOptions{
+		name:            "Model",
+		format:          protocol.FormatModern,
+		deckFormat:      protocol.DeckFormatCustom,
+		matchMode:       protocol.MatchBO1,
+		cardLoadMode:    protocol.CardLoadBackground,
+		rulesMode:       protocol.RulesModeForge,
+		hostingMode:     "server",
+		maxSeats:        2,
+		allowSpectators: true,
+		aiSource:        protocol.AISourceLocal,
+	}, host)
 	if err != nil {
 		t.Fatal(err)
 	}

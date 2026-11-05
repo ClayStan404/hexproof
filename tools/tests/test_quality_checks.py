@@ -295,18 +295,6 @@ class VerificationScriptTests(unittest.TestCase):
                             for path in sources),
                         "The active policy must include server test sources")
 
-    def test_qml_text_safety_is_shared_by_local_and_ci_gates(self) -> None:
-        paths = (
-            TOOLS_DIR / "verify.sh",
-            TOOLS_DIR.parent / ".github/workflows/ci.yml",
-        )
-        for path in paths:
-            with self.subTest(path=path):
-                self.assertIn(
-                    "./tools/check-qml-text-safety.sh",
-                    path.read_text(encoding="utf-8"),
-                )
-
     def test_background_jobs_do_not_use_the_global_qt_thread_pool(self) -> None:
         source_root = TOOLS_DIR.parent / "apps/client-qt/src"
         offenders = []
@@ -481,10 +469,10 @@ class CardServiceBoundaryTests(unittest.TestCase):
         self.assertIn('git cat-file -e "$base^{commit}"', ci)
         self.assertIn("git rev-parse --verify --quiet HEAD^", ci)
 
-    def test_shell_lint_is_shared_by_local_and_ci_gates(self) -> None:
+    def test_static_checks_are_shared_by_local_and_ci_gates(self) -> None:
         for path in ("tools/verify.sh", ".github/workflows/ci.yml"):
             with self.subTest(path=path):
-                self.assertIn("./tools/check-shell-scripts.sh", self.source(path))
+                self.assertIn("./tools/check-shared.sh static", self.source(path))
 
 
 if __name__ == "__main__":

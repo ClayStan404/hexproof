@@ -20,11 +20,18 @@ func newRegressionRoom(t *testing.T, h *Handler, password string) (*room.Room, *
 		RemoteIP:     "127.0.0.1",
 		Send:         make(chan []byte, 8),
 	}
-	r, _, _, operation, err := h.hub.CreateRoom(
-		"Regression room", protocol.FormatModern, protocol.MatchBO1,
-		protocol.CardLoadPreload, 2, false, false, password, host)
+	r, _, _, operation, err := h.hub.createRoom(roomCreateOptions{
+		name:         "Regression room",
+		format:       protocol.FormatModern,
+		deckFormat:   protocol.DefaultDeckFormatForTableMode(protocol.FormatModern),
+		matchMode:    protocol.MatchBO1,
+		cardLoadMode: protocol.CardLoadPreload,
+		rulesMode:    protocol.RulesModeManual,
+		maxSeats:     2,
+		password:     password,
+	}, host)
 	if err != nil {
-		t.Fatalf("CreateRoom: %v", err)
+		t.Fatalf("createRoom: %v", err)
 	}
 	operation.opMu.Unlock()
 	return r, host

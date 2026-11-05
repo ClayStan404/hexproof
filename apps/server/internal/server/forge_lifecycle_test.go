@@ -71,12 +71,18 @@ func TestForgeRoomLifecycleProjectsViewerPrivateState(t *testing.T) {
 	})
 
 	host := &Session{ConnectionID: "host-conn", DisplayName: "Alice", Send: make(chan []byte, 16)}
-	r, _, _, createdEntry, err := handler.hub.CreateRoomWithRulesMode(
-		"Rules table", protocol.FormatModern, protocol.DeckFormatCustom,
-		protocol.MatchBO1, protocol.CardLoadBackground, protocol.RulesModeForge,
-		2, true, false, "", host)
+	r, _, _, createdEntry, err := handler.hub.createRoom(roomCreateOptions{
+		name:            "Rules table",
+		format:          protocol.FormatModern,
+		deckFormat:      protocol.DeckFormatCustom,
+		matchMode:       protocol.MatchBO1,
+		cardLoadMode:    protocol.CardLoadBackground,
+		rulesMode:       protocol.RulesModeForge,
+		maxSeats:        2,
+		allowSpectators: true,
+	}, host)
 	if err != nil {
-		t.Fatalf("CreateRoomWithRulesMode: %v", err)
+		t.Fatalf("createRoom: %v", err)
 	}
 	createdEntry.opMu.Unlock()
 

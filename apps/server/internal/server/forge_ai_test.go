@@ -22,12 +22,24 @@ func TestForgeAIStartRequestAndTargets(t *testing.T) {
 	}
 	defer handler.Close()
 	host := &Session{ConnectionID: "host", DisplayName: "Human"}
-	r, snapshot, _, entry, err := handler.hub.createRoom("AI", protocol.FormatModern, protocol.DeckFormatCustom, protocol.MatchBO1, protocol.CardLoadBackground, protocol.RulesModeForge, "server", 2, true, false, "", "", "", "", host, protocol.AIDifficultyHard)
+	r, snapshot, _, entry, err := handler.hub.createRoom(roomCreateOptions{
+		name:            "AI",
+		format:          protocol.FormatModern,
+		deckFormat:      protocol.DeckFormatCustom,
+		matchMode:       protocol.MatchBO1,
+		cardLoadMode:    protocol.CardLoadBackground,
+		rulesMode:       protocol.RulesModeForge,
+		hostingMode:     "server",
+		maxSeats:        2,
+		allowSpectators: true,
+		aiDifficulty:    protocol.AIDifficultyHard,
+	}, host)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer entry.opMu.Unlock()
-	if snapshot.AIDifficulty != protocol.AIDifficultyHard || snapshot.Seats[1].Controller != protocol.SeatControllerForgeAI {
+	if snapshot.AISource != protocol.AISourceForge || snapshot.AIDifficulty != protocol.AIDifficultyHard ||
+		snapshot.Seats[1].Controller != protocol.SeatControllerForgeAI {
 		t.Fatal("AI seat missing from first publication")
 	}
 	deck := modernTestDeck("Private AI deck")
@@ -156,7 +168,17 @@ func TestForgeAIRejectedCardNamePreservesDecisionUnlessNativeFailed(t *testing.T
 			}
 			defer handler.Close()
 			host := &Session{ConnectionID: "human", DisplayName: "Human", Send: make(chan []byte, 16)}
-			r, _, _, entry, err := handler.hub.createRoom("AI", protocol.FormatModern, protocol.DeckFormatCustom, protocol.MatchBO1, protocol.CardLoadBackground, protocol.RulesModeForge, "server", 2, false, false, "", "", "", "", host, "normal")
+			r, _, _, entry, err := handler.hub.createRoom(roomCreateOptions{
+				name:         "AI",
+				format:       protocol.FormatModern,
+				deckFormat:   protocol.DeckFormatCustom,
+				matchMode:    protocol.MatchBO1,
+				cardLoadMode: protocol.CardLoadBackground,
+				rulesMode:    protocol.RulesModeForge,
+				hostingMode:  "server",
+				maxSeats:     2,
+				aiDifficulty: "normal",
+			}, host)
 			if err != nil {
 				t.Fatal(err)
 			}

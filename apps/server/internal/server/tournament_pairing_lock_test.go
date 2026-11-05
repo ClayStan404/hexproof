@@ -43,9 +43,20 @@ func TestPairingRoomCleanupWaitsForTournamentOperationLock(t *testing.T) {
 	}
 	event := addRunningPairingTournament(t, handler, "LOCK-WAIT")
 	host := testTournamentSession("host", "192.0.2.40")
-	r, _, _, roomOperation, createErr := handler.hub.createTournamentRoom(
-		"Pairing", protocol.FormatModern, protocol.DeckFormatModern, protocol.MatchBO3,
-		protocol.CardLoadBackground, protocol.RulesModeManual, 2, event.ID, "r1-m1", "p-host", host)
+	r, _, _, roomOperation, createErr := handler.hub.createRoom(roomCreateOptions{
+		name:                    "Pairing",
+		format:                  protocol.FormatModern,
+		deckFormat:              protocol.DeckFormatModern,
+		matchMode:               protocol.MatchBO3,
+		cardLoadMode:            protocol.CardLoadBackground,
+		rulesMode:               protocol.RulesModeManual,
+		hostingMode:             "server",
+		maxSeats:                2,
+		allowSpectators:         true,
+		tournamentID:            event.ID,
+		tournamentPairing:       "r1-m1",
+		tournamentParticipantID: "p-host",
+	}, host)
 	if createErr != nil {
 		t.Fatalf("create pairing room: %v", createErr)
 	}
@@ -116,9 +127,20 @@ func TestPairingRoomCleanupDoesNotInvertLockOrder(t *testing.T) {
 	}
 	event := addRunningPairingTournament(t, handler, "LOCK-ORDER")
 	host := testTournamentSession("host", "192.0.2.41")
-	r, _, _, roomOperation, createErr := handler.hub.createTournamentRoom(
-		"Pairing", protocol.FormatModern, protocol.DeckFormatModern, protocol.MatchBO3,
-		protocol.CardLoadBackground, protocol.RulesModeManual, 2, event.ID, "r1-m1", "p-host", host)
+	r, _, _, roomOperation, createErr := handler.hub.createRoom(roomCreateOptions{
+		name:                    "Pairing",
+		format:                  protocol.FormatModern,
+		deckFormat:              protocol.DeckFormatModern,
+		matchMode:               protocol.MatchBO3,
+		cardLoadMode:            protocol.CardLoadBackground,
+		rulesMode:               protocol.RulesModeManual,
+		hostingMode:             "server",
+		maxSeats:                2,
+		allowSpectators:         true,
+		tournamentID:            event.ID,
+		tournamentPairing:       "r1-m1",
+		tournamentParticipantID: "p-host",
+	}, host)
 	if createErr != nil {
 		t.Fatalf("create pairing room: %v", createErr)
 	}
@@ -197,9 +219,20 @@ func TestFailedPairingBindDoesNotClearUnboundRoomUnderTournamentLock(t *testing.
 	if err != nil {
 		t.Fatalf("lock tournament: %v", err)
 	}
-	r, _, _, roomOperation, createErr := handler.hub.createTournamentRoom(
-		"Pairing", protocol.FormatModern, protocol.DeckFormatModern, protocol.MatchBO3,
-		protocol.CardLoadBackground, protocol.RulesModeManual, 2, event.ID, "r1-m1", "p-host", host)
+	r, _, _, roomOperation, createErr := handler.hub.createRoom(roomCreateOptions{
+		name:                    "Pairing",
+		format:                  protocol.FormatModern,
+		deckFormat:              protocol.DeckFormatModern,
+		matchMode:               protocol.MatchBO3,
+		cardLoadMode:            protocol.CardLoadBackground,
+		rulesMode:               protocol.RulesModeManual,
+		hostingMode:             "server",
+		maxSeats:                2,
+		allowSpectators:         true,
+		tournamentID:            event.ID,
+		tournamentPairing:       "r1-m1",
+		tournamentParticipantID: "p-host",
+	}, host)
 	if createErr != nil {
 		entry.opMu.Unlock()
 		t.Fatalf("create pairing room: %v", createErr)

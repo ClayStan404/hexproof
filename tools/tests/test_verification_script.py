@@ -15,6 +15,7 @@ import unittest
 
 SCRIPT = Path(__file__).resolve().parents[1] / "verify.sh"
 SHELL_LINT_SCRIPT = SCRIPT.with_name("check-shell-scripts.sh")
+SHARED_SCRIPT = SCRIPT.with_name("check-shared.sh")
 
 
 class VerificationScriptTests(unittest.TestCase):
@@ -26,11 +27,14 @@ class VerificationScriptTests(unittest.TestCase):
         self.write("tools/tests/test_fixture.py", "# Selected-test fixture\n")
         (self.root / "apps/server").mkdir(parents=True)
         self.script = self.write("tools/verify.sh", SCRIPT.read_text(encoding="utf-8"))
+        self.shared_script = self.write("tools/check-shared.sh", SHARED_SCRIPT.read_text(encoding="utf-8"),
+                                        executable=True)
         self.write("tools/check-shell-scripts.sh", SHELL_LINT_SCRIPT.read_text(encoding="utf-8"),
                    executable=True)
         self.write("tools/card-database-builder/build-latest.sh", "#!/usr/bin/env bash\nexit 0\n")
         for name in ("check-license-headers.sh", "check-qml-text-safety.sh", "first.sh", "second.sh"):
-            self.write(f"tools/{name}", "#!/usr/bin/env bash\nexit 0\n", executable=True)
+            self.write(f"tools/{name}", '#!/usr/bin/env bash\n'
+                       'printf \'["%s"]\\n\' "$0" >> "$VERIFY_TEST_LOG"\n', executable=True)
         dispatcher = f"#!{sys.executable}\n" + '''
 import json
 import os
@@ -42,6 +46,8 @@ with open(os.environ["VERIFY_TEST_LOG"], "a") as log:
     log.write(json.dumps([name, *args]) + "\\n")
 if name == os.environ.get("VERIFY_TEST_FAIL_TOOL"):
     sys.exit(13)
+if name == "go" and Path.cwd() != Path(os.environ["VERIFY_TEST_ROOT"]) / "apps/server":
+    sys.exit("Go checks must run from the server module")
 if (name == "python3" and args[:3] == ["-m", "unittest", "discover"]
     and "-p" in args
     and args[args.index("-p") + 1] == os.environ.get("VERIFY_TEST_FAIL_PATTERN")):
@@ -82,6 +88,7 @@ elif name == "hexproof":
         self.log = self.root / "commands.jsonl"
         self.env = {**os.environ, "PATH": f"{self.root / 'bin'}:{os.environ['PATH']}",
                     "VERIFY_TEST_LOG": str(self.log),
+                    "VERIFY_TEST_ROOT": str(self.root),
                     "HEXPROOF_CLIENT_BUILD_DIR": str(self.root / "build/client-qt"),
                     "HEXPROOF_SERVER_BINARY_PATH": str(self.root / "build/server/hexproof-server")}
 
@@ -93,8 +100,8 @@ elif name == "hexproof":
             path.chmod(0o755)
         return path
 
-    def run_script(self, *args, succeeds=True):
-        result = subprocess.run([shutil.which("bash"), str(self.script), *args],
+    def run_script(self, *args, succeeds=True, script=None):
+        result = subprocess.run([shutil.which("bash"), str(script or self.script), *args],
                                 cwd=self.root, env=self.env, text=True,
                                 capture_output=True, timeout=15)
         if succeeds:
@@ -108,7 +115,8 @@ elif name == "hexproof":
         _, calls = self.run_script("--scope", "static")
         self.assertFalse({call[0] for call in calls} & {"go", "gofmt", "cmake", "ctest", "hexproof"})
         self.assertIn(["python3", "-m", "unittest", "discover", "-s", "tools/tests"], calls)
-        self.assertIn(["shellcheck", "tools/card-database-builder/build-latest.sh"], calls)
+        self.assertIn(["shellcheck", "tools/card-database-builder/build-latest.sh",
+                       "tools/check-shared.sh"], calls)
         self.assertTrue(any(call[:5] == ["git", "clang-format", "--diff", "--extensions", "c,cpp,h"]
                             for call in calls))
 
@@ -157,7 +165,41 @@ elif name == "hexproof":
         for script in scripts:
             self.write(script, "#!/usr/bin/env bash\nexit 0\n")
         _, calls = self.run_script("--scope", "static")
-        self.assertIn(["shellcheck", "tools/card-database-builder/build-latest.sh", *scripts], calls)
+        self.assertIn(["shellcheck", "tools/card-database-builder/build-latest.sh",
+                       "tools/check-shared.sh", *scripts], calls)
+
+    def test_shared_static_checks_do_not_run_tool_suite_or_applications(self):
+        _, calls = self.run_script("static", script=self.shared_script)
+        self.assertIn(["./tools/check-license-headers.sh"], calls)
+        self.assertIn(["./tools/check-qml-text-safety.sh"], calls)
+        self.assertEqual([call for call in calls if call[0] == "python3"], [
+            ["python3", "tools/check-qml-resources.py"],
+            ["python3", "tools/check-protocol-parity.py"],
+            ["python3", "tools/check-i18n.py", "--strict"],
+            ["python3", "tools/check-module-size.py"],
+        ])
+        self.assertFalse({call[0] for call in calls} & {"go", "gofmt", "cmake", "ctest"})
+
+    def test_shared_static_failure_stops_before_later_checks(self):
+        self.env["VERIFY_TEST_FAIL_TOOL"] = "shellcheck"
+        result, calls = self.run_script("static", script=self.shared_script, succeeds=False)
+        self.assertEqual(result.returncode, 13)
+        self.assertFalse(any(call[0] == "python3" for call in calls))
+
+    def test_shared_race_checks_keep_packages_and_forward_uncached_flag(self):
+        _, calls = self.run_script("race", "-count=1", script=self.shared_script)
+        self.assertEqual(calls, [["go", "test", "-count=1", "-race",
+            "./internal/room", "./internal/server", "./internal/tournament",
+            "./internal/forgehost", "./internal/runtimepkg", "./internal/peerlink",
+            "./internal/homenode", "./internal/accounts", "./internal/cluster",
+            "./internal/syncutil", "./internal/feedback"]])
+
+    def test_shared_checks_reject_invalid_scope_before_work(self):
+        for args in ((), ("unknown",), ("static", "--quick")):
+            with self.subTest(args=args):
+                result, calls = self.run_script(*args, script=self.shared_script, succeeds=False)
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual(calls, [])
 
     def test_shell_lint_failure_stops_verification_before_builds(self):
         self.env["VERIFY_TEST_FAIL_TOOL"] = "shellcheck"

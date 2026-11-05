@@ -657,9 +657,20 @@ func (h *Handler) handleTournamentOpenMatch(sess *Session, env protocol.Envelope
 		if len(runes) > protocol.MaxRoomNameRunes {
 			roomName = string(runes[:protocol.MaxRoomNameRunes])
 		}
-		r, snapshot, seq, roomOperation, createErr := h.hub.createTournamentRoom(
-			roomName, format, deckFormat, matchMode, protocol.CardLoadBackground, rulesMode, maxSeats,
-			binding.TournamentID, request.PairingID, binding.ParticipantID, sess)
+		r, snapshot, seq, roomOperation, createErr := h.hub.createRoom(roomCreateOptions{
+			name:                    roomName,
+			format:                  format,
+			deckFormat:              deckFormat,
+			matchMode:               matchMode,
+			cardLoadMode:            protocol.CardLoadBackground,
+			rulesMode:               rulesMode,
+			hostingMode:             "server",
+			maxSeats:                maxSeats,
+			allowSpectators:         true,
+			tournamentID:            binding.TournamentID,
+			tournamentPairing:       request.PairingID,
+			tournamentParticipantID: binding.ParticipantID,
+		}, sess)
 		if createErr != nil {
 			sendTournamentError(h, sess, env.ID, createErr)
 			return nil

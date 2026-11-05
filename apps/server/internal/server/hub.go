@@ -221,71 +221,41 @@ func NewHubWithLimits(maxRooms, maxConcurrentPasswordChecks int) *Hub {
 	}
 }
 
-// CreateRoom creates a new room with a generated id and registers it. The
-// creator's connection becomes the host (seat 0). Room id generation,
-// uniqueness check, and map insertion happen under a single Hub.mu critical
-// section to eliminate the TOCTOU window (two concurrent creates could
-// otherwise register the same id).
-func (h *Hub) CreateRoom(name, format, matchMode, cardLoadMode string, maxSeats int,
-	allowSpectators, spectatorsSeeHands bool, password string,
-	host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
-	return h.CreateRoomWithDeckFormat(name, format,
-		protocol.DefaultDeckFormatForTableMode(format), matchMode, cardLoadMode, maxSeats,
-		allowSpectators, spectatorsSeeHands, password, host)
+// roomCreateOptions contains settings bound before a room becomes visible in
+// the hub registry. Callers validate admission and supply their explicit defaults.
+type roomCreateOptions struct {
+	name                    string
+	format                  string
+	deckFormat              string
+	matchMode               string
+	cardLoadMode            string
+	rulesMode               string
+	hostingMode             string
+	maxSeats                int
+	allowSpectators         bool
+	spectatorsSeeHands      bool
+	password                string
+	tournamentID            string
+	tournamentPairing       string
+	tournamentParticipantID string
+	aiDifficulty            string
+	aiSource                string
 }
 
-// CreateRoomWithDeckFormat creates a room with an explicit construction
-// policy while keeping tabletop behavior in the legacy format field.
-func (h *Hub) CreateRoomWithDeckFormat(name, format, deckFormat, matchMode,
-	cardLoadMode string, maxSeats int, allowSpectators, spectatorsSeeHands bool, password string,
-	host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
-	return h.CreateRoomWithRulesMode(name, format, deckFormat, matchMode, cardLoadMode,
-		protocol.RulesModeManual, maxSeats, allowSpectators, spectatorsSeeHands, password, host)
-}
-
-// CreateRoomWithRulesMode creates an ordinary room with an immutable gameplay
-// authority. Runtime availability is checked by the handler before the room
-// is published.
-func (h *Hub) CreateRoomWithRulesMode(name, format, deckFormat, matchMode, cardLoadMode,
-	rulesMode string, maxSeats int, allowSpectators, spectatorsSeeHands bool, password string,
-	host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
-	return h.createRoom(name, format, deckFormat, matchMode, cardLoadMode, rulesMode, "", maxSeats,
-		allowSpectators, spectatorsSeeHands, password, "", "", "", host)
-}
-
-// CreateRoomWithHostingMode binds the immutable engine placement before publication.
-func (h *Hub) CreateRoomWithHostingMode(name, format, deckFormat, matchMode, cardLoadMode,
-	rulesMode, hostingMode string, maxSeats int, allowSpectators, spectatorsSeeHands bool,
-	password string, host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
-	return h.createRoom(name, format, deckFormat, matchMode, cardLoadMode, rulesMode, hostingMode,
-		maxSeats, allowSpectators, spectatorsSeeHands, password, "", "", "", host)
-}
-
-// createTournamentRoom tags a pairing room before it becomes visible in the
-// hub registry, so concurrent room-list requests can never observe it as an
-// ordinary public room.
-func (h *Hub) createTournamentRoom(name, format, deckFormat, matchMode, cardLoadMode, rulesMode string,
-	maxSeats int, tournamentID, tournamentPairing, tournamentParticipantID string,
-	host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
-	return h.createRoom(name, format, deckFormat, matchMode, cardLoadMode,
-		rulesMode, "server", maxSeats, true,
-		false, "", tournamentID, tournamentPairing, tournamentParticipantID, host)
-}
-
-func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode, rulesMode, hostingMode string,
-	maxSeats int, allowSpectators, spectatorsSeeHands bool, password, tournamentID, tournamentPairing,
-	tournamentParticipantID string,
-	host *Session, aiDifficulty ...string) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
-	if err := validateRoomRulesFormat(format, rulesMode); err != nil {
+// createRoom generates and registers a room with its host bound to seat 0.
+// Allocation, tournament tagging and the initial snapshot precede publication
+// under Hub.mu, so readers cannot observe a partially configured room.
+func (h *Hub) createRoom(options roomCreateOptions, host *Session) (*room.Room, protocol.RoomSnapshot, int64, *roomEntry, error) {
+	if err := validateRoomRulesFormat(options.format, options.rulesMode); err != nil {
 		return nil, protocol.RoomSnapshot{}, 0, nil, err
 	}
-	if !protocol.ValidDeckFormat(deckFormat) ||
-		protocol.TableModeForDeckFormat(deckFormat) != format {
+	if !protocol.ValidDeckFormat(options.deckFormat) ||
+		protocol.TableModeForDeckFormat(options.deckFormat) != options.format {
 		return nil, protocol.RoomSnapshot{}, 0, nil,
 			&protocolError{code: protocol.ErrUnsupportedFormat,
 				message: "deck format does not match table mode"}
 	}
-	hash, err := hashPassword(password)
+	hash, err := hashPassword(options.password)
 	if err != nil {
 		return nil, protocol.RoomSnapshot{}, 0, nil, err
 	}
@@ -315,23 +285,17 @@ func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode, rule
 		if h.reservedRoomIDs[id] {
 			continue
 		}
-		r, err = room.NewWithRulesMode(id, name, format, matchMode, cardLoadMode, rulesMode,
-			maxSeats, allowSpectators, len(hash) > 0, host.DisplayName, host.ConnectionID, time.Now())
+		r, err = room.NewWithRulesMode(id, options.name, options.format, options.matchMode, options.cardLoadMode, options.rulesMode,
+			options.maxSeats, options.allowSpectators, len(hash) > 0, host.DisplayName, host.ConnectionID, time.Now())
 		if err != nil {
 			return nil, protocol.RoomSnapshot{}, 0, nil, err
 		}
-		r.HostingMode = hostingMode
-		r.DeckFormat = deckFormat
-		r.LimitedDeckLocked = tournamentID != ""
-		r.TournamentID = tournamentID
-		r.TournamentPairingID = tournamentPairing
-		source, difficulty := "", ""
-		if len(aiDifficulty) > 0 {
-			difficulty = aiDifficulty[0]
-		}
-		if len(aiDifficulty) > 1 {
-			source = aiDifficulty[1]
-		}
+		r.HostingMode = options.hostingMode
+		r.DeckFormat = options.deckFormat
+		r.LimitedDeckLocked = options.tournamentID != ""
+		r.TournamentID = options.tournamentID
+		r.TournamentPairingID = options.tournamentPairing
+		source, difficulty := options.aiSource, options.aiDifficulty
 		if source == "" && difficulty != "" {
 			source = protocol.AISourceForge
 		}
@@ -340,9 +304,9 @@ func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode, rule
 				return nil, protocol.RoomSnapshot{}, 0, nil, mapRoomError(err)
 			}
 		}
-		r.SpectatorsSeeHands = allowSpectators && spectatorsSeeHands
-		if tournamentParticipantID != "" {
-			r.Seats[r.HostSeat].TournamentParticipantID = tournamentParticipantID
+		r.SpectatorsSeeHands = options.allowSpectators && options.spectatorsSeeHands
+		if options.tournamentParticipantID != "" {
+			r.Seats[r.HostSeat].TournamentParticipantID = options.tournamentParticipantID
 		}
 		// Build the first snapshot and bind the host before publishing the room.
 		// Once the map entry is visible, every state read/write must use entry.mu.
@@ -351,7 +315,7 @@ func (h *Hub) createRoom(name, format, deckFormat, matchMode, cardLoadMode, rule
 		host.setRoom(r)
 		entry := &roomEntry{
 			room: r, passwordHash: append([]byte(nil), hash...),
-			tournamentID: tournamentID, tournamentPairing: tournamentPairing,
+			tournamentID: options.tournamentID, tournamentPairing: options.tournamentPairing,
 		}
 		// The entry is new and remains unreachable while h.mu is held, so this
 		// opMu acquisition cannot contend with lockRoomOperation. The caller

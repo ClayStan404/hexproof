@@ -14,7 +14,7 @@ fi
 
 # Keep the maintained lint scope shared by local, CI, and release checks.
 # Private deployment scripts are absent from the public source export.
-scripts=(tools/card-database-builder/build-latest.sh)
+scripts=(tools/card-database-builder/build-latest.sh tools/check-shared.sh)
 for script in deploy/deploy-release-server.sh deploy/deploy-forge-runtime.sh deploy/deploy-test-server.sh; do
     if [[ -f "$script" ]]; then
         scripts+=("$script")
