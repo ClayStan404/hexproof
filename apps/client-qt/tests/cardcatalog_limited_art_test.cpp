@@ -5,6 +5,70 @@
 
 #include "services/CatalogStorage.h"
 
+void TestCardCatalog::simulatesTrkPlayProduct() const
+{
+    QFile source(qEnvironmentVariable(
+        "HEXPROOF_TRK_PRODUCT",
+        QFINDTESTDATA("../../../testdata/limited/trk-estimated-product.json")));
+    QVERIFY(source.open(QIODevice::ReadOnly));
+    const QVariantMap product = QJsonDocument::fromJson(source.readAll()).object().toVariantMap();
+    QCOMPARE(product.value(u"id"_s).toString(), u"hexproof-trk-play"_s);
+    QCOMPARE(product.value(u"productType"_s).toString(), u"approximate"_s);
+    QVERIFY(!product.value(u"authentic"_s).toBool());
+    QCOMPARE(product.value(u"cardsPerPack"_s).toInt(), 14);
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    CardCatalog catalog(storage.path());
+    const QString databasePath = qEnvironmentVariable("HEXPROOF_TRK_DATABASE");
+    if (!databasePath.isEmpty()) {
+        catalog.importCatalogFile(QUrl::fromLocalFile(databasePath), u"default_cards"_s);
+        QTRY_VERIFY_WITH_TIMEOUT(!catalog.busy(), 30000);
+        QVERIFY2(catalog.lastError().isEmpty(), qPrintable(catalog.lastError()));
+        const QVariantList sets = catalog.limitedSets();
+        const auto selected = std::find_if(sets.cbegin(), sets.cend(), [](const QVariant &value) {
+            return value.toMap().value(u"id"_s).toString() == u"TRK"_s;
+        });
+        QVERIFY(selected != sets.cend());
+        QCOMPARE(selected->toMap().value(u"productId"_s).toString(), u"hexproof-trk-play"_s);
+        QVERIFY(!selected->toMap().value(u"authentic"_s).toBool());
+        QCOMPARE(catalog.limitedProduct(u"hexproof-trk-play"_s), product);
+    }
+    for (int run = 0; run < 10; ++run) {
+        const QVariantList packs = catalog.simulateLimitedPacks(product, 36);
+        QCOMPARE(packs.size(), 36);
+        QSet<QString> physicalCards;
+        for (const QVariant &pack : packs) {
+            const QVariantList cards = pack.toMap().value(u"cards"_s).toList();
+            QCOMPARE(cards.size(), 14);
+            int bonus = 0;
+            int foils = 0;
+            QSet<QString> printings;
+            for (const QVariant &value : cards) {
+                const QVariantMap card = value.toMap();
+                const QString set = card.value(u"setCode"_s).toString();
+                const QString printing = set + u"/"_s +
+                                         card.value(u"collectorNumber"_s).toString() + u"/"_s +
+                                         card.value(u"finish"_s).toString();
+                QVERIFY(!printings.contains(printing));
+                printings.insert(printing);
+                QVERIFY(set == u"TRK"_s || set == u"SDS"_s);
+                QVERIFY(!card.value(u"typeLine"_s).toString().isEmpty());
+                const QString id = card.value(u"instanceId"_s).toString();
+                QVERIFY(!id.isEmpty() && !physicalCards.contains(id));
+                physicalCards.insert(id);
+                if (set == u"SDS"_s) {
+                    ++bonus;
+                    QCOMPARE(card.value(u"finish"_s).toString(), u"nonfoil"_s);
+                }
+                if (card.value(u"finish"_s).toString() == u"foil"_s)
+                    ++foils;
+            }
+            QVERIFY(bonus <= 1);
+            QVERIFY(foils >= 1);
+        }
+    }
+}
+
 void TestCardCatalog::simulatesLimitedWeightTotalBoundary() const
 {
     QTemporaryDir storage;

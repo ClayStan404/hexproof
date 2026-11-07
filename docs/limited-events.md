@@ -287,6 +287,43 @@ If an archive contains FRA but lacks an importable upstream Play definition,
 the build fails. Old installed catalogs keep their previous recipe until the
 owner updates card data; existing events retain their locked product.
 
+### Maintained TRK Play estimate
+
+Until a supported upstream Limited product is installed, the card-data build
+adds `hexproof-trk-play` using the current English TRK and SDS printings and
+the [official Star Trek collecting guide](https://magic.wizards.com/en/news/feature/collecting-star-trek).
+This is an explicitly estimated product (`approximate`, `authentic: false`),
+not an Arena-exact or factory-sheet recipe. The independent product definition
+does not alter Scryfall's `booster` flags or broaden the generic fallback pool.
+It uses audited printing ranges; Collector-only, promo, Commander and Klingon
+script printings are excluded. Missing required printings or category counts
+fail the build before replacing the previous product.
+
+Each pack has 14 cards: seven common positions, three uncommon positions,
+one wildcard, one rare/mythic, one traditional foil and one land. A nonfoil
+SDS card replaces a common in one of 25 packs. Common/uncommon Booster Fun
+rates are interpreted as probabilities for the entire common/uncommon group,
+with at most one treatment replacement in each group. Those replacements and
+the SDS branch are independent estimates, giving 20 pack variants. Individual
+printings within a category have equal weight. Categories published only as
+less than one percent share the remaining slot probability equally; rounded
+slot totals are normalized. The land slot follows the detailed Play Booster
+table, including foil Away Team lands, despite the article's conflicting
+general treatment description. Repeated set/collector/finish identities are
+excluded across slots, conditioning later draw probabilities on earlier picks;
+alternate treatments and foil copies remain distinct. These assumptions must remain disclosed and
+must not be presented as measured print-run probabilities.
+
+The build records its source URL, recipe revision, coverage and assumptions in
+`metadata.trk_collation`. Installing a usable upstream TRK Play, Arena Play,
+Draft or default Limited product retires the maintained estimate and its
+metadata; unrelated retail products do not disable it. This does not weaken
+the separate requirement for FRA's upstream Play recipe. Existing events keep
+their locked product and hash when a later database update changes selection.
+The maintained TRK product uses existing sheets, slots and weighted variants;
+no protocol or generator extension is required. Card-data availability does
+not establish Forge execution support for the new cards.
+
 Products support at most 128 sheets, 256 variants, 10,000 weighted card entries
 (5,000 for Cube), and 800 KiB of encoded JSON. Large definitions deduplicate
 printing identities into an optional `cardPool`, whose entries have unit

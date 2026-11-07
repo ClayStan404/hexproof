@@ -11,7 +11,10 @@ Item {
     readonly property bool bo3: auditProbe.environment("AUDIT_VARIANT").endsWith("-bo3")
     readonly property string mode: auditProbe.environment("AUDIT_VARIANT").replace(/-forge(?:-bo3)?$/, "")
     readonly property bool cube: mode === "cube_draft"
+    readonly property string setCode: auditProbe.environment("HEXPROOF_AUDIT_LIMITED_SET") || "EOE"
+    readonly property string expectedProductId: auditProbe.environment("HEXPROOF_AUDIT_LIMITED_PRODUCT")
     readonly property bool pendingEditAudit: auditProbe.environment("HEXPROOF_AUDIT_LIMITED_PENDING_EDIT") === "1"
+    property string resolvedProductId: ""
     property int packSize: 15
     property var steps: []
     property var assertions: []
@@ -251,11 +254,14 @@ Item {
                 "Expected a valid saved 135-card exact-printing Cube fixture")
         }
         if (!cube) {
-            const set = cardCatalog.limitedSets().find(value => value.id === "EOE")
-            require(!!set, "Installed EOE product required")
+            const set = cardCatalog.limitedSets().find(value => value.id === setCode)
+            require(!!set, "Installed " + setCode + " product required")
+            resolvedProductId = set.productId
+            require(!expectedProductId || resolvedProductId === expectedProductId, "Unexpected Limited product: " + resolvedProductId)
             packSize = cardCatalog.limitedProduct(set.productId).cardsPerPack
         }
-        auditProbe.fixture("limited-lifecycle", {mode:mode, players:players, cardsPerPack:packSize,
+        auditProbe.fixture("limited-lifecycle", {mode:mode, players:players, setCode:cube ? "" : setCode,
+            productId:resolvedProductId, cardsPerPack:packSize,
             description:"Native UI creates the event, makes every draft pick and submits pool-contained 40-card decks. Only catalog/cache and a saved 135-card Cube are seeded; no event or pack state is injected."})
         for (let actor = 1; actor <= players; ++actor) {
             add("Connect form " + actor, actor, () => click("mainMenuConnectButton"), () => !!find("connectSubmitButton"))
@@ -274,8 +280,8 @@ Item {
             add("Open tournament form", 1, () => click("tournamentCreateButton"), () => !!find("tournamentNameField"))
             add("Name Limited event", 1, () => typeField("tournamentNameField", "Native " + mode))
             add("Select Limited mode", 1, () => choose("tournamentEventTypeSelector", mode === "set_sealed" ? 1 : 2))
-            add("Find installed EOE", 1, () => typeField("limitedSetSearchField", "EOE", "tournamentCreateBody"),
-                () => find("limitedSetSelector") && find("limitedSetSelector").currentValue === "EOE")
+            add("Find installed " + setCode, 1, () => typeField("limitedSetSearchField", setCode, "tournamentCreateBody"),
+                () => find("limitedSetSelector") && find("limitedSetSelector").currentValue === setCode)
             add("Choose match length", 1, () => clickText(bo3 ? "BO 3" : "BO 1", "tournamentCreateBody"),
                 () => screen().matchMode === (bo3 ? "bo3" : "bo1"))
             add("Set three event seats", 1, () => typeField("tournamentPlayerCapField", "3", "tournamentCreateBody"))
@@ -384,8 +390,8 @@ Item {
                 if (!cube) {
                     for (const name of builder().basicNames) {
                         const options = cardCatalog.printings(name)
-                        if (options.some(card => card.setCode === "EOE"))
-                            require(builder().basicPrinting(name).setCode === "EOE", "Basic land does not match the event set")
+                        if (options.some(card => card.setCode === setCode))
+                            require(builder().basicPrinting(name).setCode === setCode, "Basic land does not match the event set")
                     }
                 }
                 capture("construction")
@@ -503,7 +509,7 @@ Item {
         for (let actor = 1; actor <= players; ++actor) {
             add("Enter assigned table " + actor, actor, () => !playing() || ws.inRoom
                 || (cube ? click("cubeOpenMatchButton")
-                         : clickText(ws.globalCode(pairing().roomId) ? "Return to match" : "Open match")),
+                         : click("openTournamentMatchButton")),
                 () => !playing() || lockedDeckReady())
         }
         for (let actor = 1; actor <= players; ++actor) {
@@ -584,7 +590,8 @@ Item {
         }
         auditProbe.record("result", {status:error ? "failed" : "passed",
             evidence:auditProbe.environment("AUDIT_OS_INPUT_HELPER") ? "system-input" : "native-qt-input", scenario:"limited-lifecycle",
-            mode:mode, seat:seat, error:error || "", pendingStep:index < steps.length ? steps[index].name : "",
+            mode:mode, seat:seat, setCode:cube ? "" : setCode, productId:resolvedProductId,
+            error:error || "", pendingStep:index < steps.length ? steps[index].name : "",
             assertions:assertions, requiredScreenshots:screenshots,
             coverage:forge ? "Three-client Forge Limited setup; completed assertions are listed individually. A setup failure is not a completed game."
                 : "Three-client registration, physical distribution, every draft pick, pass direction, pool conservation, 40-card construction, local-edit recovery, locked-deck table handoff and one BO1 concession result. No full Swiss-event completion or automatic Oracle resolution."})
