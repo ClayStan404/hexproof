@@ -379,6 +379,7 @@ class TestCardCatalog : public QObject
     void initTestCase();
     void simulatesLimitedWeightTotalBoundary() const;
     void simulatesPairedLimitedProduct() const;
+    void simulatesTrkPlayProduct() const;
     void prefersMtgchChineseFields() const;
     void rejectsUnverifiedChineseFallbacks() const;
     void rejectsScryfallPlaceholderImages() const;

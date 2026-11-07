@@ -80,6 +80,23 @@ Package a complete database for the stable `card-data` release with:
   build/card-database/release
 ```
 
+## Maintained TRK collation
+
+After importing the fresh sources and before packaging, `build-latest.sh` runs
+`build_trk_product.py --database DATABASE.sqlite`. This installs the explicitly
+estimated `hexproof-trk-play` product when an upstream TRK Limited product is
+not available. It uses audited English printing identities and keeps Scryfall
+booster flags unchanged. Missing required identities/categories fail instead
+of producing a partial pool. `metadata.trk_collation` records source, revision,
+coverage and the estimates described in [the Limited specification](../../docs/limited-events.md#maintained-trk-play-estimate).
+
+The helper modifies only the explicitly selected build database, in a
+transaction. Do not run it against a live client profile. A supported upstream
+TRK Limited product takes priority and retires the helper's old product and
+metadata. This leaves FRA's upstream requirements intact. Rebuilding and
+publishing card-data makes the product available to existing compatible
+clients; it does not add Forge rules for the new cards.
+
 ## FRA upstream collation
 
 FRA Play Boosters now use `mtgjson-fra-play` from the freshly downloaded
