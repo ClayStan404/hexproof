@@ -366,11 +366,13 @@ def run(args):
     expected_evidence = "system-input" if args.os_input_helper else "native-qt-input"
     args.player_hosted = getattr(args, "player_hosted", False)
     args.reconnect_window = getattr(args, "reconnect_window", None)
+    args.hyprland = getattr(args, "hyprland", False)
+    validate_hyprland(args)
     if platform.system() != "Linux":
         raise ValueError("This runner currently supports Linux isolated XDG profiles.")
     if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
         raise ValueError("A native display is required; offscreen is not native evidence.")
-    if os.environ.get("QT_QPA_PLATFORM", "").split(":", 1)[0] in ("offscreen", "minimal"):
+    if not args.hyprland and os.environ.get("QT_QPA_PLATFORM", "").split(":", 1)[0] in ("offscreen", "minimal"):
         raise ValueError("Offscreen/minimal platforms cannot produce native evidence.")
     scenarios = [args.scenario, *args.next_scenario]
     for path in (args.binary, *scenarios):
@@ -409,6 +411,9 @@ def run(args):
     stages = [freeze_scenario(path, output / "scenario-sources" / f"stage-{index}")
               if getattr(args, "freeze_scenarios", False) else scenario_provenance(path)
               for index, path in enumerate(scenarios, 1)]
+    client_overrides = {"GIO_USE_VFS": "local"} if args.network_isolated else {}
+    if args.hyprland:
+        client_overrides.update(QT_QPA_PLATFORM="wayland", HEXPROOF_AUDIT_DISPLAY_CONTROL="hyprland")
     metadata = {
         "runId": run_id, "commit": git_output("rev-parse", "HEAD"),
         "workingTree": git_output("status", "--short"),
@@ -419,6 +424,7 @@ def run(args):
         "platform": platform.platform(), "players": args.players, "playerHosted": args.player_hosted,
         "scaleFactor": args.scale,
         "requestedWindowMode": "windowed" if args.windowed else "maximized",
+        "windowManagement": "hyprland-manual-match" if args.hyprland else "application",
         "requestedWindowSize": [args.width, args.height] if args.windowed else None,
         "graphicsEnvironment": {name: os.environ[name] for name in
             ("QT_QPA_PLATFORM", "QSG_NO_VSYNC", "QSG_RENDER_LOOP", "QSG_RHI_BACKEND",
@@ -434,7 +440,7 @@ def run(args):
         "startupServices": args.startup_services,
         "freshSettings": args.fresh_settings,
         "networkIsolated": args.network_isolated,
-        "clientEnvironmentOverrides": {"GIO_USE_VFS": "local"} if args.network_isolated else {},
+        "clientEnvironmentOverrides": client_overrides,
         "fileSystemScope": "local-files-only" if args.network_isolated else "not-restricted-by-runner",
         "clientLauncher": [namespace_launcher, "--user", "--map-root-user", "--net"]
             if namespace_launcher else [],
@@ -449,9 +455,13 @@ def run(args):
     processes, logs, seats, results = [], [], [], []
     download_bindings, completion_failures = {}, {}
     server = None
+    display = None
+    display_cleanup = None
     reason = None
     started = time.monotonic()
     try:
+        if args.hyprland:
+            display = create_hyprland_controller(output, run_id, args.binary)
         server_url = None
         if args.server_binary:
             with socket.socket() as probe:
@@ -536,6 +546,9 @@ def run(args):
                 # Do not let legacy inherited dimensions override this run's mode.
                 env.pop("AUDIT_WIDTH", None)
                 env.pop("AUDIT_HEIGHT", None)
+                # A prior controlled run must not stall an ordinary scenario.
+                env.pop("HEXPROOF_AUDIT_DISPLAY_CONTROL", None)
+                env.update(client_overrides)
                 if args.network_isolated:
                     # The isolated client handles local files only. Host GVFS
                     # D-Bus authentication crosses a different user namespace
@@ -559,8 +572,12 @@ def run(args):
                 stage_seats.append((process, artifacts, time.monotonic()))
                 seats.append(stage_seats[-1])
 
+            if display:
+                display.start(stage_seats)
             with (output / "process-samples.jsonl").open("a") as samples:
                 while any(process.poll() is None for process, _, _ in stage_seats):
+                    if display:
+                        display.poll()
                     now = time.monotonic()
                     if now - started > args.timeout:
                         reason = f"Run exceeded {args.timeout:g}s watchdog deadline"
@@ -586,7 +603,7 @@ def run(args):
                     samples.flush()
                     if reason:
                         break
-                    time.sleep(0.25)
+                    time.sleep(0.1 if display else 0.25)
             for seat, (process, artifacts, _) in enumerate(stage_seats, 1):
                 if process.poll() is not None:
                     write_json(artifacts / "profile-after.json", profile_checkpoint(artifacts.parent))
@@ -603,13 +620,18 @@ def run(args):
                         reason = f"Stage {stage} did not pass; subsequent stages were not run"
             if reason:
                 break
-    except (OSError, RuntimeError, ValueError, KeyboardInterrupt) as error:
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError, KeyboardInterrupt) as error:
         reason = str(error) or "Interrupted"
     finally:
         for process in reversed(processes):
             stop_owned(process)
         for log in logs:
             log.close()
+        if display:
+            display_cleanup = display.finish()
+            if display_cleanup["status"] != "passed":
+                cleanup_reason = "Hyprland cleanup failed: " + display_cleanup["reason"]
+                reason = f"{reason}; {cleanup_reason}" if reason else cleanup_reason
         # A later-stage failure must not relabel an already verified earlier
         # stage. The run fails as a whole, while each seat retains its evidence.
         results = []
@@ -629,10 +651,30 @@ def run(args):
         report = {"status": "passed" if passed else "failed", "runId": run_id,
                   "durationSeconds": round(time.monotonic() - started, 3),
                   "reason": reason, "seats": results}
+        if display_cleanup is not None:
+            report["displayCleanup"] = display_cleanup
         write_json(output / "report.json", report)
         print(json.dumps({"status": report["status"], "reason": reason,
                           "report": str(output / "report.json")}), flush=True)
     return 0 if passed else 1
+
+
+def validate_hyprland(args):
+    if not getattr(args, "hyprland", False):
+        return
+    if (args.scenario.resolve() != ROOT / "tools/ui-automation/scenarios/manual-match.qml"
+            or args.players != 2 or args.next_scenario or args.variant == "commander"):
+        raise ValueError("--hyprland supports one two-player manual-match.qml scenario only")
+    if (args.windowed or args.os_input_helper or args.file_dialog_helper or args.network_isolated):
+        raise ValueError("--hyprland requires maximized native Qt input without external input helpers")
+    if not os.environ.get("WAYLAND_DISPLAY") or not os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
+        raise ValueError("--hyprland requires the current native Hyprland Wayland session")
+
+
+def create_hyprland_controller(output, run_id, binary):
+    # Optional desktop support is never loaded for ordinary native scenarios.
+    from hyprland import HyprlandManualMatch
+    return HyprlandManualMatch(output, run_id, binary)
 
 
 def main():
@@ -642,6 +684,8 @@ def main():
                         help="Run copied sibling QML/JS sources; scenarios must use local sibling imports")
     parser.add_argument("--next-scenario", type=Path, action="append", default=[],
                         help="Exit and relaunch this scenario using the same profiles and local hub")
+    parser.add_argument("--hyprland", action="store_true",
+                        help="Coordinate maximized Wayland windows for the two-player manual-match scenario")
     parser.add_argument("--catalog-import", type=Path, help="File for actual UI import; never preinstalled")
     parser.add_argument("--deck-manifest", type=Path, help="Real-card fixture manifest for UI deck import")
     parser.add_argument("--startup-services", action="store_true",

@@ -87,6 +87,8 @@ write("tool-only-child.json", {
     "windowHeight": os.environ["HEXPROOF_AUDIT_HEIGHT"],
     "legacyWidth": os.environ.get("AUDIT_WIDTH"),
     "legacyHeight": os.environ.get("AUDIT_HEIGHT"),
+    "displayControl": os.environ.get("HEXPROOF_AUDIT_DISPLAY_CONTROL"),
+    "qtPlatform": os.environ.get("QT_QPA_PLATFORM"),
 })
 if mode == "missing-evidence":
     raise SystemExit(0)
@@ -120,7 +122,7 @@ write("audit-summary.json", {"evidence": "native-qt-input", "inputs": 1, "exitCo
 @unittest.skipUnless(sys.platform.startswith("linux"), "The lifecycle runner is Linux only")
 class NativeLifecycleTests(unittest.TestCase):
     def exercise(self, root, first="pass", second="pass", timeout=5, network_isolated=False,
-                 windowed=False, manifest_data=None):
+                 windowed=False, manifest_data=None, hyprland=False):
         binary = root / "tool-only-fake-client.py"
         binary.write_text(f"#!{sys.executable}\n" + FAKE_CLIENT)
         binary.chmod(0o700)
@@ -132,10 +134,11 @@ class NativeLifecycleTests(unittest.TestCase):
         manifest = root / "manifest.json"
         manifest.write_text(json.dumps(manifest_data if manifest_data is not None else {"toolOnly": True}))
         args = argparse.Namespace(
-            scenario=first_scenario, next_scenario=[next_scenario], binary=binary,
+            scenario=first_scenario, next_scenario=[] if hyprland else [next_scenario], binary=binary,
             server_binary=None, output=root / "run", catalog=None, fixture_dir=None,
             catalog_import=catalog_import, deck_manifest=manifest, startup_services=True,
             network_isolated=network_isolated,
+            hyprland=hyprland,
             fresh_settings=True, file_dialog_helper=None, card_language="en", variant="modern",
             players=1, timeout=timeout, hang_timeout=2, windowed=windowed,
             width=1440 if windowed else None, height=900 if windowed else None, scale=1,
@@ -148,6 +151,61 @@ class NativeLifecycleTests(unittest.TestCase):
             code = RUNNER.run(args)
         report = json.loads((args.output / "report.json").read_text())
         return code, report, args.output
+
+    def test_display_cleanup_runs_after_child_exit_and_can_fail_a_passing_run(self):
+        for cleanup_status in ("passed", "failed"):
+            with self.subTest(cleanup_status=cleanup_status), tempfile.TemporaryDirectory() as directory:
+                children = []
+                controller = mock.Mock()
+                controller.start.side_effect = lambda seats: children.extend(p for p, _, _ in seats)
+                def finish():
+                    self.assertTrue(children)
+                    self.assertTrue(all(p.poll() is not None for p in children))
+                    return {"status": cleanup_status,
+                            "reason": "restore failed" if cleanup_status == "failed" else None}
+                controller.finish.side_effect = finish
+                # This exercises lifecycle integration with a fake child only.
+                # The real option/ownership/geometry checks have separate tests.
+                with mock.patch.object(RUNNER, "validate_hyprland"), \
+                        mock.patch.object(RUNNER, "create_hyprland_controller", return_value=controller):
+                    code, report, output = self.exercise(Path(directory), hyprland=True)
+                self.assertEqual(code, 0 if cleanup_status == "passed" else 1, report)
+                self.assertEqual(report["seats"][0]["status"], "passed")
+                self.assertEqual(report["displayCleanup"]["status"], cleanup_status)
+                controller.finish.assert_called_once()
+                child = json.loads((output / "seat-1/artifacts/tool-only-child.json").read_text())
+                self.assertEqual(child["displayControl"], "hyprland")
+                self.assertEqual(child["qtPlatform"], "wayland")
+
+    def test_display_start_failure_still_stops_child_and_records_cleanup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            children = []
+            controller = mock.Mock()
+            def start(seats):
+                children.extend(p for p, _, _ in seats)
+                raise RuntimeError("Owned window disappeared")
+            controller.start.side_effect = start
+            def finish():
+                self.assertTrue(all(p.poll() is not None for p in children))
+                return {"status": "passed", "reason": None}
+            controller.finish.side_effect = finish
+            with mock.patch.object(RUNNER, "validate_hyprland"), \
+                    mock.patch.object(RUNNER, "create_hyprland_controller", return_value=controller):
+                code, report, _ = self.exercise(Path(directory), first="hang", hyprland=True)
+            self.assertEqual(code, 1)
+            self.assertIn("Owned window disappeared", report["reason"])
+            self.assertEqual(report["displayCleanup"]["status"], "passed")
+            controller.finish.assert_called_once()
+
+    def test_ordinary_run_clears_inherited_display_grant_control(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.dict(os.environ, {"HEXPROOF_AUDIT_DISPLAY_CONTROL": "hyprland"}):
+            code, report, output = self.exercise(Path(directory))
+            self.assertEqual(code, 0, report)
+            for stage in ("artifacts", "stage-2-artifacts"):
+                child = json.loads((output / f"seat-1/{stage}/tool-only-child.json").read_text())
+                self.assertIsNone(child["displayControl"])
+                self.assertEqual(child["qtPlatform"], "xcb")
 
     def test_named_deck_fixtures_and_ordered_imports_survive_restart(self):
         deck = {"mainboard": [{"count": 1, "name": "Lórien Revealed", "setCode": "LTR",

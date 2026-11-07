@@ -207,6 +207,45 @@ The documented workstation workaround `QSG_NO_VSYNC=1` may be used only as a
 command-scoped test setting when required. Record it alongside the platform;
 such a run does not certify production-default compositor performance.
 
+### Omarchy / Hyprland two-client checks
+
+For the two-player `manual-match.qml` scenario, add `--hyprland` to the existing
+runner. It selects native Wayland for the test clients and keeps each maximized
+on its own temporary workspace. This handles Omarchy's default suppression of
+application maximize requests and the different maximize-state reporting of
+XWayland on the qualified Hyprland 0.56 workstation.
+
+```sh
+python3 tools/ui-automation/run-native.py \
+  --hyprland --scenario tools/ui-automation/scenarios/manual-match.qml \
+  --server-binary build/server/hexproof-server \
+  --fixture-dir /absolute/path/to/prepared-fixture \
+  --players 2 --variant modern --output build/native-hyprland
+```
+
+Use the same cached deck/art fixture requirements as the ordinary manual-match
+scenario. Other scenarios, Commander/four-seat runs, restart stages, fixed-size
+probes and external input helpers are rejected by this mode. Ordinary runs keep
+their existing behavior. This is native Qt input and rendering evidence on the
+actual display; it does not qualify OS input routing or other compositors.
+
+The runner owns process cleanup and the display controller owns only its test
+windows. Before moving or focusing a window, the controller checks the running
+child, executable and isolated profile identity. It records the compositor and
+display information, dispatched window actions and cleanup readback in
+`hyprland-environment.json`, `hyprland-actions.jsonl` and
+`hyprland-cleanup.json`. It never writes desktop configuration.
+
+The original maximized/exposed startup guard remains enabled. The scenario
+consumes one numbered grant per tick and acknowledges it after the input burst
+returns; the controller switches seats only after that acknowledgment at a
+shared scenario barrier. Gameplay actions, assertions and timeouts remain the
+same. Each capture also records its active/maximized geometry. The runner stops
+its processes before checking that their windows and temporary workspaces are
+gone. It restores the previous workspace only while a test workspace is still
+active, preserving a workspace the user selected independently. Cleanup errors
+fail the overall report even if the individual gameplay scenarios passed.
+
 For Forge, use `ForgeDuelMatch.qml` and `tools/run-local-forge-server.sh` with
 the selected pinned runtime. Its `boros-zones`, `stack`, `pauper`, `modern-bo3` and
 `duel-bo3` variants cover different deck/decision families; the Boros variant

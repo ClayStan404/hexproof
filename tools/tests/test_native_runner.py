@@ -2,9 +2,11 @@
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import base64
+import argparse
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -20,6 +22,22 @@ SPEC.loader.exec_module(RUNNER)
 
 @unittest.skipUnless(sys.platform.startswith("linux"), "The native runner supports Linux only")
 class NativeRunnerTests(unittest.TestCase):
+    def test_hyprland_rejects_unsupported_scenarios_and_backends(self):
+        defaults = dict(hyprland=True,
+                        scenario=RUNNER.ROOT / "tools/ui-automation/scenarios/manual-match.qml",
+                        players=2, next_scenario=[], variant="modern", windowed=False,
+                        os_input_helper=None, file_dialog_helper=None, network_isolated=False)
+        with mock.patch.dict(os.environ, {"WAYLAND_DISPLAY": "wayland-test",
+                                          "HYPRLAND_INSTANCE_SIGNATURE": "test"}):
+            RUNNER.validate_hyprland(argparse.Namespace(**defaults))
+            for changed in ({"players": 4}, {"variant": "commander"}, {"next_scenario": [PATH]},
+                            {"scenario": PATH}, {"windowed": True}, {"os_input_helper": PATH},
+                            {"file_dialog_helper": PATH}, {"network_isolated": True}):
+                with self.subTest(changed=changed), self.assertRaises(ValueError):
+                    RUNNER.validate_hyprland(argparse.Namespace(**(defaults | changed)))
+        with mock.patch.dict(os.environ, {}, clear=True), self.assertRaises(ValueError):
+            RUNNER.validate_hyprland(argparse.Namespace(**defaults))
+
     def test_frozen_scenario_keeps_lazy_loaded_siblings_after_worktree_edits(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
