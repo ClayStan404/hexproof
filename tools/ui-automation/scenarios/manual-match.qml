@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 import QtQuick
+import QtQuick.Window
 
 Item {
     id: driver
@@ -15,6 +16,8 @@ Item {
     property int playStep: 0
     property bool dispatching: false
     property bool formatPopupOpened: false
+    readonly property bool displayControlled: auditProbe.environment("HEXPROOF_AUDIT_DISPLAY_CONTROL") === "hyprland"
+    property int lastDisplayToken: 0
 
     function item(name, scope) { return auditProbe.find(scope || auditWindow, name) }
     function click(name) {
@@ -28,6 +31,12 @@ Item {
         entered = Date.now()
     }
     function capture(name) {
+        if (displayControlled) {
+            auditProbe.record(name + "-geometry", {
+                windowMode: auditWindow.visibility === Window.Maximized ? "maximized" : "other",
+                width: auditWindow.width, height: auditWindow.height, active: auditWindow.active
+            })
+        }
         if (!auditProbe.capture(auditWindow, name))
             throw new Error("Failed to capture " + name)
     }
@@ -81,8 +90,16 @@ Item {
         interval: 250
         onTriggered: {
             if (driver.dispatching) return
+            if (driver.displayControlled) {
+                const grant = auditProbe.readShared("display-turn") || {}
+                if (!auditWindow.active || Number(grant.seat) !== driver.seat
+                        || !Number.isInteger(grant.token) || grant.token <= driver.lastDisplayToken) return
+                driver.lastDisplayToken = grant.token
+            }
             driver.dispatching = true
             try {
+                if (driver.displayControlled && auditWindow.visibility !== Window.Maximized)
+                    throw new Error("Active test window lost maximized state")
                 if (Date.now() - driver.entered > 25000) {
                     driver.fail("Timed out waiting for step " + driver.step)
                     return
@@ -244,7 +261,14 @@ Item {
                     break
                 }
             } catch (error) { driver.fail(String(error)) }
-            finally { driver.dispatching = false }
+            finally {
+                driver.dispatching = false
+                if (driver.displayControlled) {
+                    auditProbe.record("display-state", {
+                        step: driver.step, busy: false, token: driver.lastDisplayToken
+                    })
+                }
+            }
         }
     }
 }
