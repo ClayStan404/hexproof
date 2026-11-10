@@ -14045,6 +14045,54 @@ Las imágenes descargadas y personalizadas se copiarán y verificarán antes de 
     </context>
     <context>
         <name>TournamentLobby</name>
+    <message>
+        <source> · %1 cards per pack</source>
+        <translation> · %1 cartas por sobre</translation>
+    </message>
+    <message>
+        <source> · approximate</source>
+        <translation> · distribución aproximada</translation>
+    </message>
+    <message>
+        <source>%1 packs · %2 cards per player. Packs are independently sampled; the recipe stays locked after creation.</source>
+        <translation>%1 sobres · %2 cartas por jugador. Los sobres se generan de forma independiente; la composición queda fijada al crear el evento.</translation>
+    </message>
+    <message>
+        <source>%1 × %2</source>
+        <translation>%1 × %2</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Cerrar</translation>
+    </message>
+    <message>
+        <source>Custom pack recipe · %1 per player</source>
+        <translation>Composición personalizada · %1 por jugador</translation>
+    </message>
+    <message>
+        <source>Locked pack recipe</source>
+        <translation>Composición de sobres fijada</translation>
+    </message>
+    <message>
+        <source>Pack recipe · 6 per player</source>
+        <translation>Composición de sobres · 6 por jugador</translation>
+    </message>
+    <message>
+        <source>Round %1 · %2 · pass %3</source>
+        <translation>Ronda %1 · %2 · pasar a la %3</translation>
+    </message>
+    <message>
+        <source>Three-round pack order</source>
+        <translation>Orden de sobres de las tres rondas</translation>
+    </message>
+    <message>
+        <source>left</source>
+        <translation>izquierda</translation>
+    </message>
+    <message>
+        <source>right</source>
+        <translation>derecha</translation>
+    </message>
         <message>
             <location filename="../qml/components/LimitedCardGrouping.qml" line="+92" />
             <source>Mana value 0</source>
@@ -17534,6 +17582,97 @@ Las imágenes descargadas y personalizadas se copiarán y verificarán antes de 
     <message>
         <source>Official rules source</source>
         <translation>Fuente de reglas oficiales</translation>
+    </message>
+</context>
+<context>
+    <name>SetPackPlanEditor</name>
+    <message>
+        <source> · %1 cards per pack</source>
+        <translation> · %1 cartas por sobre</translation>
+    </message>
+    <message>
+        <source> · approximate</source>
+        <translation> · distribución aproximada</translation>
+    </message>
+    <message>
+        <source>%1 × %2</source>
+        <translation>%1 × %2</translation>
+    </message>
+    <message>
+        <source>Add another set</source>
+        <translation>Añadir otra colección</translation>
+    </message>
+    <message>
+        <source>Choose each of the three rounds</source>
+        <translation>Elegir cada una de las tres rondas</translation>
+    </message>
+    <message>
+        <source>Choose one product for each of the three rounds.</source>
+        <translation>Elige un producto para cada una de las tres rondas.</translation>
+    </message>
+    <message>
+        <source>Custom recipe · %1 packs per player</source>
+        <translation>Composición personalizada · %1 sobres por jugador</translation>
+    </message>
+    <message>
+        <source>Customize sets and pack counts</source>
+        <translation>Personalizar colecciones y cantidades de sobres</translation>
+    </message>
+    <message>
+        <source>Every player uses this recipe with independently sampled packs. Build at least 40 cards; custom pack counts are not an official format.</source>
+        <translation>Todos usan esta composición con sobres generados de forma independiente. Construye al menos 40 cartas; las cantidades personalizadas no son un formato oficial.</translation>
+    </message>
+    <message>
+        <source>Every seat uses this round order. Each player receives independently sampled packs.</source>
+        <translation>Todos los asientos siguen este orden. Cada jugador recibe sobres generados de forma independiente.</translation>
+    </message>
+    <message>
+        <source>Final recipe · 6 packs per player</source>
+        <translation>Composición final · 6 sobres por jugador</translation>
+    </message>
+    <message>
+        <source>Final round order</source>
+        <translation>Orden final de rondas</translation>
+    </message>
+    <message>
+        <source>Packs per player</source>
+        <translation>Sobres por jugador</translation>
+    </message>
+    <message>
+        <source>Product %1</source>
+        <translation>Producto %1</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Quitar</translation>
+    </message>
+    <message>
+        <source>Round %1 · %2</source>
+        <translation>Ronda %1 · %2</translation>
+    </message>
+    <message>
+        <source>Round %1 · pass %2</source>
+        <translation>Ronda %1 · pasar a la %2</translation>
+    </message>
+    <message>
+        <source>Six boosters of the selected set per player</source>
+        <translation>Seis sobres de la colección elegida por jugador</translation>
+    </message>
+    <message>
+        <source>Three boosters of the selected set · left / right / left</source>
+        <translation>Tres sobres de la colección elegida · izquierda / derecha / izquierda</translation>
+    </message>
+    <message>
+        <source>Use positive whole pack counts, totaling 1–12 packs per player.</source>
+        <translation>Usa cantidades enteras positivas, con un total de 1 a 12 sobres por jugador.</translation>
+    </message>
+    <message>
+        <source>left</source>
+        <translation>izquierda</translation>
+    </message>
+    <message>
+        <source>right</source>
+        <translation>derecha</translation>
     </message>
 </context>
 </TS>

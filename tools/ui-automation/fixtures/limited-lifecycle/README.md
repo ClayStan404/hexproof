@@ -30,6 +30,15 @@ saved Cube does not affect their packs. All three modes check pool identities,
 deck handoff and a BO1 result by concession. This does not complete a Swiss
 tournament or resolve Oracle text automatically.
 
+Use `mixed_sealed` for two packs each of TRK/SOM/NPH, or `mixed_draft` for
+TRK/SOM/TRK (14/15/14), with a catalog containing those preferred products.
+`HEXPROOF_AUDIT_MIXED_SETS=AAA,BBB,CCC` selects another three-entry sequence.
+These variants operate the production custom-recipe controls, inspect invalid
+counts and final composition, preserve order, and verify explicit variable-size
+Sealed groups or all three Draft rounds. They retain the same physical-instance,
+reconnect, construction and Swiss handoff assertions. No pools or event state
+are seeded. The installed catalog is copied read-only to isolated profiles.
+
 To exercise an edit made before the first deck submission is acknowledged,
 build the loopback delay fixture with the server module's locked dependencies:
 

@@ -267,7 +267,7 @@ void TestCardCatalog::cachesLimitedProductWithMtgchSetIndex() const
 void TestCardCatalog::simulatesPairedLimitedProduct() const
 {
     QFile fixture(
-        QFINDTESTDATA("../../../testdata/protocol/v2/tournament-create-paired-product.json"));
+        QFINDTESTDATA("../../../testdata/protocol/v3/tournament-create-paired-product.json"));
     QVERIFY(fixture.open(QIODevice::ReadOnly));
     const QVariantMap product = QJsonDocument::fromJson(fixture.readAll())
                                     .object()
@@ -352,7 +352,7 @@ void TestCardCatalog::simulatesPairedLimitedProduct() const
     QVERIFY(catalog.simulateLimitedPacks(inherited, 1).isEmpty());
 
     QFile pooledFixture(
-        QFINDTESTDATA("../../../testdata/protocol/v2/tournament-create-card-pool.json"));
+        QFINDTESTDATA("../../../testdata/protocol/v3/tournament-create-card-pool.json"));
     QVERIFY(pooledFixture.open(QIODevice::ReadOnly));
     QVariantMap pooled = QJsonDocument::fromJson(pooledFixture.readAll())
                              .object()

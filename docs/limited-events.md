@@ -12,8 +12,8 @@ not a matrix of interchangeable pack sources and distribution algorithms.
 
 | Mode | Source selected by organizer | Distribution | Online coordinators |
 |------|------------------------------|--------------|---------------------|
-| Set Sealed | One Magic set | Six Limited boosters per player | Individual Swiss tournament |
-| Set Draft | One Magic set | Two-to-eight-player, three-pack pick-one draft | Individual Swiss tournament |
+| Set Sealed | One set or a custom shared recipe | Six boosters by default; 1–12 per player in a custom recipe | Individual Swiss tournament |
+| Set Draft | One set or three ordered round products | Two-to-eight-player, three-pack pick-one draft | Individual Swiss tournament |
 | Cube Draft | One saved custom Cube | Two-to-eight-player, three-pack pick-one draft without replacement | Free-play room (default) or individual Swiss tournament |
 | Commander Cube | One saved custom Cube | Two-to-eight-player; 20-card packs with two picks per pack; smaller pods may open two independent packs together | Balanced multiplayer free-play tables of up to four |
 
@@ -94,16 +94,18 @@ state is written into online construction recovery storage.
 
 ### Set Sealed
 
-- Creation selects a **set**, not a raw booster manifest and not a configurable
-  pack count.
-- Starting the event locks the participant list and the resolved Limited
-  product for that set. The event may start once at least two players are
-  checked in.
-- The server generates exactly six independent Limited boosters for every
-  participant and places all opened cards directly into that participant's
-  private pool. The flat private pool preserves generation order: each
-  consecutive `product.cardsPerPack` cards belongs to one generated booster.
-- On first entry to construction, the owner sees a skippable six-pack reveal
+- Creation defaults to six boosters of one selected **set**. **Customize sets
+  and pack counts** accepts positive whole quantities totaling 1–12 boosters
+  per player. Repeated products merge by first appearance; the final recipe is
+  shown before creation and remains available during registration. Non-six-pack
+  recipes are explicitly custom and make no sanctioned-format or balance claim.
+- Creation locks the normalized product definitions and recipe. Starting locks
+  the checked-in participant list; at least two and at most 64 players may play.
+- Every participant receives independent samples of the same recipe. All packs
+  must generate successfully before registration changes or any pool is published.
+  Each owner's private pool has explicit stable `receivedPacks` groups identifying
+  its pack, product and physical instance IDs; sizes may differ between products.
+- On first entry to construction, the owner sees a skippable reveal
   using those existing private instances. Opening or skipping the animation
   never generates new cards or changes the pool. The common pack-opening
   preference can disable automatic playback; **View opened packs** replays it
@@ -118,8 +120,11 @@ state is written into online construction recovery storage.
 
 ### Set Draft
 
-- Creation selects a **set**. The application resolves the set's Limited
-  booster automatically.
+- Creation defaults to three boosters of one selected **set**. **Choose each of
+  the three rounds** selects one installed preferred Limited product per round
+  for the entire table. Order is semantic: A/B/A stays A/B/A. Products may have
+  different legal pack sizes between rounds (for example 14/15/14); every seat
+  uses the same product and size within one round.
 - The Arena-style player-draft profile supports two to eight checked-in draft
   seats and has no bots. The event may start once at least two players are
   checked in.
@@ -860,18 +865,63 @@ Cube matrix:
 
 | Mode | Wire value | Mode-specific configuration |
 |------|------------|-----------------------------|
-| Set Sealed | `set_sealed` | locked set product; six packs inferred |
-| Set Draft | `set_draft` | locked set product; three packs and a configurable 2–8 seat cap |
+| Set Sealed | `set_sealed` | legacy product implies six packs; custom plan has 1–12 shared packs per player |
+| Set Draft | `set_draft` | legacy product implies three rounds; custom plan has exactly three ordered one-pack rounds, 2–8 seats |
 | Cube Draft | `cube_draft` | locked Cube snapshot; configurable 2–8 seat cap and 3 × 15 cards per active player |
 | Commander Cube | `commander_cube` | locked Cube and draft settings; 2–8 draft seats, 10–40 cards per pack (default 20), atomic two-per-pack selection, 60-card construction, `casual` only |
 
-Set modes and regular Cube retain fixed pack counts. Commander Cube creation
+Regular Cube retains its fixed pack count. Commander Cube creation
 accepts only the bounded `draftSettings` profile above, exposed in public
 `tournament.snapshot` before ready-up. Set Draft, regular Cube, and Commander
 Cube accept a 2–8 seat cap; Set Sealed accepts 2–64. The obsolete `sealed`, `draft`, `cube_sealed`,
 and `cube_pool` creation values are absent from the current protocol. Wire
 changes follow the [protocol compatibility policy](protocol-compatibility.md);
 admission compares game-protocol identifiers rather than application versions.
+
+Set plans use game protocol `hexproof.v3`. `tournament.create` accepts either
+legacy `product` or `plan`, never both. A plan has a deduplicated `products`
+array and ordered `entries: [{productId, count}]`; unused definitions, unknown
+references, duplicate/conflicting identities, conflicting products for one set,
+unknown fields and duplicate JSON keys are rejected. Product/plan hashes identify
+locked content; they do not authenticate an official recipe registry.
+
+A custom plan must fit 800 KiB of encoded JSON, at most 12 unique products and
+input entries, aggregate card pools of 10,000 entries and aggregate expanded
+sheets of 10,000 entries. Existing per-product sheet/variant/slot/weight/reference
+limits and 1–30 cards per Set booster remain. The complete request still uses
+the default 1 MiB transport limit; an oversized combination needs fewer/smaller
+products rather than a larger global limit. A legacy product retains its old
+byte limit without counting an internal plan wrapper. Maximum Sealed allocation
+is 768 packs/23,040 instances (360 per player); Draft is 24 packs/720 instances.
+Arbitrary twelve-product combinations are not guaranteed to fit.
+
+Set packs are privately pregenerated at start in historical Sealed player→pack
+or Draft round→seat order. Only complete success commits registration, including
+competing flags, initial order and planned rounds. Later rounds consume locked
+packs. Generation failure retains registration and locks the failed attempt;
+cancel and correct the product rather than rerolling it. Online entropy belongs
+to the server; organizers cannot select a seed. Swiss pairing randomness is
+unchanged and cross-process live-event recovery is not introduced.
+
+The official client preserves a stable `operationId` for each creation/start
+attempt, including reconnect and routing; a deliberate new creation resets it.
+Start also supplies `expectedStage`. Bounded process-local operation history
+rejects repeated creation (without reissuing credentials) and reuses start
+success/failure without drawing packs again or advancing construction. Histories
+fail closed when full rather than forgetting attempts. See the cluster contract
+for coordinated creation and internal RPC baseline isolation. Legacy product
+requests without an explicit ID retain connection/envelope-local rejection only;
+new plans require the explicit identity.
+
+Public snapshots expose `plan` product summaries, hashes, counts and progress.
+Only the owning Sealed player receives `receivedPacks`; Draft `currentPacks`
+adds the currently held product ID. Seeds, future packs and other pools never
+enter public DTOs. Reveal and replay use the explicit groups and corresponding
+product labels, preserving physical IDs without generating cards. Event/role
+snapshot replacement clears omitted private fields. Existing offline single-set
+practice and Cube rules remain unchanged; mixed offline practice, arbitrary
+round counts, per-seat recipes, special/faction boosters, promos and historical
+preset catalogs are outside this feature.
 
 Commander mode extends existing payloads: `limited.pick.instanceIds` is the
 multi-card alternative to `instanceId`; callers must not send both.

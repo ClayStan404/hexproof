@@ -34,7 +34,7 @@ cmake --build build/client-qt
 Expected ready line:
 
 ```
-hexproof-server <application-version> listening on 127.0.0.1:57320 (ws path /ws, protocol hexproof.v2)
+hexproof-server <application-version> listening on 127.0.0.1:57320 (ws path /ws, protocol hexproof.v3)
 ```
 
 Use the actual binary version in the log. Client and hub must share the game
@@ -978,5 +978,5 @@ database failures.
 Use [the development policy](development-policy.md#choose-verification-by-risk)
 for focused checks or release qualification. Native visual confirmation and
 component/CTest results are separate evidence. The active wire schemas and
-shared fixtures live in `protocol/v2/` and `testdata/protocol/v2/`; update those
+shared fixtures live in `protocol/v3/` and `testdata/protocol/v3/`; update those
 contracts together when wire behavior changes.

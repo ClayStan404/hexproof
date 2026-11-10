@@ -57,6 +57,7 @@ type Config struct {
 	MaxPlayers         int
 	PlannedRounds      int
 	Product            *protocol.LimitedProductDefinition
+	Plan               *protocol.LimitedPackPlanDefinition
 	DraftSettings      *protocol.LimitedDraftSettings
 }
 
@@ -160,6 +161,8 @@ type Tournament struct {
 	Limited                 *limited.Event
 	limitedProduct          *protocol.LimitedProductDefinition
 	limitedProductView      *protocol.LimitedProductView
+	limitedPlan             *limited.PackPlan
+	limitedStartFailure     error
 	draftSettings           *protocol.LimitedDraftSettings
 	cubeTableSeed           int64
 }
@@ -259,8 +262,11 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 		if config.Coordinator != protocol.LimitedCoordinatorSwiss {
 			return nil, fail(ErrInvalid, "constructed events require Swiss coordination")
 		}
+		if config.Plan != nil {
+			return nil, fail(ErrInvalid, "constructed events cannot use a pack plan")
+		}
 		config.Product = nil
-	} else if config.Product == nil {
+	} else if config.Product == nil && config.Plan == nil {
 		return nil, fail(ErrInvalid, "limited tournaments require a product")
 	}
 	if config.Coordinator == protocol.LimitedCoordinatorCasual {
@@ -279,6 +285,17 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 			config.MaxPlayers > limited.MaxCubeDraftPlayers) {
 		return nil, fail(ErrInvalid, "Cube draft supports two to eight seats")
 	}
+	if config.Plan != nil && (protocol.IsCubeEventType(config.EventType) || config.Product != nil) {
+		return nil, fail(ErrInvalid, "pack plans require a Set event without a legacy product")
+	}
+	var plan *limited.PackPlan
+	if config.EventType == protocol.LimitedEventSetSealed || config.EventType == protocol.LimitedEventSetDraft {
+		var err error
+		plan, err = limited.NewPackPlan(config.EventType, config.Product, config.Plan)
+		if err != nil {
+			return nil, fail(ErrInvalid, err.Error())
+		}
+	}
 	var product *protocol.LimitedProductDefinition
 	var productView *protocol.LimitedProductView
 	settings, settingsErr := limited.ResolveDraftSettings(config.EventType, config.MaxPlayers, config.DraftSettings)
@@ -290,8 +307,7 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 		draftSettings = &settings
 	}
 	if config.Product != nil {
-		cloned := cloneLimitedProduct(*config.Product)
-		validated, validationErr := limited.NewProduct(cloned)
+		validated, validationErr := limited.NewProduct(*config.Product)
 		if validationErr != nil {
 			return nil, fail(ErrInvalid, validationErr.Error())
 		}
@@ -309,8 +325,13 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 					requiredCards, config.MaxPlayers))
 			}
 		}
-		product = &cloned
+		definition := validated.Definition
+		product = &definition
 		view := validated.View()
+		productView = &view
+	}
+	if productView == nil && plan != nil {
+		view := plan.View().Products[0]
 		productView = &view
 	}
 	return &Tournament{
@@ -333,6 +354,7 @@ func New(id string, config Config, organizerName, organizerConnectionID string,
 		CreatedAt:             now.UTC(),
 		LastActivityAt:        now.UTC(),
 		participantByID:       make(map[string]*Participant),
+		limitedPlan:           plan,
 		limitedProduct:        product,
 		limitedProductView:    productView,
 		draftSettings:         draftSettings,
@@ -355,6 +377,10 @@ func (t *Tournament) LimitedProductView() *protocol.LimitedProductView {
 	}
 	view := *t.limitedProductView
 	return &view
+}
+
+func (t *Tournament) LimitedPlanView() *protocol.LimitedPackPlanView {
+	return t.limitedPlan.View()
 }
 
 // minimumPlayersFor is the single source of truth for the checked-in count a
@@ -531,23 +557,6 @@ func cloneDeck(deck protocol.DeckSelect) protocol.DeckSelect {
 	return deck
 }
 
-func cloneLimitedProduct(product protocol.LimitedProductDefinition) protocol.LimitedProductDefinition {
-	product.CardPool = append([]protocol.LimitedCardDefinition(nil), product.CardPool...)
-	product.Sheets = append([]protocol.LimitedSheetDefinition(nil), product.Sheets...)
-	for index := range product.Sheets {
-		product.Sheets[index].Cards = append(
-			[]protocol.LimitedCardDefinition(nil), product.Sheets[index].Cards...)
-		product.Sheets[index].CardRefs = append(
-			[]protocol.LimitedCardReference(nil), product.Sheets[index].CardRefs...)
-	}
-	product.Variants = append([]protocol.LimitedPackVariantDefinition(nil), product.Variants...)
-	for index := range product.Variants {
-		product.Variants[index].Slots = append(
-			[]protocol.LimitedSlotDefinition(nil), product.Variants[index].Slots...)
-	}
-	return product
-}
-
 // BindCredential resolves and rebinds an organizer or participant credential.
 func (t *Tournament) BindCredential(credential [sha256.Size]byte,
 	connectionID string, now time.Time) (role, participantID string, ok bool) {
@@ -678,50 +687,55 @@ func (t *Tournament) Start(actor Actor, seed int64, now time.Time) error {
 			}
 		}
 	}
+	if t.limitedStartFailure != nil {
+		return t.limitedStartFailure
+	}
 	competing := make([]*Participant, 0, len(t.Participants))
 	for _, participant := range t.Participants {
-		participant.Competing = participant.CheckedIn
-		if participant.Competing {
+		if participant.CheckedIn {
 			competing = append(competing, participant)
 		}
 	}
-	minimumPlayers := t.MinimumPlayers()
-	if len(competing) < minimumPlayers {
-		return failMinimumPlayers(minimumPlayers)
+	if len(competing) < t.MinimumPlayers() {
+		return failMinimumPlayers(t.MinimumPlayers())
 	}
-	if t.Coordinator == protocol.LimitedCoordinatorSwiss && t.PlannedRounds == 0 {
-		t.PlannedRounds = RecommendedRounds(len(competing))
-	}
-	random := rand.New(rand.NewSource(seed)) // #nosec G404 -- seed is generated cryptographically by the server.
+	random := rand.New(rand.NewSource(seed)) // #nosec G404 -- the server supplies cryptographic entropy.
 	random.Shuffle(len(competing), func(left, right int) {
 		competing[left], competing[right] = competing[right], competing[left]
 	})
+	var limitedEvent *limited.Event
+	if t.EventType != protocol.LimitedEventConstructed {
+		participants := make([]limited.Participant, 0, len(competing))
+		for _, participant := range competing {
+			participants = append(participants, limited.Participant{ID: participant.ID, DisplayName: participant.DisplayName})
+		}
+		config := limited.Config{TournamentID: t.ID, EventType: t.EventType,
+			Plan: t.limitedPlan, Participants: participants, DraftSettings: t.DraftSettings()}
+		if t.limitedProduct != nil {
+			config.Product = *t.limitedProduct
+		}
+		var err error
+		limitedEvent, err = limited.New(config, seed)
+		if err != nil {
+			// Keep registration byte-for-byte intact. This locked generation
+			// failure cannot be rerolled by a new operation ID or seed.
+			t.limitedStartFailure = fail(ErrInvalid, "pack generation failed; cancel and correct the product: "+err.Error())
+			return t.limitedStartFailure
+		}
+	}
+	// Commit only after every private pack has been generated successfully.
+	if t.Coordinator == protocol.LimitedCoordinatorSwiss && t.PlannedRounds == 0 {
+		t.PlannedRounds = RecommendedRounds(len(competing))
+	}
+	for _, participant := range t.Participants {
+		participant.Competing = participant.CheckedIn
+	}
 	for index, participant := range competing {
 		participant.InitialOrder = index
 	}
 	t.Status = StatusRunning
-	if t.EventType != protocol.LimitedEventConstructed {
-		participants := make([]limited.Participant, 0, len(competing))
-		for _, participant := range competing {
-			participants = append(participants, limited.Participant{
-				ID: participant.ID, DisplayName: participant.DisplayName,
-			})
-		}
-		event, err := limited.New(limited.Config{
-			TournamentID: t.ID, EventType: t.EventType,
-			Product: *t.limitedProduct, Participants: participants,
-			DraftSettings: t.DraftSettings(),
-		}, seed)
-		if err != nil {
-			t.Status = StatusRegistration
-			for _, participant := range competing {
-				participant.Competing = false
-			}
-			return fail(ErrInvalid, err.Error())
-		}
-		t.Limited = event
-		t.cubeTableSeed = seed
-		t.Stage = event.Stage
+	if limitedEvent != nil {
+		t.Limited, t.cubeTableSeed, t.Stage = limitedEvent, seed, limitedEvent.Stage
 		return nil
 	}
 	t.Stage = protocol.LimitedStageCompetition

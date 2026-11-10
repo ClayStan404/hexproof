@@ -52,6 +52,7 @@ TestCase {
         property bool canRegister: true
         property bool roundComplete: false
         property var product: ({id: "", name: "Test", authentic: true})
+        property var plan: ({})
         property var pairings: []
         property var standings: []
         property var tabletopScores: ({})
@@ -127,6 +128,7 @@ TestCase {
         event.participantId = ""
         event.tournamentId = "EVENT1"
         event.pairings = []
+        event.plan = ({})
         event.tabletopScores = ({})
         event.requestedScorePairing = ""
         page.selectedTab = 0
@@ -142,8 +144,32 @@ TestCase {
         window.height = 720
         event.standings = []
         findChild(page, "tournamentEventPopup").close()
+        findChild(page, "limitedPackRecipePopup").close()
         findChild(page, "tournamentScoreEditor").close()
     }
+    function test_publicRecipeShowsDraftOrderToViewers() {
+        event.role = "viewer"
+        event.eventType = "set_draft"
+        event.plan = {planHash: "locked", packsPerPlayer: 3, cardsPerPlayer: 43,
+            products: [{id: "a", name: "Alpha", cardsPerPack: 14, authentic: true},
+                       {id: "b", name: "Beta", cardsPerPack: 15, authentic: false}],
+            entries: [{productId: "a", count: 1}, {productId: "b", count: 1}, {productId: "a", count: 1}]}
+        const button = findChild(page, "limitedPackRecipeButton")
+        verify(button.visible)
+        button.clicked()
+        const popup = findChild(page, "limitedPackRecipePopup")
+        tryVerify(() => popup.opened)
+        tryVerify(() => findChild(popup.contentItem, "limitedPackRecipeEntry-0") !== null)
+        verify(findChild(popup.contentItem, "limitedPackRecipeEntry-0").text.includes("Round 1 · Alpha · pass left"))
+        verify(findChild(popup.contentItem, "limitedPackRecipeEntry-1").text.includes("Round 2 · Beta · pass right"))
+        verify(findChild(popup.contentItem, "limitedPackRecipeEntry-1").text.includes("approximate"))
+        verify(findChild(popup.contentItem, "limitedPackRecipeEntry-2").text.includes("Round 3 · Alpha · pass left"))
+        popup.close()
+        event.eventType = "set_sealed"
+        event.plan = Object.assign({}, event.plan, {packsPerPlayer: 12})
+        verify(button.text.includes("Custom"))
+    }
+
     function test_smallWindowKeepsPairingsStandingsAndDeskReachable_data() {
         return [{tag: "large", scale: 1.5}, {tag: "maximum", scale: 1.8}]
     }

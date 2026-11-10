@@ -18,7 +18,7 @@ import (
 
 // Exercise the new hub's real report, welcome and create path against the
 // frozen strict coordinator; no Forge game or external service is started.
-func TestClusterDuelAIIsDisabledWithoutBreakingLegacyOrdinaryRooms(t *testing.T) {
+func TestClusterRPCMismatchRejectsOfficialRoutingAndPreservesLocalRooms(t *testing.T) {
 	key := strings.Repeat("legacy-cluster-", 3)
 	node := cluster.Node{ID: "N1", Name: "One", URL: "ws://127.0.0.1:1111/ws", Weight: 1}
 	oldConfig := legacy.Config{Realm: "cluster-integration", NodeID: "N1", Key: key, Nodes: []legacy.Node{{ID: node.ID, Name: node.Name, URL: node.URL, Weight: node.Weight}}}
@@ -38,8 +38,8 @@ func TestClusterDuelAIIsDisabledWithoutBreakingLegacyOrdinaryRooms(t *testing.T)
 	handler.forge.config = &forge.ProcessConfig{}
 	handler.forge.nativeAI, handler.forge.nativeDuelAI = true, true
 	handler.forge.mu.Unlock()
-	if err = handler.clusterAgent.Publish(context.Background(), ""); err != nil || !handler.clusterAgent.Status().Ready {
-		t.Fatal("new hub could not report to frozen coordinator", err)
+	if err = handler.clusterAgent.Publish(context.Background(), ""); err != cluster.ErrInvalid || handler.clusterAgent.Status().Ready {
+		t.Fatal("new hub admitted by frozen RPC coordinator", err)
 	}
 	_, _, localDuel, localPlayerDuel, _ := handler.welcomeCapabilities(false)
 	if !localDuel || !localPlayerDuel {
@@ -62,13 +62,26 @@ func TestClusterDuelAIIsDisabledWithoutBreakingLegacyOrdinaryRooms(t *testing.T)
 		create.ID = "unsupported-duel-" + hosting
 		host.send(create)
 		var rejected protocol.ErrorPayload
-		if err = host.recvType(protocol.TypeError).DecodePayload(&rejected); err != nil || rejected.Code != protocol.ErrRulesUnavailable {
+		if err = host.recvType(protocol.TypeError).DecodePayload(&rejected); err != nil || rejected.Code != protocol.ErrInvalidMessage {
 			t.Fatalf("unsupported Duel AI: %+v %v", rejected, err)
 		}
 	}
-	// Failure of the optional mode must not consume or block ordinary allocation.
-	_, id := host.createRoom("Ordinary room", protocol.FormatModern, 2, true, "")
+	// Official routing cannot silently downgrade RPC for ordinary rooms either.
+	create := clusterRoomCreate()
+	host.send(create)
+	var rejected protocol.ErrorPayload
+	if err = host.recvType(protocol.TypeError).DecodePayload(&rejected); err != nil || rejected.Code != protocol.ErrInvalidMessage {
+		t.Fatal("ordinary routing fell back to legacy RPC", rejected, err)
+	}
+	if len(handler.hub.ListRooms()) != 0 {
+		t.Fatal("failed routing created a room")
+	}
+	// A custom local connection does not use the unavailable official coordinator.
+	local := dial(t, srv)
+	defer local.close()
+	local.hello("Custom local guest")
+	_, id := local.createRoom("Ordinary local room", protocol.FormatModern, 2, true, "")
 	if id == "" || handler.hub.FindRoom(id) == nil {
-		t.Fatal("ordinary room creation failed after unsupported Duel requests")
+		t.Fatal("standalone room was disabled by cluster mismatch")
 	}
 }

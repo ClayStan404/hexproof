@@ -40,7 +40,7 @@ func submittedInitialCubeRoom(t *testing.T, eventType string) (*Handler, *tourna
 			t.Fatal("could not ready draft seat")
 		}
 	}
-	_ = h.handleTournamentStart(host, cubeCommandEnvelope(t, protocol.TypeTournamentStart, protocol.EmptyPayload{}))
+	_ = h.handleTournamentStart(host, cubeCommandEnvelope(t, protocol.TypeTournamentStart, testTournamentStart(protocol.LimitedStageRegistration)))
 	if reply := cubeReply(t, host); reply.Type != protocol.TypeTournamentStarted {
 		t.Fatal("could not start draft")
 	}

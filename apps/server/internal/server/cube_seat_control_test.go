@@ -27,7 +27,7 @@ func startedSeatControlRoom(t *testing.T, seats int) (*Handler, *tournamentEntry
 			t.Fatal("seat not ready")
 		}
 	}
-	_ = h.handleTournamentStart(sessions[0], cubeCommandEnvelope(t, protocol.TypeTournamentStart, protocol.EmptyPayload{}))
+	_ = h.handleTournamentStart(sessions[0], cubeCommandEnvelope(t, protocol.TypeTournamentStart, testTournamentStart(protocol.LimitedStageRegistration)))
 	if reply := cubeReply(t, sessions[0]); reply.Type != protocol.TypeTournamentStarted {
 		t.Fatal("draft did not start")
 	}

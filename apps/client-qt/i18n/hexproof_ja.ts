@@ -14026,6 +14026,54 @@ Downloaded and custom images will be copied and verified before the setting chan
     </context>
     <context>
         <name>TournamentLobby</name>
+    <message>
+        <source> · %1 cards per pack</source>
+        <translation> · 1パック%1枚</translation>
+    </message>
+    <message>
+        <source> · approximate</source>
+        <translation> · 近似封入</translation>
+    </message>
+    <message>
+        <source>%1 packs · %2 cards per player. Packs are independently sampled; the recipe stays locked after creation.</source>
+        <translation>1人%1パック・%2枚。各パックは個別に生成され、構成は作成後に固定されます。</translation>
+    </message>
+    <message>
+        <source>%1 × %2</source>
+        <translation>%1 × %2</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>閉じる</translation>
+    </message>
+    <message>
+        <source>Custom pack recipe · %1 per player</source>
+        <translation>カスタム構成 · 1人%1パック</translation>
+    </message>
+    <message>
+        <source>Locked pack recipe</source>
+        <translation>固定されたパック構成</translation>
+    </message>
+    <message>
+        <source>Pack recipe · 6 per player</source>
+        <translation>パック構成 · 1人6パック</translation>
+    </message>
+    <message>
+        <source>Round %1 · %2 · pass %3</source>
+        <translation>ラウンド%1 · %2 · %3に渡す</translation>
+    </message>
+    <message>
+        <source>Three-round pack order</source>
+        <translation>3ラウンドのパック順</translation>
+    </message>
+    <message>
+        <source>left</source>
+        <translation>左</translation>
+    </message>
+    <message>
+        <source>right</source>
+        <translation>右</translation>
+    </message>
         <message>
             <location filename="../qml/components/LimitedCardGrouping.qml" line="+92" />
             <source>Mana value 0</source>
@@ -17514,6 +17562,97 @@ Downloaded and custom images will be copied and verified before the setting chan
     <message>
         <source>Official rules source</source>
         <translation>公式ルールの出典</translation>
+    </message>
+</context>
+<context>
+    <name>SetPackPlanEditor</name>
+    <message>
+        <source> · %1 cards per pack</source>
+        <translation> · 1パック%1枚</translation>
+    </message>
+    <message>
+        <source> · approximate</source>
+        <translation> · 近似封入</translation>
+    </message>
+    <message>
+        <source>%1 × %2</source>
+        <translation>%1 × %2</translation>
+    </message>
+    <message>
+        <source>Add another set</source>
+        <translation>別のセットを追加</translation>
+    </message>
+    <message>
+        <source>Choose each of the three rounds</source>
+        <translation>3ラウンドのセットを個別に選ぶ</translation>
+    </message>
+    <message>
+        <source>Choose one product for each of the three rounds.</source>
+        <translation>3ラウンドそれぞれの商品を1つ選んでください。</translation>
+    </message>
+    <message>
+        <source>Custom recipe · %1 packs per player</source>
+        <translation>カスタム構成 · 1人%1パック</translation>
+    </message>
+    <message>
+        <source>Customize sets and pack counts</source>
+        <translation>セットとパック数をカスタマイズ</translation>
+    </message>
+    <message>
+        <source>Every player uses this recipe with independently sampled packs. Build at least 40 cards; custom pack counts are not an official format.</source>
+        <translation>全員が同じ構成を使い、パックは個別に生成されます。デッキは40枚以上です。カスタムパック数は公式フォーマットではありません。</translation>
+    </message>
+    <message>
+        <source>Every seat uses this round order. Each player receives independently sampled packs.</source>
+        <translation>全席がこのラウンド順を使います。各プレイヤーのパックは個別に生成されます。</translation>
+    </message>
+    <message>
+        <source>Final recipe · 6 packs per player</source>
+        <translation>確定構成 · 1人6パック</translation>
+    </message>
+    <message>
+        <source>Final round order</source>
+        <translation>確定ラウンド順</translation>
+    </message>
+    <message>
+        <source>Packs per player</source>
+        <translation>1人あたりのパック数</translation>
+    </message>
+    <message>
+        <source>Product %1</source>
+        <translation>商品%1</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>削除</translation>
+    </message>
+    <message>
+        <source>Round %1 · %2</source>
+        <translation>ラウンド%1 · %2</translation>
+    </message>
+    <message>
+        <source>Round %1 · pass %2</source>
+        <translation>ラウンド%1 · %2に渡す</translation>
+    </message>
+    <message>
+        <source>Six boosters of the selected set per player</source>
+        <translation>選択セットのブースターを1人6パック</translation>
+    </message>
+    <message>
+        <source>Three boosters of the selected set · left / right / left</source>
+        <translation>選択セットのブースター3パック · 左／右／左</translation>
+    </message>
+    <message>
+        <source>Use positive whole pack counts, totaling 1–12 packs per player.</source>
+        <translation>パック数は正の整数、合計は1人1～12パックにしてください。</translation>
+    </message>
+    <message>
+        <source>left</source>
+        <translation>左</translation>
+    </message>
+    <message>
+        <source>right</source>
+        <translation>右</translation>
     </message>
 </context>
 </TS>

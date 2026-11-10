@@ -104,6 +104,19 @@ func (h *Handler) routeClusterCommand(ctx context.Context, sess *Session, env *p
 			}
 		}
 	}
+	createOperationID := ""
+	if env.Type == protocol.TypeTournamentCreate {
+		var request protocol.TournamentCreate
+		if err := env.DecodePayload(&request); err != nil {
+			h.sendError(sess, env.ID, protocol.ErrInvalidMessage, err.Error())
+			return true, nil
+		}
+		if _, err := tournamentCreateOperationKey(request, env.ID, sess.ConnectionID); err != nil {
+			sendTournamentError(h, sess, env.ID, err)
+			return true, nil
+		}
+		createOperationID = request.OperationID
+	}
 	demand, field, eligible := clusterCommand(*env)
 	if !eligible && sess.clusterGrant == nil {
 		return false, nil
@@ -152,7 +165,7 @@ func (h *Handler) routeClusterCommand(ctx context.Context, sess *Session, env *p
 			return true, nil
 		}
 		out, err := h.clusterAgent.Do(ctx, cluster.Request{Operation: "allocate", Target: target,
-			AccountID: sess.Account().ID, CommandType: env.Type, Digest: clusterDigest(*env), Demand: demand, Latency: sess.clusterLatency})
+			AccountID: sess.Account().ID, CommandType: env.Type, Digest: clusterDigest(*env), CreateOperationID: createOperationID, Demand: demand, Latency: sess.clusterLatency})
 		if err != nil {
 			h.clusterError(sess, env.ID, err)
 			return true, nil

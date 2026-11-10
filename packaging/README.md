@@ -156,7 +156,7 @@ before replacing the application. Version-mismatch recovery queries the exact
 ## Communication compatibility metadata
 
 The release assembly job generates `compatibility.json` from the validated
-application version and `protocol/v2/wire-schema.json`. It contains
+application version and `protocol/v3/wire-schema.json`. It contains
 `schemaVersion: 1`, `applicationVersion` and `gameProtocol`, and joins the
 normal `SHA256SUMS` and release-asset attestation. The client connection screen
 only offers a protocol-compatible package after verifying that metadata against

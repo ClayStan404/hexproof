@@ -430,6 +430,7 @@ class WsClient : public QObject
                const QString &aiSource = QString(), bool actionClockEnabled = false);
     Q_INVOKABLE void requestRoomList();
     Q_INVOKABLE void requestTournamentList();
+    Q_INVOKABLE void resetTournamentCreation();
     Q_INVOKABLE QString sendTournamentChat(const QString &text);
     Q_INVOKABLE void createTournament(const QString &name, const QString &format,
                                       const QString &matchMode, int roundMinutes, int maxPlayers,
@@ -440,6 +441,10 @@ class WsClient : public QObject
                                              int maxPlayers, const QVariantMap &product,
                                              const QString &rulesMode = QStringLiteral("manual"),
                                              bool actionClockEnabled = false);
+    Q_INVOKABLE void createLimitedPlanTournament(
+        const QString &name, const QString &eventType, const QString &matchMode, int roundMinutes,
+        int maxPlayers, const QVariantMap &plan,
+        const QString &rulesMode = QStringLiteral("manual"), bool actionClockEnabled = false);
     Q_INVOKABLE void createCasualLimitedEvent(const QString &name, const QString &eventType,
                                               const QString &matchMode, int maxPlayers,
                                               const QVariantMap &product,
@@ -665,6 +670,8 @@ class WsClient : public QObject
     void setState(ConnectionState s);
     void openTransport();
     QString send(const QString &type, const QJsonObject &payload = {});
+    void sendTournamentCreation(QJsonObject payload);
+    QString tournamentStartReadiness(const QString &stage) const;
     void dispatch(const protocol::Envelope &env, const QVariantMap &gameSnapshot = {});
     void handleWelcome(const protocol::Envelope &env);
     void handleCreated(const protocol::Envelope &env);
@@ -747,6 +754,12 @@ class WsClient : public QObject
     ServerDirectory *m_serverDirectory = nullptr;
     TournamentSessionState *m_tournamentSession = nullptr;
     LimitedSessionState *m_limitedSession = nullptr;
+    QByteArray m_tournamentCreatePayload;
+    QString m_tournamentCreateOperation;
+    QString m_tournamentStartScope;
+    QString m_tournamentStartOperation;
+    QString m_tournamentStartReadiness;
+    bool m_tournamentStartNotReady = false;
     HubTransport m_ws;
     QThread m_parserThread;
     WsMessageParser *m_messageParser = nullptr;

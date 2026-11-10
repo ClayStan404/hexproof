@@ -12,7 +12,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 NODE = shutil.which("node")
 SOURCE = ROOT / "tools/ui-automation/scenarios/ForgeStackStudy.js"
-FIXTURE = ROOT / "testdata/protocol/v2/rules-snapshot-stack-targets.json"
+FIXTURE = ROOT / "testdata/protocol/v3/rules-snapshot-stack-targets.json"
 
 HARNESS = r"""
 const assert = require('node:assert/strict');

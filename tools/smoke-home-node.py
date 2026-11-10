@@ -133,8 +133,8 @@ class WebSocket:
 
 
 def smoke(endpoint: str, version: str, expect_forge: bool, room: bool,
-          expect_ai: bool = False, game_protocol="hexproof.v2") -> dict:
-    if game_protocol not in ("hexproof.v1", "hexproof.v2"):
+          expect_ai: bool = False, game_protocol="hexproof.v3") -> dict:
+    if game_protocol not in ("hexproof.v1", "hexproof.v2", "hexproof.v3"):
         raise ValueError("Unsupported operator smoke protocol")
     parts = urlsplit(endpoint)
     if not parts.path.endswith("/ws"):
@@ -198,8 +198,8 @@ def verify_projection(snapshot: dict, seat: int) -> None:
                 raise ValueError("Forge projection omitted the player's own hand")
 
 
-def forge_smoke(endpoint: str, version: str, game_protocol="hexproof.v2") -> dict:
-    if game_protocol not in ("hexproof.v1", "hexproof.v2"):
+def forge_smoke(endpoint: str, version: str, game_protocol="hexproof.v3") -> dict:
+    if game_protocol not in ("hexproof.v1", "hexproof.v2", "hexproof.v3"):
         raise ValueError("Unsupported operator smoke protocol")
     clients = []
     created = False
@@ -276,7 +276,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("endpoint")
     parser.add_argument("--version", default="2.0.6")
-    parser.add_argument("--protocol", choices=("hexproof.v1", "hexproof.v2"), default="hexproof.v2",
+    parser.add_argument("--protocol", choices=("hexproof.v1", "hexproof.v2", "hexproof.v3"), default="hexproof.v3",
                         help="Explicit operator-selected protocol; never negotiated or downgraded")
     parser.add_argument("--expect-forge", action="store_true")
     parser.add_argument("--expect-ai", action="store_true",

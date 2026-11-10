@@ -46,6 +46,7 @@ class TournamentSessionState : public QObject
     Q_PROPERTY(bool roundComplete READ roundComplete NOTIFY snapshotChanged)
     Q_PROPERTY(bool canRegister READ canRegister NOTIFY snapshotChanged)
     Q_PROPERTY(QVariantMap product READ product NOTIFY snapshotChanged)
+    Q_PROPERTY(QVariantMap plan READ plan NOTIFY snapshotChanged)
     Q_PROPERTY(QVariantMap draftSettings READ draftSettings NOTIFY snapshotChanged)
     Q_PROPERTY(QVariantList participants READ participants NOTIFY snapshotChanged)
     Q_PROPERTY(QVariantList pairings READ pairings NOTIFY snapshotChanged)
@@ -173,6 +174,10 @@ class TournamentSessionState : public QObject
     {
         return m_product;
     }
+    QVariantMap plan() const
+    {
+        return m_plan;
+    }
     QVariantMap draftSettings() const
     {
         return m_draftSettings;
@@ -241,6 +246,7 @@ class TournamentSessionState : public QObject
     bool m_roundComplete = false;
     bool m_canRegister = false;
     QVariantMap m_product;
+    QVariantMap m_plan;
     QVariantMap m_draftSettings;
     QVariantList m_participants;
     QVariantList m_pairings;

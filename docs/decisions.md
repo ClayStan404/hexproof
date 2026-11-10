@@ -43,6 +43,21 @@ and [home servers](home-servers.md).
 
 ## Tabletop, events and presentation
 
+Online Set Sealed supports a locked shared recipe of 1–12 independently sampled
+packs per player, retaining six of one set by default. Set Draft supports three
+ordered whole-table products and variable pack lengths between rounds, retaining
+one set and left/right/left by default. Definitions are deduplicated and bounded
+as a complete plan; public hashes identify content rather than authenticate an
+official recipe registry. The server pregenerates all Set packs before atomically
+leaving registration, preserving legacy traversal/random sequences. Stable
+creation/start operation identities and expected stages prevent retries from
+allocating another event, rerolling pools or advancing construction. Owner-only
+explicit pack groups support reveal/replay without reconstructing six equal
+chunks or generating new cards. Offline mixed practice and special event products
+are outside this contract. See [Limited events](limited-events.md) and the
+[protocol compatibility policy](protocol-compatibility.md) for v3 game/v2 cluster
+baseline isolation, process-local retry bounds and wire/operational budgets.
+
 - Manual movement preserves immutable ownership and documented controller
   visibility. Moving another player's public-zone card requires exact,
   one-use consent; private identities never become a convenience for the UI.

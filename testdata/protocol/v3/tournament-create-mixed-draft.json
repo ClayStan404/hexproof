@@ -1,0 +1,97 @@
+{
+  "type": "tournament.create",
+  "id": "mixed-draft-create",
+  "payload": {
+    "operationId": "create-mixed-draft-1",
+    "name": "Ordered A/B/A draft",
+    "format": "Limited",
+    "eventType": "set_draft",
+    "matchMode": "bo3",
+    "roundMinutes": 50,
+    "maxPlayers": 8,
+    "plan": {
+      "products": [
+        {
+          "id": "aaa-approximate",
+          "name": "Example AAA booster",
+          "setCode": "AAA",
+          "productType": "approximate",
+          "authentic": false,
+          "cardsPerPack": 14,
+          "sheets": [
+            {
+              "name": "cards",
+              "withReplacement": true,
+              "cards": [
+                {
+                  "name": "AAA card",
+                  "setCode": "AAA",
+                  "collectorNumber": "1",
+                  "weight": 1
+                }
+              ]
+            }
+          ],
+          "variants": [
+            {
+              "weight": 1,
+              "slots": [
+                {
+                  "sheet": "cards",
+                  "count": 14
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "bbb-approximate",
+          "name": "Example BBB booster",
+          "setCode": "BBB",
+          "productType": "approximate",
+          "authentic": false,
+          "cardsPerPack": 15,
+          "sheets": [
+            {
+              "name": "cards",
+              "withReplacement": true,
+              "cards": [
+                {
+                  "name": "BBB card",
+                  "setCode": "BBB",
+                  "collectorNumber": "1",
+                  "weight": 1
+                }
+              ]
+            }
+          ],
+          "variants": [
+            {
+              "weight": 1,
+              "slots": [
+                {
+                  "sheet": "cards",
+                  "count": 15
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "entries": [
+        {
+          "productId": "aaa-approximate",
+          "count": 1
+        },
+        {
+          "productId": "bbb-approximate",
+          "count": 1
+        },
+        {
+          "productId": "aaa-approximate",
+          "count": 1
+        }
+      ]
+    }
+  }
+}

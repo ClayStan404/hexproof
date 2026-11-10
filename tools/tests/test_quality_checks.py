@@ -77,7 +77,7 @@ class ProtocolParityTests(unittest.TestCase):
             item.value for item in constants if item.name.startswith("Type")
         }
         schema = payload_schema.load_payload_schema(root, message_types)
-        self.assertEqual(schema.protocol, "hexproof.v2")
+        self.assertEqual(schema.protocol, "hexproof.v3")
         self.assertEqual(set(schema.messages), message_types - {"room.event"})
         self.assertIn("game.snapshot", schema.messages)
         self.assertIn("room.snapshot", schema.messages)

@@ -146,8 +146,8 @@ waiting/thinking/paused state and a controlled error code. `room.ai.retry` is a
 host-only recovery command. A separate socket to the existing WebSocket endpoint
 with `ai=1` accepts `ai.attach`, then
 exchanges `ai.decision`, `ai.answer`, `ai.rejected`, `ai.failure` and `ai.cancel`.
-Canonical fields and fixtures are in `protocol/v2/payload-model-ai.json` and
-`testdata/protocol/v2/`. No endpoint or credential is part of the decision wire
+Canonical fields and fixtures are in `protocol/v3/payload-model-ai.json` and
+`testdata/protocol/v3/`. No endpoint or credential is part of the decision wire
 contract.
 
 ## Verification

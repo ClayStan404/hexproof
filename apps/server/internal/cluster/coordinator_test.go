@@ -95,7 +95,7 @@ func TestPlacementCapabilitiesLoadVersionAndExpiry(t *testing.T) {
 	if _, err := c.Do(context.Background(), q); err != nil {
 		t.Fatal("same-protocol different-version node rejected", err)
 	}
-	two.Protocol = "hexproof.v3"
+	two.Protocol = "hexproof.v2"
 	register(t, c, "N2", two)
 	if _, err := c.Do(context.Background(), q); err != ErrFull {
 		t.Fatal("different protocol node selected", err)

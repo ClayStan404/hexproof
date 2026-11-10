@@ -22,7 +22,8 @@ func TestForgeTournamentCreationRequiresAvailableRuntime(t *testing.T) {
 		}
 		owner := retentionSession(h, "owner")
 		env, _ := protocol.NewEnvelope(protocol.TypeTournamentCreate, protocol.TournamentCreate{
-			Name: "Forge Swiss", Format: "Modern", MatchMode: protocol.MatchBO3,
+			OperationID: testTournamentOperationID(),
+			Name:        "Forge Swiss", Format: "Modern", MatchMode: protocol.MatchBO3,
 			RulesMode: protocol.RulesModeForge, RoundMinutes: 50, MaxPlayers: 4,
 		})
 		if err := h.handleTournamentCreate(owner, env); err != nil {

@@ -26,6 +26,11 @@ void TestWsClient::limitedSessionRestoresPrivateDeckSelection() const
         {u"eventType"_s, u"set_sealed"_s},
         {u"stage"_s, u"deck_building"_s},
         {u"product"_s, QJsonObject{{u"id"_s, u"fdn-play"_s}}},
+        {u"plan"_s, QJsonObject{{u"planHash"_s, u"locked-plan"_s}}},
+        {u"receivedPacks"_s,
+         QJsonArray{QJsonObject{{u"packId"_s, u"pack-1"_s},
+                                {u"productId"_s, u"fdn-play"_s},
+                                {u"instanceIds"_s, QJsonArray{u"limited-1"_s, u"limited-2"_s}}}}},
         {u"packRound"_s, 0},
         {u"direction"_s, 1},
         {u"currentPack"_s, QJsonArray{}},
@@ -40,7 +45,17 @@ void TestWsClient::limitedSessionRestoresPrivateDeckSelection() const
     QCOMPARE(state.mainboardInstanceIds(), QVariantList({u"limited-1"_s, u"limited-2"_s}));
     QCOMPARE(state.basicLands().size(), 1);
     QCOMPARE(state.basicLands().first().toMap().value(u"count"_s).toInt(), 17);
+    QCOMPARE(state.receivedPacks().size(), 1);
+    QCOMPARE(state.plan().value(u"planHash"_s).toString(), u"locked-plan"_s);
+    // A role replacement omits owner fields, even within the same event.
+    state.applySnapshot(QJsonObject{{u"tournamentId"_s, u"ABC123"_s},
+                                    {u"plan"_s, QJsonObject{{u"planHash"_s, u"locked-plan"_s}}}});
+    QVERIFY(state.receivedPacks().isEmpty());
+    QVERIFY(state.pool().isEmpty());
+    QVERIFY(state.mainboardInstanceIds().isEmpty());
+    QCOMPARE(state.plan().value(u"planHash"_s).toString(), u"locked-plan"_s);
     state.clear();
+    QVERIFY(state.plan().isEmpty());
     QVERIFY(state.mainboardInstanceIds().isEmpty());
     QVERIFY(state.basicLands().isEmpty());
 }

@@ -12,16 +12,23 @@ import (
 	"hexproof/server/internal/tournament"
 )
 
+const maxTournamentCreateOperations = 4096
+const maxTournamentStartOperations = 64
+
+// Completed/failed creation identities remain tombstones until process exit.
+// Never evict one and accidentally permit a replay to create another event.
 type tournamentRegistry struct {
-	mu        sync.Mutex
-	maxEvents int
-	events    map[string]*tournamentEntry
-	closed    bool
+	mu               sync.Mutex
+	maxEvents        int
+	createOperations map[string]struct{}
+	events           map[string]*tournamentEntry
+	closed           bool
 }
 
 type tournamentEntry struct {
 	opMu              sync.Mutex
 	mu                sync.Mutex
+	startOperations   map[string]tournamentStartOperation
 	event             *tournament.Tournament
 	chat              []protocol.TournamentChatMessage
 	chatSequence      int
@@ -31,11 +38,30 @@ type tournamentEntry struct {
 	cleanupGeneration uint64
 }
 
+type tournamentStartOperation struct {
+	expectedStage string
+	err           error
+}
+
 func newTournamentRegistry(maxEvents int) *tournamentRegistry {
 	return &tournamentRegistry{
-		maxEvents: maxEvents,
-		events:    make(map[string]*tournamentEntry),
+		maxEvents:        maxEvents,
+		events:           make(map[string]*tournamentEntry),
+		createOperations: make(map[string]struct{}),
 	}
+}
+
+func (r *tournamentRegistry) claimCreateOperation(key string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, exists := r.createOperations[key]; exists {
+		return &protocolError{code: protocol.ErrInvalidMessage, message: "creation operation already attempted; recover the existing event instead of replaying creation"}
+	}
+	if len(r.createOperations) >= maxTournamentCreateOperations {
+		return &protocolError{code: protocol.ErrServerLimit, message: "creation operation history is full; this process cannot accept another tournament creation"}
+	}
+	r.createOperations[key] = struct{}{}
+	return nil
 }
 
 func (r *tournamentRegistry) create(event *tournament.Tournament) (*tournamentEntry, error) {

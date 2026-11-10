@@ -14026,6 +14026,54 @@ Downloaded and custom images will be copied and verified before the setting chan
     </context>
     <context>
         <name>TournamentLobby</name>
+    <message>
+        <source> · %1 cards per pack</source>
+        <translation> · 每包%1張</translation>
+    </message>
+    <message>
+        <source> · approximate</source>
+        <translation> · 近似配包</translation>
+    </message>
+    <message>
+        <source>%1 packs · %2 cards per player. Packs are independently sampled; the recipe stays locked after creation.</source>
+        <translation>每人%1包、%2張牌。各包獨立抽樣；配方在建立後鎖定。</translation>
+    </message>
+    <message>
+        <source>%1 × %2</source>
+        <translation>%1 × %2</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>關閉</translation>
+    </message>
+    <message>
+        <source>Custom pack recipe · %1 per player</source>
+        <translation>自訂配方 · 每人%1包</translation>
+    </message>
+    <message>
+        <source>Locked pack recipe</source>
+        <translation>已鎖定的配包方案</translation>
+    </message>
+    <message>
+        <source>Pack recipe · 6 per player</source>
+        <translation>配包方案 · 每人6包</translation>
+    </message>
+    <message>
+        <source>Round %1 · %2 · pass %3</source>
+        <translation>第%1輪 · %2 · 向%3傳包</translation>
+    </message>
+    <message>
+        <source>Three-round pack order</source>
+        <translation>三輪配包順序</translation>
+    </message>
+    <message>
+        <source>left</source>
+        <translation>左</translation>
+    </message>
+    <message>
+        <source>right</source>
+        <translation>右</translation>
+    </message>
         <message>
             <location filename="../qml/components/LimitedCardGrouping.qml" line="+92" />
             <source>Mana value 0</source>
@@ -17514,6 +17562,97 @@ Downloaded and custom images will be copied and verified before the setting chan
     <message>
         <source>Official rules source</source>
         <translation>官方規則來源</translation>
+    </message>
+</context>
+<context>
+    <name>SetPackPlanEditor</name>
+    <message>
+        <source> · %1 cards per pack</source>
+        <translation> · 每包%1張</translation>
+    </message>
+    <message>
+        <source> · approximate</source>
+        <translation> · 近似配包</translation>
+    </message>
+    <message>
+        <source>%1 × %2</source>
+        <translation>%1 × %2</translation>
+    </message>
+    <message>
+        <source>Add another set</source>
+        <translation>新增其他系列</translation>
+    </message>
+    <message>
+        <source>Choose each of the three rounds</source>
+        <translation>分別選擇三輪系列</translation>
+    </message>
+    <message>
+        <source>Choose one product for each of the three rounds.</source>
+        <translation>請為三輪各選擇一種產品。</translation>
+    </message>
+    <message>
+        <source>Custom recipe · %1 packs per player</source>
+        <translation>自訂配方 · 每人%1包</translation>
+    </message>
+    <message>
+        <source>Customize sets and pack counts</source>
+        <translation>自訂系列和包數</translation>
+    </message>
+    <message>
+        <source>Every player uses this recipe with independently sampled packs. Build at least 40 cards; custom pack counts are not an official format.</source>
+        <translation>每位玩家使用相同配方，補充包獨立抽樣。套牌至少40張；自訂包數不代表官方賽制。</translation>
+    </message>
+    <message>
+        <source>Every seat uses this round order. Each player receives independently sampled packs.</source>
+        <translation>全桌使用相同輪次順序，每位玩家的補充包獨立抽樣。</translation>
+    </message>
+    <message>
+        <source>Final recipe · 6 packs per player</source>
+        <translation>最終配方 · 每人6包</translation>
+    </message>
+    <message>
+        <source>Final round order</source>
+        <translation>最終輪次順序</translation>
+    </message>
+    <message>
+        <source>Packs per player</source>
+        <translation>每人包數</translation>
+    </message>
+    <message>
+        <source>Product %1</source>
+        <translation>產品%1</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>移除</translation>
+    </message>
+    <message>
+        <source>Round %1 · %2</source>
+        <translation>第%1輪 · %2</translation>
+    </message>
+    <message>
+        <source>Round %1 · pass %2</source>
+        <translation>第%1輪 · 向%2傳包</translation>
+    </message>
+    <message>
+        <source>Six boosters of the selected set per player</source>
+        <translation>每人六包所選系列補充包</translation>
+    </message>
+    <message>
+        <source>Three boosters of the selected set · left / right / left</source>
+        <translation>所選系列三包 · 左／右／左傳包</translation>
+    </message>
+    <message>
+        <source>Use positive whole pack counts, totaling 1–12 packs per player.</source>
+        <translation>包數須為正整數，每人合計1–12包。</translation>
+    </message>
+    <message>
+        <source>left</source>
+        <translation>左</translation>
+    </message>
+    <message>
+        <source>right</source>
+        <translation>右</translation>
     </message>
 </context>
 </TS>

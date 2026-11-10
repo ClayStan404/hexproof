@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Hexproof contributors
 
-// Package protocol defines the hexproof.v2 wire envelope and message types.
+// Package protocol defines the hexproof.v3 wire envelope and message types.
 //
 // Wire conventions:
 //   - Protocol version `v` is negotiated ONCE at handshake. The authoritative

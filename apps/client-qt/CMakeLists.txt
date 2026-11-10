@@ -531,6 +531,7 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/LimitedDraftSeatMap.qml
         qml/components/LimitedDraftView.qml
         qml/components/LimitedSetPicker.qml
+        qml/components/SetPackPlanEditor.qml
         qml/components/LimitedProductArtPanel.qml
         qml/components/LimitedSideboardBasicLandsPanel.qml
         qml/components/LimitedSideboardFilters.qml
@@ -1144,7 +1145,7 @@ qt_add_executable(hexproof_test
 )
 target_include_directories(hexproof_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_definitions(hexproof_test PRIVATE
-    HEXPROOF_PROTOCOL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../testdata/protocol/v2")
+    HEXPROOF_PROTOCOL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../testdata/protocol/v3")
 target_link_libraries(hexproof_test PRIVATE Qt6::Core Qt6::Test)
 add_test(NAME protocol COMMAND hexproof_test)
 
@@ -1162,7 +1163,7 @@ qt_add_executable(hexproof_wsclient_test
 target_include_directories(hexproof_wsclient_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_definitions(hexproof_wsclient_test PRIVATE
     HEXPROOF_VERSION="${PROJECT_VERSION}"
-    HEXPROOF_PROTOCOL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../testdata/protocol/v2")
+    HEXPROOF_PROTOCOL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../testdata/protocol/v3")
 target_link_libraries(hexproof_wsclient_test PRIVATE
     hexproof_session
     hexproof_table_models
@@ -1349,7 +1350,7 @@ qt_add_executable(hexproof_gametablemodel_test
 target_include_directories(hexproof_gametablemodel_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_definitions(hexproof_gametablemodel_test PRIVATE
-    HEXPROOF_PROTOCOL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../testdata/protocol/v2")
+    HEXPROOF_PROTOCOL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../testdata/protocol/v3")
 target_link_libraries(hexproof_gametablemodel_test PRIVATE
     hexproof_table_models
     Qt6::Core

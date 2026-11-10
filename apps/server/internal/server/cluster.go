@@ -140,7 +140,13 @@ func (h *Handler) clusterError(sess *Session, requestID string, err error) {
 		code, message = protocol.ErrClusterFull, "No healthy official node has capacity for this request"
 	}
 	if err == cluster.ErrInvalid {
-		code, message = protocol.ErrInvalidMessage, "Invalid or expired node transfer"
+		code, message = protocol.ErrInvalidMessage, "Invalid or expired node transfer, or incompatible official coordinator protocol"
+	}
+	if err == cluster.ErrOperationReplay {
+		code, message = protocol.ErrInvalidMessage, "Creation operation already attempted; check and recover the original event before beginning a separate creation"
+	}
+	if err == cluster.ErrOperationHistoryFull {
+		code, message = protocol.ErrServerLimit, "Creation operation history is full; this coordinator process cannot accept another tournament creation"
 	}
 	if err == cluster.ErrUnsupported {
 		code, message = protocol.ErrRulesUnavailable, "Duel Commander AI is unavailable in this official cluster"

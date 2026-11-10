@@ -105,7 +105,8 @@ configuration above and its actual activation state:
 6. Record application version, game protocol from the canonical schema, internal
    RPC identity and Forge runtime/adapter identity. Apply the required
    mixed-release or first-protocol bootstrap checks from the compatibility
-   policy. Source `hexproof.v2` is not compatible with installed 3.0.0/v1 peers.
+   policy. Source `hexproof.v3` is not compatible with v1/v2 peers; a source
+   merge does not migrate the deployed fleet.
    A change of application version alone must never become an admission gate.
 
 ## Validate the frozen source locally

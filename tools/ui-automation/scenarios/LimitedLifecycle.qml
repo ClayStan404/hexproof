@@ -9,7 +9,12 @@ Item {
     readonly property int players: Number(auditProbe.environment("AUDIT_PLAYERS"))
     readonly property bool forge: /-forge(?:-bo3)?$/.test(auditProbe.environment("AUDIT_VARIANT"))
     readonly property bool bo3: auditProbe.environment("AUDIT_VARIANT").endsWith("-bo3")
-    readonly property string mode: auditProbe.environment("AUDIT_VARIANT").replace(/-forge(?:-bo3)?$/, "")
+    readonly property bool mixed: auditProbe.environment("AUDIT_VARIANT").startsWith("mixed_")
+    readonly property string mode: auditProbe.environment("AUDIT_VARIANT").replace(/-forge(?:-bo3)?$/, "").replace(/^mixed_/, "set_")
+    readonly property var mixedSets: (auditProbe.environment("HEXPROOF_AUDIT_MIXED_SETS") || (mode === "set_draft" ? "TRK,SOM,TRK" : "TRK,SOM,NPH")).split(",")
+    property var mixedProducts: []
+    property var packSizes: []
+    property int poolSize: 0
     readonly property bool cube: mode === "cube_draft"
     readonly property string setCode: auditProbe.environment("HEXPROOF_AUDIT_LIMITED_SET") || "EOE"
     readonly property string expectedProductId: auditProbe.environment("HEXPROOF_AUDIT_LIMITED_PRODUCT")
@@ -57,6 +62,12 @@ Item {
     // Viewport geometry is observable even when its center is not an input target.
     function view(name) { return walk(auditWindow.contentItem, item => item.objectName === name) }
     function builder() { return walk(auditWindow.contentItem, item => typeof item.selectionFingerprint === "function") }
+    function observe(name, root) {
+        if (!root) root = auditWindow.contentItem
+        if (root.objectName === name) return root
+        for (const child of root.children || []) { const result = observe(name, child); if (result) return result }
+        return null
+    }
     function sealedOpening() {
         const owner = builder()
         return owner ? Array.from(owner.data).find(item => item.objectName === "limitedSealedPackOpening") : null
@@ -105,7 +116,8 @@ Item {
     function typeField(name, value, scrollName, scope) {
         if (!click(name, scrollName, scope)) return false
         require(auditProbe.key(Qt.Key_A, Qt.ControlModifier), "Cannot select field")
-        require(auditProbe.type(value), "Cannot type field")
+        if (value.length === 0) require(auditProbe.key(Qt.Key_Backspace), "Cannot clear field")
+        else require(auditProbe.type(value), "Cannot type field")
         return true
     }
     function selectPhysicalCard(name, scrollName, selected) {
@@ -169,7 +181,7 @@ Item {
     }
     function ownHand() { return gameTable.zoneModel(ws.roomSession.seatIndex, "hand") }
     function verifyPool() {
-        const expected = packSize * (mode === "set_sealed" ? 6 : 3)
+        const expected = mixed ? poolSize : packSize * (mode === "set_sealed" ? 6 : 3)
         require(limited.pool.length === expected, "Wrong physical pool size")
         require(new Set(ids(limited.pool)).size === expected, "Duplicate pool instances")
         require(Array.from(limited.pool).every(card => card.name && card.setCode && card.collectorNumber), "Pool printing missing")
@@ -189,13 +201,14 @@ Item {
     }
     function planDraft() {
         for (let round = 1; round <= 3; ++round) {
-            add("Observe draft round " + round, 0, () => {}, () => limited.packRound === round && limited.currentPack.length === packSize)
+            const roundSize = mixed ? packSizes[round - 1] : packSize
+            add("Observe draft round " + round, 0, () => {}, () => limited.packRound === round && limited.currentPack.length === roundSize)
             add("Record private pack and public seat order " + round, 0, () => {
                 require(limited.direction === (round === 2 ? -1 : 1), "Incorrect draft direction")
                 share("pack-" + round + "-" + seat, {participantId:tournament.participantId, ids:ids(limited.currentPack)})
                 capture("draft-round-" + round)
             })
-            for (let pick = 0; pick < packSize; ++pick) {
+            for (let pick = 0; pick < roundSize; ++pick) {
                 for (let actor = 1; actor <= players; ++actor) {
                     add("Select round " + round + " pick " + (pick + 1) + " seat " + actor, actor, () => {
                         if (!limited.currentPack.length) return false
@@ -206,7 +219,7 @@ Item {
                             return view && view.selection.includes(chosenId)
                         })
                     }, () => !!find("limitedConfirmPickButton"))
-                    if (pick === packSize - 1) add("Inspect final card before confirmation " + round + "/" + actor, actor, () => {
+                    if (pick === roundSize - 1) add("Inspect final card before confirmation " + round + "/" + actor, actor, () => {
                         require(limited.currentPack.length === 1 && limited.currentPack[0].instanceId === chosenId,
                             "The final card disappeared before confirmation")
                         require(!ids(limited.pool).includes(chosenId), "The final card was automatically added to the pool")
@@ -218,7 +231,7 @@ Item {
                         () => share("pick-" + round + "-" + seat, {id:chosenId}))
                 }
                 if (pick === 0) add("Verify actual pack passing in round " + round, 0, () => {}, () => {
-                    if (limited.currentPack.length !== packSize - 1) return false
+                    if (limited.currentPack.length !== roundSize - 1) return false
                     const order = Array.from(limited.participants).map(p => p.participantId)
                     const position = order.indexOf(tournament.participantId)
                     const source = order[(position - limited.direction + players) % players]
@@ -260,8 +273,17 @@ Item {
             require(!expectedProductId || resolvedProductId === expectedProductId, "Unexpected Limited product: " + resolvedProductId)
             packSize = cardCatalog.limitedProduct(set.productId).cardsPerPack
         }
-        auditProbe.fixture("limited-lifecycle", {mode:mode, players:players, setCode:cube ? "" : setCode,
-            productId:resolvedProductId, cardsPerPack:packSize,
+        if (mixed) {
+            for (const code of mixedSets) {
+                const entry = cardCatalog.limitedSets().find(value => value.id === code)
+                require(!!entry, "Installed mixed product required: " + code)
+                mixedProducts.push(cardCatalog.limitedProduct(entry.productId))
+            }
+            packSizes = mixedProducts.map(product => Number(product.cardsPerPack))
+            poolSize = packSizes.reduce((sum, size) => sum + size * (mode === "set_sealed" ? 2 : 1), 0)
+        }
+        auditProbe.fixture("limited-lifecycle", {mode:mode, players:players, setCode:cube ? "" : mixed ? mixedSets.join("/") : setCode,
+            productId:resolvedProductId, cardsPerPack:packSize, mixed:mixed, mixedProducts:mixedProducts.map(p => ({id:p.id,cardsPerPack:p.cardsPerPack,authentic:p.authentic})),
             description:"Native UI creates the event, makes every draft pick and submits pool-contained 40-card decks. Only catalog/cache and a saved 135-card Cube are seeded; no event or pack state is injected."})
         for (let actor = 1; actor <= players; ++actor) {
             add("Connect form " + actor, actor, () => click("mainMenuConnectButton"), () => !!find("connectSubmitButton"))
@@ -280,8 +302,38 @@ Item {
             add("Open tournament form", 1, () => click("tournamentCreateButton"), () => !!find("tournamentNameField"))
             add("Name Limited event", 1, () => typeField("tournamentNameField", "Native " + mode))
             add("Select Limited mode", 1, () => choose("tournamentEventTypeSelector", mode === "set_sealed" ? 1 : 2))
-            add("Find installed " + setCode, 1, () => typeField("limitedSetSearchField", setCode, "tournamentCreateBody"),
+            if (!mixed) add("Find installed " + setCode, 1, () => typeField("limitedSetSearchField", setCode, "tournamentCreateBody"),
                 () => find("limitedSetSelector") && find("limitedSetSelector").currentValue === setCode)
+            if (mixed) {
+                add("Enable custom pack recipe", 1, () => click("setPackPlanCustomToggle", "tournamentCreateBody"),
+                    () => !!find("setPackPlanSet-0"))
+                for (let row = 0; row < 3; ++row) {
+                    if (mode === "set_sealed" && row > 0)
+                        add("Add mixed product row " + row, 1, () => click("setPackPlanAdd", "tournamentCreateBody"),
+                            () => { const editor = view("tournamentSetPackPlan"); return editor && editor.rows.length === row + 1 })
+                    add("Choose mixed product " + row, 1, () => {
+                        const picker = view("setPackPlanSet-" + row)
+                        return picker && typeField("limitedSetSearchField", mixedSets[row], "tournamentCreateBody", picker)
+                    }, () => { const picker = view("setPackPlanSet-" + row); return picker && picker.selectedId === mixedSets[row] })
+                    if (mode === "set_sealed") {
+                        if (row === 0) {
+                            add("Show empty count error", 1, () => typeField("setPackPlanCount-0", "", "tournamentCreateBody"),
+                                () => { const editor = view("tournamentSetPackPlan"); return editor && !editor.valid })
+                            add("Inspect count error", 1, () => {
+                                require(!observe("tournamentCreateSubmitButton").enabled, "Invalid count enabled creation")
+                                capture("mixed-count-error")
+                            })
+                        }
+                        add("Set two packs in row " + row, 1, () => typeField("setPackPlanCount-" + row, "2", "tournamentCreateBody"))
+                    }
+                }
+                add("Inspect final mixed recipe", 1, () => {
+                    const editor = view("tournamentSetPackPlan")
+                    require(editor && editor.valid && editor.canonicalEntries.length === (mode === "set_draft" ? 3 : new Set(mixedSets).size), "Recipe invalid")
+                    require(JSON.stringify(editor.makePlan().entries.map(e => e.productId)) === JSON.stringify(mixedProducts.map(p => p.id)), "Round/recipe order changed")
+                    capture("mixed-final-recipe")
+                })
+            }
             add("Choose match length", 1, () => clickText(bo3 ? "BO 3" : "BO 1", "tournamentCreateBody"),
                 () => screen().matchMode === (bo3 ? "bo3" : "bo1"))
             add("Set three event seats", 1, () => typeField("tournamentPlayerCapField", "3", "tournamentCreateBody"))
@@ -342,8 +394,17 @@ Item {
                 add("Check exact opened identities " + actor, actor, () => {
                     const opening = sealedOpening()
                     require(opening.packs.length === 6, "Sealed opening lost booster boundaries")
-                    require(same(ids(opening.packs[0].cards), ids(Array.from(limited.pool).slice(0, packSize))),
+                    require(same(ids(opening.packs[0].cards), ids(Array.from(limited.pool).slice(0, mixed ? packSizes[0] : packSize))),
                         "Animation changed the server-generated first booster")
+                    if (mixed) {
+                        const groups = Array.from(limited.receivedPacks)
+                        require(groups.length === 6 && opening.packs.length === groups.length, "Explicit pack groups missing")
+                        for (let i = 0; i < groups.length; ++i) {
+                            require(opening.packs[i].cards.length === packSizes[Math.floor(i / 2)], "Variable Sealed pack size lost")
+                            require(same(ids(opening.packs[i].cards), groups[i].instanceIds), "Reveal changed a grouped instance")
+                        }
+                        require(opening.currentProductName.includes(mixedProducts[0].name), "Pack wrapper lost product label")
+                    }
                     capture("sealed-first-booster")
                 })
                 add("Skip the remaining Sealed animation " + actor, actor, () => click("packOpeningSkipButton"),
@@ -388,10 +449,11 @@ Item {
             add("Check automatic basics and deck workspace " + actor, actor, () => {
                 require(builder().selectedPoolCount === 23 && builder().selectedCount === 40, "Automatic basics did not complete 40 cards")
                 if (!cube) {
+                    const basicSet = mixed ? String((limited.product || {}).setCode || "") : setCode
                     for (const name of builder().basicNames) {
                         const options = cardCatalog.printings(name)
-                        if (options.some(card => card.setCode === setCode))
-                            require(builder().basicPrinting(name).setCode === setCode, "Basic land does not match the event set")
+                        if (options.some(card => card.setCode === basicSet))
+                            require(builder().basicPrinting(name).setCode === basicSet, "Basic land does not match the event product")
                     }
                 }
                 capture("construction")
@@ -590,7 +652,7 @@ Item {
         }
         auditProbe.record("result", {status:error ? "failed" : "passed",
             evidence:auditProbe.environment("AUDIT_OS_INPUT_HELPER") ? "system-input" : "native-qt-input", scenario:"limited-lifecycle",
-            mode:mode, seat:seat, setCode:cube ? "" : setCode, productId:resolvedProductId,
+            mode:mode, seat:seat, setCode:cube ? "" : mixed ? mixedSets.join("/") : setCode, productId:resolvedProductId,
             error:error || "", pendingStep:index < steps.length ? steps[index].name : "",
             assertions:assertions, requiredScreenshots:screenshots,
             coverage:forge ? "Three-client Forge Limited setup; completed assertions are listed individually. A setup failure is not a completed game."

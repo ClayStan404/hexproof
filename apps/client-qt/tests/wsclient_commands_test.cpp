@@ -1299,7 +1299,7 @@ void TestWsClient::handshakeErrorDisconnects() const
         {u"code"_s, hexproof::protocol::kErrProtocolMismatch},
         {u"message"_s, u"client update required"_s},
         {u"clientVersion"_s, buildVersion()},
-        {u"serverProtocol"_s, u"hexproof.v3"_s},
+        {u"serverProtocol"_s, u"hexproof.v4"_s},
         {u"clientProtocol"_s, hexproof::protocol::kProtocolVersion},
     };
     sendEnvelope(peer, error);
@@ -1308,7 +1308,7 @@ void TestWsClient::handshakeErrorDisconnects() const
     QCOMPARE(client.lastError(), u"protocol_mismatch: client update required"_s);
     QVERIFY(client.protocolMismatch());
     QCOMPARE(client.clientVersion(), buildVersion());
-    QCOMPARE(client.serverProtocol(), u"hexproof.v3"_s);
+    QCOMPARE(client.serverProtocol(), u"hexproof.v4"_s);
     QVERIFY(client.releaseDownloadUrl().contains(u"github.com/ClayStan404/hexproof/releases"_s));
 }
 
@@ -1387,8 +1387,8 @@ void TestWsClient::rejectsOversizeIncomingMessages() const
 void TestWsClient::welcomeProtocolMismatchDisconnects_data() const
 {
     QTest::addColumn<QString>("offered");
-    for (const auto &value : {u"hexproof.v1"_s, u"hexproof.v3"_s, QString{}, u"hexproof.v02"_s,
-                              u"hexproof.v2147483648"_s})
+    for (const auto &value : {u"hexproof.v1"_s, u"hexproof.v2"_s, u"hexproof.v4"_s, QString{},
+                              u"hexproof.v02"_s, u"hexproof.v2147483648"_s})
         QTest::newRow(value.isEmpty() ? "missing" : qPrintable(value)) << value;
 }
 
@@ -1422,6 +1422,50 @@ void TestWsClient::welcomeProtocolMismatchDisconnects() const
              hexproof::protocol::protocolGeneration(offered) > 0 ? offered : QString{});
     QVERIFY(client.roomId().isEmpty());
     QVERIFY(client.lastError().contains(hexproof::protocol::kErrProtocolMismatch));
+}
+
+void TestWsClient::frozenV2WelcomeRejectsBeforeCredentialsAndMembership_data() const
+{
+    QTest::addColumn<QString>("fixture");
+    QTest::newRow("welcome") << u"session-welcome.json"_s;
+    QTest::newRow("resumed") << u"session-resumed.json"_s;
+}
+
+void TestWsClient::frozenV2WelcomeRejectsBeforeCredentialsAndMembership() const
+{
+    QFETCH(QString, fixture);
+    QWebSocketServer server(u"Frozen v2 baseline"_s, QWebSocketServer::NonSecureMode);
+    QVERIFY(server.listen(QHostAddress::LocalHost, 0));
+    QWebSocket *peer = nullptr;
+    QList<Envelope> requests;
+    connect(&server, &QWebSocketServer::newConnection, &server, [&] {
+        peer = takeServerPeer(server);
+        connect(peer, &QWebSocket::textMessageReceived, &server, [&](const QString &text) {
+            bool ok = false;
+            const auto request = hexproof::protocol::parse(text.toUtf8(), &ok);
+            if (ok)
+                requests.append(request);
+        });
+    });
+    WsClient client;
+    const QString endpoint = u"ws://127.0.0.1:%1"_s.arg(server.serverPort());
+    client.connectTo(endpoint, u"Alice"_s);
+    QTRY_COMPARE(requests.size(), 1);
+    QCOMPARE(requests.first().payload.value(u"protocol"_s).toString(),
+             hexproof::protocol::kProtocolVersion);
+    QFile frozen(
+        QDir(QStringLiteral(HEXPROOF_PROTOCOL_FIXTURE_DIR)).filePath(u"../legacy-v2/"_s + fixture));
+    QVERIFY(frozen.open(QIODevice::ReadOnly));
+    peer->sendTextMessage(QString::fromUtf8(frozen.readAll()));
+    QTRY_COMPARE(client.connectionState(), WsClient::Disconnected);
+    QVERIFY(client.protocolMismatch());
+    QCOMPARE(client.serverProtocol(), u"hexproof.v2"_s);
+    QVERIFY(client.roomId().isEmpty());
+    QVERIFY(!client.inRoom());
+    QCOMPARE(requests.size(), 1);
+    client.connectTo(endpoint, u"Alice"_s);
+    QTRY_COMPARE(requests.size(), 2);
+    QVERIFY(requests.last().payload.value(u"resumeToken"_s).toString().isEmpty());
 }
 
 void TestWsClient::differentApplicationVersionConnects() const

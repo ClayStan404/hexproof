@@ -67,7 +67,7 @@ const (
 	TypeForgeHostStatus                = "forge.host_status"
 	HostingModeServer                  = "server"
 	HostingModePlayer                  = "player"
-	ProtocolVersion                    = "hexproof.v2"
+	ProtocolVersion                    = "hexproof.v3"
 	TypeSessionHello                   = "session.hello"
 	TypeSessionWelcome                 = "session.welcome"
 	TypeSessionPing                    = "session.ping"

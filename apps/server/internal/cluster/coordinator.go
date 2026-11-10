@@ -18,15 +18,19 @@ import (
 )
 
 var (
-	ErrUnavailable  = errors.New("cluster unavailable")
-	ErrFull         = errors.New("cluster capacity unavailable")
-	ErrInvalid      = errors.New("invalid cluster request or ticket")
-	ErrFenced       = errors.New("cluster node generation replaced")
-	ErrRegistration = errors.New("cluster registration required")
-	ErrUnsupported  = errors.New("cluster capability unsupported")
+	ErrUnavailable          = errors.New("cluster unavailable")
+	ErrFull                 = errors.New("cluster capacity unavailable")
+	ErrInvalid              = errors.New("invalid cluster request or ticket")
+	ErrFenced               = errors.New("cluster node generation replaced")
+	ErrRegistration         = errors.New("cluster registration required")
+	ErrUnsupported          = errors.New("cluster capability unsupported")
+	ErrOperationReplay      = errors.New("cluster creation operation already attempted")
+	ErrOperationHistoryFull = errors.New("cluster creation operation history is full")
 )
 
-const RPCVersion = "hexproof.cluster.v1"
+const RPCVersion = "hexproof.cluster.v2"
+
+const MaxCreateOperations = 4096
 
 const NodeLifetime = 10 * time.Second
 const TicketLifetime = 30 * time.Second
@@ -80,20 +84,21 @@ type Ticket struct {
 }
 
 type Request struct {
-	RPCVersion     string         `json:"rpcVersion"`
-	Operation      string         `json:"operation"`
-	ReportSequence uint64         `json:"reportSequence,omitempty"`
-	NodeID         string         `json:"nodeId"`
-	Generation     string         `json:"generation"`
-	Report         *Report        `json:"report,omitempty"`
-	Completed      []string       `json:"completed,omitempty"`
-	Target         string         `json:"target,omitempty"`
-	AccountID      string         `json:"accountId,omitempty"`
-	CommandType    string         `json:"commandType,omitempty"`
-	Digest         string         `json:"digest,omitempty"`
-	Token          string         `json:"token,omitempty"`
-	Demand         Demand         `json:"demand"`
-	Latency        map[string]int `json:"latency,omitempty"`
+	CreateOperationID string         `json:"createOperationId,omitempty"`
+	RPCVersion        string         `json:"rpcVersion"`
+	Operation         string         `json:"operation"`
+	ReportSequence    uint64         `json:"reportSequence,omitempty"`
+	NodeID            string         `json:"nodeId"`
+	Generation        string         `json:"generation"`
+	Report            *Report        `json:"report,omitempty"`
+	Completed         []string       `json:"completed,omitempty"`
+	Target            string         `json:"target,omitempty"`
+	AccountID         string         `json:"accountId,omitempty"`
+	CommandType       string         `json:"commandType,omitempty"`
+	Digest            string         `json:"digest,omitempty"`
+	Token             string         `json:"token,omitempty"`
+	Demand            Demand         `json:"demand"`
+	Latency           map[string]int `json:"latency,omitempty"`
 }
 
 type Result struct {
@@ -121,18 +126,20 @@ type nodeState struct {
 	report         Report
 }
 type Coordinator struct {
-	mu      sync.Mutex
-	nodes   map[string]Node
-	states  map[string]nodeState
-	tickets map[string]Ticket
-	now     func() time.Time
+	// Tombstones survive failed allocation, ticket completion/expiry and node registration.
+	createOperations map[string]struct{}
+	mu               sync.Mutex
+	nodes            map[string]Node
+	states           map[string]nodeState
+	tickets          map[string]Ticket
+	now              func() time.Time
 }
 
 func New(c Config) (*Coordinator, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
-	x := &Coordinator{nodes: map[string]Node{}, states: map[string]nodeState{}, tickets: map[string]Ticket{}, now: time.Now}
+	x := &Coordinator{nodes: map[string]Node{}, states: map[string]nodeState{}, tickets: map[string]Ticket{}, createOperations: map[string]struct{}{}, now: time.Now}
 	for _, n := range c.Nodes {
 		x.nodes[n.ID] = n
 	}
@@ -143,7 +150,8 @@ func randomToken() string { var b [32]byte; rand.Read(b[:]); return hex.EncodeTo
 
 func (c *Coordinator) Do(ctx context.Context, q Request) (out Result, err error) {
 	defer func() { out.RPCVersion = RPCVersion }()
-	if q.RPCVersion != RPCVersion {
+	if q.RPCVersion != RPCVersion || (q.CreateOperationID != "" &&
+		(q.Operation != "allocate" || q.CommandType != protocol.TypeTournamentCreate || !protocol.ValidOperationID(q.CreateOperationID))) {
 		return out, ErrInvalid
 	}
 	c.mu.Lock()
@@ -206,8 +214,21 @@ func (c *Coordinator) Do(ctx context.Context, q Request) (out Result, err error)
 		if s.reportSequence == 0 || now.Sub(s.seen) >= NodeLifetime {
 			return out, ErrUnavailable
 		}
-		if len(c.tickets) >= 2048 || q.Digest == "" || len(q.Digest) != 64 || len(q.CommandType) > 64 || len(q.AccountID) > 64 || !validDemand(q.Demand) {
+		if q.Digest == "" || len(q.Digest) != 64 || len(q.CommandType) > 64 || len(q.AccountID) > 64 || !validDemand(q.Demand) {
 			return out, ErrInvalid
+		}
+		if q.CreateOperationID != "" {
+			key := s.report.Protocol + ":" + q.CreateOperationID
+			if _, exists := c.createOperations[key]; exists {
+				return out, ErrOperationReplay
+			}
+			if len(c.createOperations) >= MaxCreateOperations {
+				return out, ErrOperationHistoryFull
+			}
+			c.createOperations[key] = struct{}{}
+		}
+		if len(c.tickets) >= 2048 {
+			return out, ErrFull
 		}
 		id := c.selectNode(q, s.report.Protocol, now)
 		if id == "" {

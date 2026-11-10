@@ -9,9 +9,12 @@ is implemented in source. Node reports retain actual application `version` as
 metadata and carry required game `protocol`; selection and discovery filter by
 protocol. Tickets bind that protocol to their existing identity, command and
 target-generation constraints. Internal requests/results require
-`rpcVersion: "hexproof.cluster.v1"`, including local calls. Changing game
-protocol requires a new node registration. Released 3.0.0 still needs the
-coordinated v1-to-v2 transition; this source change does not deploy services.
+`rpcVersion: "hexproof.cluster.v2"`, including local calls. This baseline adds
+coordinator-wide tournament creation identity and requires matching RPC versions
+before registration, ticket or operation-history changes. Frozen cluster v1
+peers are rejected in both directions; no downgrade or negotiation is added.
+Changing game protocol requires a new node registration. Source changes do not
+release or deploy services.
 
 ## Ownership and routing
 
@@ -70,6 +73,34 @@ The client restores a unique account room from any official entry node. If
 multiple account rooms exist, the account resource list lets the player choose;
 it never guesses which concurrent seat to replace. Network reconnection to an
 existing game keeps its original node and sequence/credential semantics.
+
+## Tournament creation identity
+
+The official client preserves one explicit `tournament.create.operationId`
+through routing, reconnect and uncertain results. A new custom Set plan requires
+that identity. The entrance validates its bounded format and forwards it unchanged
+as internal `createOperationId`; the full payload digest remains separately bound
+to the ticket, account, target generation and expiry. An operation ID is not an
+authentication credential, and `Token` retains only its existing ticket purpose.
+
+After node identity, generation and request-shape checks, the coordinator claims
+`(gameProtocol, operationId)` atomically under its existing state lock before
+reserving capacity. The identity does not change with entrance node, destination,
+account or modified payload. The target also claims an explicit identity before
+generating event credentials. Both histories retain up to 4,096 attempted
+creations per process; they never evict old entries to admit another create.
+Failed allocation, an unknown response, ticket expiry/completion and node
+re-registration retain the coordinator tombstone. Replay returns a specific
+non-retryable operation error (HTTP 422 internally); full operation history
+returns a distinct history-full error (HTTP 507). Neither is generation fencing,
+ordinary capacity exhaustion or authority to create a new operation automatically.
+No replay reissues event credentials.
+
+The guarantee lasts for the coordinator process and corresponding target process;
+it adds no durable cross-process recovery. Restarting or selecting another node
+is not a retry policy. Legacy single-product requests may omit the explicit ID;
+their connection plus envelope ID prevents duplicate creation only within that
+connection. It does not provide cross-entrance/reconnect deduplication.
 
 ## Availability
 
@@ -158,6 +189,9 @@ deployment entry point for the coordinator.
 `internal/cluster` exercises concurrent reservations, capability/protocol/health
 selection, failed latency probes, ticket expiry and identity, generation fencing,
 out-of-order reports, directory privacy and authenticated coordinator restart.
+Creation regressions include concurrent entrances, changed payload/account/target,
+unknown responses, completed/expired tickets, replacement node generations,
+history limits, explicit errors and frozen v1/v2 RPC rejection without mutation.
 `internal/server/cluster_test.go` uses two real WebSocket hubs and a shared account
 authority for creation, discovery, password/spectator admission, UID recovery,
 whole-Cube ownership, source rate limits and coordinator outage behavior.

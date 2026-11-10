@@ -6,7 +6,9 @@
 #include "WsClient.h"
 
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
+#include <QUuid>
 
 namespace hexproof::client {
 
@@ -18,6 +20,23 @@ using namespace Qt::StringLiterals;
 void WsClient::requestTournamentList()
 {
     send(kTypeTournamentList);
+}
+
+void WsClient::resetTournamentCreation()
+{
+    m_tournamentCreatePayload.clear();
+    m_tournamentCreateOperation.clear();
+}
+
+void WsClient::sendTournamentCreation(QJsonObject payload)
+{
+    const QByteArray encoded = QJsonDocument(payload).toJson(QJsonDocument::Compact);
+    if (m_tournamentCreateOperation.isEmpty() || encoded != m_tournamentCreatePayload) {
+        m_tournamentCreatePayload = encoded;
+        m_tournamentCreateOperation = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    }
+    payload.insert(u"operationId"_s, m_tournamentCreateOperation);
+    send(kTypeTournamentCreate, payload);
 }
 
 QString WsClient::sendTournamentChat(const QString &text)
@@ -42,7 +61,7 @@ void WsClient::createTournament(const QString &name, const QString &format,
         {u"roundMinutes"_s, roundMinutes},
         {u"maxPlayers"_s, maxPlayers},
     };
-    send(kTypeTournamentCreate, payload);
+    sendTournamentCreation(payload);
 }
 
 void WsClient::createLimitedTournament(const QString &name, const QString &eventType,
@@ -62,7 +81,37 @@ void WsClient::createLimitedTournament(const QString &name, const QString &event
         {u"maxPlayers"_s, maxPlayers},
         {u"product"_s, QJsonObject::fromVariantMap(product)},
     };
-    send(kTypeTournamentCreate, payload);
+    sendTournamentCreation(payload);
+}
+
+void WsClient::createLimitedPlanTournament(const QString &name, const QString &eventType,
+                                           const QString &matchMode, int roundMinutes,
+                                           int maxPlayers, const QVariantMap &plan,
+                                           const QString &rulesMode, bool actionClockEnabled)
+{
+    if (plan.isEmpty()) {
+        setLastError(
+            u"invalid_pack_plan"_s,
+            u"The selected products are unavailable. Update the card database and select them again."_s);
+        return;
+    }
+    if (QJsonDocument(QJsonObject::fromVariantMap(plan)).toJson(QJsonDocument::Compact).size() >
+        800 * 1024) {
+        setLastError(u"invalid_pack_plan"_s,
+                     u"Combined products are too large. Choose fewer or smaller products."_s);
+        return;
+    }
+    sendTournamentCreation(QJsonObject{
+        {u"name"_s, name},
+        {u"format"_s, u"Limited"_s},
+        {u"eventType"_s, eventType},
+        {u"matchMode"_s, matchMode},
+        {u"rulesMode"_s, rulesMode},
+        {u"actionClockEnabled"_s, actionClockEnabled && rulesMode == kRulesModeForge},
+        {u"roundMinutes"_s, roundMinutes},
+        {u"maxPlayers"_s, maxPlayers},
+        {u"plan"_s, QJsonObject::fromVariantMap(plan)},
+    });
 }
 
 void WsClient::createCasualLimitedEvent(const QString &name, const QString &eventType,
@@ -86,7 +135,7 @@ void WsClient::createCasualLimitedEvent(const QString &name, const QString &even
     };
     if (!draftSettings.isEmpty())
         payload.insert(u"draftSettings"_s, QJsonObject::fromVariantMap(draftSettings));
-    send(kTypeTournamentCreate, payload);
+    sendTournamentCreation(payload);
 }
 
 void WsClient::createLimitedCasualMatch(const QString &playerAId, const QString &playerBId)
@@ -216,9 +265,43 @@ void WsClient::setTournamentCheckedIn(bool checkedIn, const QString &participant
     send(kTypeTournamentCheckIn, payload);
 }
 
+QString WsClient::tournamentStartReadiness(const QString &stage) const
+{
+    if (stage == u"deck_building"_s)
+        return m_limitedSession->allDecksSubmitted() ? u"ready"_s : u"waiting"_s;
+    QStringList checkedIn;
+    bool cubeReady = !m_tournamentSession->participants().isEmpty();
+    for (const auto &value : m_tournamentSession->participants()) {
+        const auto participant = value.toMap();
+        if (participant.value(u"checkedIn"_s).toBool())
+            checkedIn.append(participant.value(u"participantId"_s).toString());
+        cubeReady &=
+            participant.value(u"checkedIn"_s).toBool() && participant.value(u"online"_s).toBool();
+    }
+    checkedIn.sort();
+    QString readiness = checkedIn.join(u'\n');
+    if (m_tournamentSession->cubeRoom())
+        readiness += cubeReady ? u"\nready"_s : u"\nwaiting"_s;
+    return readiness;
+}
+
 void WsClient::startTournament()
 {
-    send(kTypeTournamentStart);
+    if (!m_tournamentSession->inTournament())
+        return;
+    const QString stage = m_tournamentSession->stage().isEmpty() ? m_tournamentSession->status()
+                                                                 : m_tournamentSession->stage();
+    const QString scope = m_tournamentSession->tournamentId() + u":"_s + stage;
+    const QString readiness = tournamentStartReadiness(stage);
+    if (m_tournamentStartOperation.isEmpty() || scope != m_tournamentStartScope ||
+        (m_tournamentStartNotReady && readiness != m_tournamentStartReadiness)) {
+        m_tournamentStartScope = scope;
+        m_tournamentStartOperation = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        m_tournamentStartReadiness = readiness;
+        m_tournamentStartNotReady = false;
+    }
+    send(kTypeTournamentStart,
+         QJsonObject{{u"operationId"_s, m_tournamentStartOperation}, {u"expectedStage"_s, stage}});
 }
 
 void WsClient::dropTournament(const QString &participantId)

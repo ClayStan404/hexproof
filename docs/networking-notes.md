@@ -12,9 +12,8 @@ authoritative hub. Independent hubs retain the local behavior described below.
 ## Compatibility policy and implementation status
 
 The [protocol compatibility policy](protocol-compatibility.md) is implemented
-in source as `hexproof.v2`. Client and hub application versions can differ;
-communication protocols must match exactly. Legacy 3.0.0 clients use v1 and
-need an update for v2 hubs. Read deployment state from the
+in source as `hexproof.v3`. Client and hub application versions can differ;
+communication protocols must match exactly. Legacy v1/v2 clients need an update for v3 hubs. Read deployment state from the
 [current handoff](development-handoff.md), not from protocol-source availability.
 
 ## Mental model

@@ -49,6 +49,7 @@ void LimitedSessionState::applySnapshot(const QJsonObject &payload)
     header |= update(m_eventType, payload.value(u"eventType"_s).toString());
     header |= update(m_stage, payload.value(u"stage"_s).toString());
     header |= update(m_product, payload.value(u"product"_s).toObject().toVariantMap());
+    header |= update(m_plan, payload.value(u"plan"_s).toObject().toVariantMap());
     header |= update(m_packRound, payload.value(u"packRound"_s).toInt());
     header |= update(m_packsThisBatch, payload.value(u"packsThisBatch"_s).toInt(1));
     header |= update(m_direction, payload.value(u"direction"_s).toInt(1));
@@ -61,7 +62,8 @@ void LimitedSessionState::applySnapshot(const QJsonObject &payload)
     pack |= update(m_picksRequired,
                    payload.value(u"picksRequired"_s)
                        .toInt(m_currentPack.isEmpty() ? 0 : (commanderDraft() ? 2 : 1)));
-    const bool pool = update(m_pool, objectArray(payload.value(u"pool"_s)));
+    bool pool = update(m_pool, objectArray(payload.value(u"pool"_s)));
+    pool |= update(m_receivedPacks, objectArray(payload.value(u"receivedPacks"_s)));
     bool deck =
         update(m_mainboardInstanceIds, stringArray(payload.value(u"mainboardInstanceIds"_s)));
     deck |= update(m_basicLands, objectArray(payload.value(u"basicLands"_s)));

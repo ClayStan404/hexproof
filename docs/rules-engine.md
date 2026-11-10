@@ -160,7 +160,7 @@ the Qt client and public room protocol.
 ```text
 Qt rules views
   -> typed WsClient rules commands
-      -> hexproof.v2 rules envelopes
+      -> hexproof.v3 rules envelopes
           -> Go rules-room coordinator
               -> forge.Runtime interface
                   -> local supervised Forge JSONL process

@@ -18,7 +18,7 @@ def main():
     if not re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", args.version):
         parser.error("use the validated release version")
     root = Path(__file__).resolve().parents[1]
-    schema = json.loads((root / "protocol/v2/wire-schema.json").read_text())
+    schema = json.loads((root / "protocol/v3/wire-schema.json").read_text())
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps({"schemaVersion": 1,
                                       "applicationVersion": args.version,

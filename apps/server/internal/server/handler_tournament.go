@@ -76,10 +76,19 @@ func (h *Handler) handleTournamentCreate(sess *Session, env protocol.Envelope) e
 		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, err.Error())
 		return nil
 	}
+	operationKey, err := tournamentCreateOperationKey(request, env.ID, sess.ConnectionID)
+	if err != nil {
+		sendTournamentError(h, sess, env.ID, err)
+		return nil
+	}
 	now := time.Now().UTC()
 	if !h.allowTournamentCreate(sess.RemoteIP, now) {
 		h.sendError(sess, env.ID, protocol.ErrRateLimited,
 			"tournament create rate limit exceeded")
+		return nil
+	}
+	if err := h.tournaments.claimCreateOperation(operationKey); err != nil {
+		sendTournamentError(h, sess, env.ID, err)
 		return nil
 	}
 	h.evictExpiredTournaments(now)
@@ -104,7 +113,7 @@ func (h *Handler) handleTournamentCreate(sess *Session, env protocol.Envelope) e
 			Name: request.Name, Format: request.Format, MatchMode: request.MatchMode,
 			RoundMinutes: request.RoundMinutes, MaxPlayers: request.MaxPlayers,
 			PlannedRounds: request.PlannedRounds, EventType: request.EventType,
-			Coordinator: request.Coordinator, Product: request.Product,
+			Coordinator: request.Coordinator, Product: request.Product, Plan: request.Plan,
 			DraftSettings: request.DraftSettings, RulesMode: request.RulesMode,
 			ActionClockEnabled: request.ActionClockEnabled,
 		}, sess.DisplayName, sess.ConnectionID, tournament.CredentialHash(token), now)
@@ -391,21 +400,97 @@ func (h *Handler) handleTournamentCheckIn(sess *Session, env protocol.Envelope) 
 		})
 }
 
+// Legacy single-product creation still accepts an envelope request identity.
+// New clients provide a globally unique operationId that survives reconnects.
+func tournamentCreateOperationKey(request protocol.TournamentCreate, requestID, connectionID string) (string, error) {
+	if request.Plan != nil && request.OperationID == "" {
+		return "", &protocolError{code: protocol.ErrInvalidMessage, message: "custom pack plans require an explicit stable operationId"}
+	}
+	if request.OperationID != "" {
+		if !validTournamentOperationID(request.OperationID) {
+			return "", &protocolError{code: protocol.ErrInvalidMessage, message: "operationId must contain 1–128 non-control characters without surrounding whitespace"}
+		}
+		return "operation:" + request.OperationID, nil
+	}
+	if !validTournamentOperationID(requestID) {
+		return "", &protocolError{code: protocol.ErrInvalidMessage, message: "a stable creation operationId or request id is required"}
+	}
+	return "request:" + connectionID + ":" + requestID, nil
+}
+
+func validTournamentOperationID(id string) bool {
+	return protocol.ValidOperationID(id)
+}
+
 func (h *Handler) handleTournamentStart(sess *Session, env protocol.Envelope) error {
-	var seedBytes [8]byte
-	if _, err := secureRandomRead(seedBytes[:]); err != nil {
-		h.sendError(sess, env.ID, protocol.ErrInternal, "pairing random source unavailable")
+	var request protocol.TournamentStart
+	if err := env.DecodePayload(&request); err != nil {
+		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, err.Error())
 		return nil
 	}
-	seed := int64(binary.LittleEndian.Uint64(seedBytes[:]))
-	return h.mutateTournament(sess, env, protocol.TypeTournamentStarted,
-		func(event *tournament.Tournament, actor tournament.Actor) error {
-			if event.RulesMode == protocol.RulesModeForge && !h.forgeRulesAvailable() {
-				return &protocolError{code: protocol.ErrRulesUnavailable,
-					message: "Forge rules mode is not available on this server"}
+	if !validTournamentOperationID(request.OperationID) ||
+		(request.ExpectedStage != protocol.LimitedStageRegistration && request.ExpectedStage != protocol.LimitedStageDeckBuilding) {
+		h.sendError(sess, env.ID, protocol.ErrInvalidMessage, "start requires a stable operationId and expectedStage registration or deck_building")
+		return nil
+	}
+	binding := sess.Tournament()
+	entry, err := h.tournaments.lockOperation(binding.TournamentID)
+	if err != nil {
+		sendTournamentError(h, sess, env.ID, err)
+		return nil
+	}
+	defer entry.opMu.Unlock()
+	entry.mu.Lock()
+	sess.tournamentMu.RLock()
+	_, current := tournamentProjectionIdentity(entry.event, sess, binding)
+	sess.tournamentMu.RUnlock()
+	if !current || binding.Role != tournament.RoleOrganizer {
+		entry.mu.Unlock()
+		h.sendError(sess, env.ID, protocol.ErrTournamentForbidden, "only the current organizer can start the tournament")
+		return nil
+	}
+	if previous, exists := entry.startOperations[request.OperationID]; exists {
+		if previous.expectedStage != request.ExpectedStage {
+			err = &protocolError{code: protocol.ErrInvalidMessage, message: "start operationId is already bound to another expected stage"}
+		} else {
+			err = previous.err
+		}
+	} else if len(entry.startOperations) >= maxTournamentStartOperations {
+		err = &protocolError{code: protocol.ErrServerLimit, message: "start operation history is full; no further start attempts are accepted for this event"}
+	} else {
+		if entry.event.Stage != request.ExpectedStage {
+			err = &protocolError{code: protocol.ErrInvalidMessage, message: "tournament stage changed; refresh before starting the intended stage"}
+		} else if entry.event.RulesMode == protocol.RulesModeForge && !h.forgeRulesAvailable() {
+			err = &protocolError{code: protocol.ErrRulesUnavailable, message: "Forge rules mode is not available on this server"}
+		} else {
+			var seed int64
+			if request.ExpectedStage == protocol.LimitedStageRegistration {
+				var seedBytes [8]byte
+				if _, err = secureRandomRead(seedBytes[:]); err != nil {
+					err = &protocolError{code: protocol.ErrInternal, message: "pairing random source unavailable"}
+				} else {
+					seed = int64(binary.LittleEndian.Uint64(seedBytes[:]))
+				}
 			}
-			return event.Start(actor, seed, time.Now())
-		})
+			if err == nil {
+				err = entry.event.Start(tournamentActor(sess), seed, time.Now())
+			}
+		}
+		if entry.startOperations == nil {
+			entry.startOperations = make(map[string]tournamentStartOperation)
+		}
+		entry.startOperations[request.OperationID] = tournamentStartOperation{expectedStage: request.ExpectedStage, err: err}
+	}
+	entry.mu.Unlock()
+	if err != nil {
+		sendTournamentError(h, sess, env.ID, err)
+		return nil
+	}
+	reply, _ := protocol.NewEnvelope(protocol.TypeTournamentStarted, protocol.TournamentChanged{TournamentID: binding.TournamentID})
+	reply.ID = env.ID
+	h.send(sess, reply)
+	h.fanoutTournament(binding.TournamentID)
+	return nil
 }
 
 func (h *Handler) handleTournamentDrop(sess *Session, env protocol.Envelope) error {

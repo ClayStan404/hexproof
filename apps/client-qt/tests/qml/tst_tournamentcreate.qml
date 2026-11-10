@@ -27,8 +27,10 @@ TestCase {
         property string lastError: ""
         property var submitted: []
         property var submittedLimited: []
+        property var submittedPlan: []
         function createTournament() { submitted = Array.from(arguments) }
         function createLimitedTournament() { submittedLimited = Array.from(arguments) }
+        function createLimitedPlanTournament() { submittedPlan = Array.from(arguments) }
     }
 
     QtObject {
@@ -74,6 +76,7 @@ TestCase {
         mockWs.forgeRulesAvailable = true
         mockWs.submitted = []
         mockWs.submittedLimited = []
+        mockWs.submittedPlan = []
         page = pageComponent.createObject(testWindow.contentItem)
         verify(page !== null)
         page.anchors.fill = testWindow.contentItem
@@ -214,6 +217,25 @@ TestCase {
         compare(mockWs.submitted.length, 0)
         compare(mockWs.submittedLimited,
                 ["Limited via Events", data.mode, "bo1", 75, data.cap, {id: "pid-1"}, "manual", false])
+    }
+
+    function test_customSealedUsesOnlyTheCanonicalPlan() {
+        const selector = findChild(page, "tournamentEventTypeSelector")
+        selector.currentIndex = 1
+        selector.activated(1)
+        findChild(page, "tournamentNameField").text = "Mixed Sealed"
+        const editor = findChild(page, "tournamentSetPackPlan")
+        editor.custom = true
+        editor.rows = [{setId: "set-1", count: "2"}, {setId: "set-1", count: "4"}]
+        const button = findChild(page, "tournamentCreateSubmitButton")
+        verify(button.enabled)
+        button.clicked()
+        compare(mockWs.submittedLimited.length, 0)
+        compare(mockWs.submittedPlan[5], {products: [{id: "pid-1"}], entries: [{productId: "pid-1", count: 6}]})
+        editor.rows = [{setId: "set-1", count: "13"}]
+        verify(!button.enabled)
+        editor.rows = [{setId: "set-1", count: "1.5"}]
+        verify(!button.enabled)
     }
 
     function test_switchingSealedToDraftClampsCapacity() {

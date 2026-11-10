@@ -130,6 +130,8 @@ Page {
 
     Component.onCompleted: {
         root.ensureSelectedCube()
+        if (typeof root.hub.resetTournamentCreation === "function")
+            root.hub.resetTournamentCreation()
         Qt.callLater(() => { root.layoutReady = true })
     }
 

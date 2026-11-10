@@ -1,0 +1,183 @@
+{
+  "type": "limited.snapshot",
+  "payload": {
+    "tournamentId": "MIX123",
+    "eventType": "set_sealed",
+    "stage": "deck_building",
+    "product": {
+      "id": "aaa-approximate",
+      "name": "Example AAA booster",
+      "setCode": "AAA",
+      "productType": "approximate",
+      "authentic": false,
+      "cardsPerPack": 1,
+      "cardCount": 1,
+      "productHash": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "plan": {
+      "products": [
+        {
+          "id": "aaa-approximate",
+          "name": "Example AAA booster",
+          "setCode": "AAA",
+          "productType": "approximate",
+          "authentic": false,
+          "cardsPerPack": 1,
+          "cardCount": 1,
+          "productHash": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "id": "bbb-approximate",
+          "name": "Example BBB booster",
+          "setCode": "BBB",
+          "productType": "approximate",
+          "authentic": false,
+          "cardsPerPack": 2,
+          "cardCount": 1,
+          "productHash": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        {
+          "id": "ccc-approximate",
+          "name": "Example CCC booster",
+          "setCode": "CCC",
+          "productType": "approximate",
+          "authentic": false,
+          "cardsPerPack": 1,
+          "cardCount": 1,
+          "productHash": "3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ],
+      "entries": [
+        {
+          "productId": "aaa-approximate",
+          "count": 2
+        },
+        {
+          "productId": "bbb-approximate",
+          "count": 2
+        },
+        {
+          "productId": "ccc-approximate",
+          "count": 2
+        }
+      ],
+      "planHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "packsPerPlayer": 6,
+      "cardsPerPlayer": 8,
+      "custom": true
+    },
+    "receivedPacks": [
+      {
+        "packId": "aaa-approximate-pack-1",
+        "productId": "aaa-approximate",
+        "instanceIds": [
+          "limited-1"
+        ]
+      },
+      {
+        "packId": "aaa-approximate-pack-2",
+        "productId": "aaa-approximate",
+        "instanceIds": [
+          "limited-2"
+        ]
+      },
+      {
+        "packId": "bbb-approximate-pack-1",
+        "productId": "bbb-approximate",
+        "instanceIds": [
+          "limited-3",
+          "limited-4"
+        ]
+      },
+      {
+        "packId": "bbb-approximate-pack-2",
+        "productId": "bbb-approximate",
+        "instanceIds": [
+          "limited-5",
+          "limited-6"
+        ]
+      },
+      {
+        "packId": "ccc-approximate-pack-1",
+        "productId": "ccc-approximate",
+        "instanceIds": [
+          "limited-7"
+        ]
+      },
+      {
+        "packId": "ccc-approximate-pack-2",
+        "productId": "ccc-approximate",
+        "instanceIds": [
+          "limited-8"
+        ]
+      }
+    ],
+    "packRound": 0,
+    "direction": 0,
+    "currentPack": [],
+    "pool": [
+      {
+        "instanceId": "limited-1",
+        "name": "AAA card",
+        "setCode": "AAA",
+        "collectorNumber": "1"
+      },
+      {
+        "instanceId": "limited-2",
+        "name": "AAA card",
+        "setCode": "AAA",
+        "collectorNumber": "1"
+      },
+      {
+        "instanceId": "limited-3",
+        "name": "BBB card",
+        "setCode": "BBB",
+        "collectorNumber": "1"
+      },
+      {
+        "instanceId": "limited-4",
+        "name": "BBB card",
+        "setCode": "BBB",
+        "collectorNumber": "1"
+      },
+      {
+        "instanceId": "limited-5",
+        "name": "BBB card",
+        "setCode": "BBB",
+        "collectorNumber": "1"
+      },
+      {
+        "instanceId": "limited-6",
+        "name": "BBB card",
+        "setCode": "BBB",
+        "collectorNumber": "1"
+      },
+      {
+        "instanceId": "limited-7",
+        "name": "CCC card",
+        "setCode": "CCC",
+        "collectorNumber": "1"
+      },
+      {
+        "instanceId": "limited-8",
+        "name": "CCC card",
+        "setCode": "CCC",
+        "collectorNumber": "1"
+      }
+    ],
+    "mainboardInstanceIds": [],
+    "basicLands": [],
+    "participants": [
+      {
+        "participantId": "p-1",
+        "displayName": "Alice",
+        "picked": 8,
+        "packCards": 0,
+        "queuedPacks": 0,
+        "deckSubmitted": false
+      }
+    ],
+    "deckSubmitted": false,
+    "allDecksSubmitted": false
+  }
+}

@@ -126,7 +126,7 @@ func joinPrivateZoneMember(t *testing.T, h *Handler, r *room.Room,
 
 func loadPrivateZoneFixture(t *testing.T, name string) protocol.Envelope {
 	t.Helper()
-	path := filepath.Join("../../../../testdata/protocol/v2", name)
+	path := filepath.Join("../../../../testdata/protocol/v3", name)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", name, err)

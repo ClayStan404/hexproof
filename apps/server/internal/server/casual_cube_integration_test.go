@@ -144,7 +144,7 @@ func TestCasualCubeDraftToFreePlayOverWebSocket(t *testing.T) {
 				len(spectator.event.Participants) != seats {
 				t.Fatal("public Cube viewer bound a supplied participant credential or consumed a seat")
 			}
-			command(organizer, protocol.TypeTournamentStart, protocol.EmptyPayload{}, protocol.TypeTournamentStarted)
+			command(organizer, protocol.TypeTournamentStart, testTournamentStart(protocol.LimitedStageRegistration), protocol.TypeTournamentStarted)
 			for pick := 0; organizer.event.Stage == protocol.LimitedStageDraft && pick < 100; pick++ {
 				picked := false
 				for _, player := range players {

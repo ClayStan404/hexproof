@@ -1,8 +1,11 @@
 # Application releases and communication compatibility
 
 - Owner decision: 2026-10-21.
-- Status: **Released in 3.1.0; all four official hubs and paired home connectors
-  migrated to `hexproof.v2` on 2026-10-25 (Asia/Shanghai).**
+- Source baseline: **`hexproof.v3`**, introducing explicit mixed Set pack plans,
+  owner pack groups and stage-bound start operations.
+- Deployment history: 3.1.0 introduced v2; official hubs and paired home
+  connectors migrated to `hexproof.v2` on 2026-10-25 (Asia/Shanghai). Source
+  availability does not migrate deployed peers or authorize a rollout.
 - Scope: one exact game-protocol identifier per client/hub build, independent
   application release versions. No feature negotiation or protocol ranges.
 - Supersedes the 2026-07-30 exact application-version decision starting with
@@ -55,12 +58,22 @@ old binaries, impersonate their application versions or silently fall back to
 v1. Future incompatible changes advance the integer to v3, v4 and so on.
 
 Protocol identifiers belong to the reviewed schema and generated Go/Qt
-constants, not a deployment override. When implementing v2, migrate the
-authoritative schemas, generator/checker paths and fixtures together. Retain
-frozen v1 evidence for legacy rejection tests; do not maintain two active
-implementations implicitly. The active schema and fixtures now live under `protocol/v2/` and
-`testdata/protocol/v2/`; frozen v1 handshake evidence remains under
-`testdata/protocol/legacy-v1/`. Production artifacts are unchanged.
+constants, not a deployment override. For each baseline, migrate the authoritative schemas, generator/checker paths
+and fixtures together. Retain frozen evidence for legacy rejection tests; do
+not maintain two active implementations implicitly. The active schema and
+fixtures live under `protocol/v3/` and `testdata/protocol/v3/`; byte-identical
+v1/v2 handshake evidence remains under `testdata/protocol/legacy-v1/` and
+`testdata/protocol/legacy-v2/`.
+
+The v3 baseline retains the single-product creation shape and its six-pack
+Sealed/three-round Draft defaults. Custom plans require explicit recipes and
+ordered entries, private reveal uses received pack identities, and start binds
+a stable operation identity to an expected stage. A v2 server may otherwise
+ignore a plan beside a legacy product, while a v2 client cannot reconstruct
+variable pack boundaries. These semantics therefore require v3 on both ends.
+Reject v2/v3 mismatch before credentials, account binding, seat restoration or
+cluster-ticket consumption. No application-version gate, negotiation or fallback
+is introduced. A v3 source merge is neither a release nor deployment authority.
 
 ## 3. Handshake, reconnection and errors
 
@@ -183,16 +196,21 @@ no per-client compatibility profile is needed.
   single-use state. Validate the protocol before ticket consumption, during
   destination hello and before replaying the original command. A protocol
   change requires a new registration and invalidates old-generation routes.
-- Introduce a separate required `rpcVersion: "hexproof.cluster.v1"` on internal
+- Require `rpcVersion: "hexproof.cluster.v2"` on internal
   requests and results. Validate it for both HTTP and in-process `Service.Do`
   calls. Cluster RPC compatibility is independent of game/app versions;
   missing or unequal RPC versions are configuration/protocol errors, with no
   fallback. Keep authenticated transport and strict request decoding.
 
-Old cluster requests are unversioned and reject unknown fields. Adding the new
-fields is therefore a coordinated internal-contract cutover, not a compatible
-rolling extension to the old coordinator. Afterward, different application
-releases can share a cluster when their game and internal RPC identifiers match.
+The pre-baseline cluster requests were unversioned. The current v2 RPC baseline
+also adds `createOperationId` and coordinator-wide creation replay rejection;
+frozen v1 RPC peers reject that shape and cannot safely provide these semantics.
+This is a coordinated internal-contract cutover, with exact request and success
+response checks for local and HTTP calls. No state, ticket or operation identity
+is mutated by a mismatching RPC request. See the
+[creation identity contract](official-cluster.md#tournament-creation-identity).
+Different application releases can share a cluster when their game and internal
+RPC identifiers match.
 Different game protocols may coexist behind a compatible coordinator, but their
 discovery and placement remain separate. A hub still supports only one.
 
@@ -234,7 +252,7 @@ Same-protocol hub upgrades can be scheduled node by node after rooms finish.
 The hub's read-only `-protocol` option exposes its wire identity. Home inventory
 identifies legacy binaries without that CLI option as v1; deployment preflight
 and rollback explicitly use the inspected protocol. The operator smoke tool can
-check reviewed v1/v2 endpoints without negotiating or downgrading a game client.
+check reviewed v1/v2/v3 endpoints without negotiating or downgrading a game client.
 
 Post-deployment checks still verify each selected node's intended artifact
 version/hash. Such operational verification must not become a requirement that
@@ -250,7 +268,7 @@ v2 releases must verify interoperability with its published artifacts:
 | --- | --- |
 | Older client/newer hub and newer client/older hub, same protocol | Connection, gameplay and reconnection succeed. |
 | Equal application versions, unequal protocols | Hello rejection precedes hub admission side effects; welcome rejection precedes client-local credential/membership changes. |
-| Missing, empty, malformed, overflowing or different protocol; legacy v1/v2 pairs | No default, downgrade or retry loop. The receiving side rejects before applying its own credential, room or ticket changes. |
+| Missing, empty, malformed, overflowing or different protocol; legacy v1/v2/v3 pairs | No default, downgrade or retry loop. The receiving side rejects before applying its own credential, room or ticket changes. |
 | Different application releases in a same-protocol cluster | Discovery, creation, joining, watching and account recovery route correctly. |
 | Different game protocols or invalid internal RPC versions | No cross-protocol placement or ticket consumption; errors are bounded and explicit. |
 | Transfer ticket reused after target generation/protocol changes | Rejected; existing identity, digest and replay protections remain. |
@@ -290,7 +308,8 @@ optional booleans `forgeDuelAIAvailable` and `playerHostedDuelAIAvailable`.
 The latter advertises hub admission for the bundled player runtime. New clients
 treat omission by an older
 hub as false; older clients ignore the extra field and retain their existing
-creation choices. The game protocol remains `hexproof.v2`.
+creation choices. This optional extension originally retained `hexproof.v2`;
+the mixed Set feature separately establishes the current `hexproof.v3` baseline.
 
 Runtime support is independent: `forge-duel-ai-v1` is required in addition to
 `forge-ai-v1`, including before player-hosted start. Constructed-only runtimes
@@ -311,16 +330,16 @@ A missing/false response flag preserves the complete original report shape and
 ordinary room allocation. Duel AI requests are rejected locally without sending
 or dropping their unsupported placement requirements; clustered client welcomes
 suppress both Duel AI flags even if the local engine supports them. Standalone
-connections retain local runtime/hosting support. Old agents ignore the optional
-response flag, report only their original fields, and remain eligible for
-ordinary rooms on a new coordinator. They are never inferred to support Duel AI.
+connections retain local runtime/hosting support. The current exact RPC baseline
+separately rejects frozen v1 agents and
+coordinators; a missing Duel flag does not authorize an RPC downgrade.
 New coordinators place Duel AI only on nodes explicitly reporting its relevant
 capability.
 
-Focused regressions use the frozen public baseline's actual agent, remote
-client, strict HTTP decoder and coordinator sources. They cover both mixed
-versions, both extended report/demand fields, ordinary and Duel AI allocation,
-new-to-new negotiated placement, replacement coordinator generations, and
-strict rejection before mutation. A new hub's real welcome/create path also
-checks that unsupported Duel AI does not break ordinary room creation. These
-are contract checks, not a qualification of every historical release artifact.
+Focused regressions pin the frozen public baseline's actual agent, remote
+client, strict HTTP decoder and coordinator sources. Across cluster v1/v2 they
+now assert explicit rejection before state/ticket mutation in both directions.
+Within v2 they preserve ordinary and Duel AI allocation, registration-bound
+capabilities, report validation and strict decoding. A hub with an incompatible
+coordinator rejects official routing while independent custom local rooms remain
+usable. These checks do not qualify every historical release artifact.

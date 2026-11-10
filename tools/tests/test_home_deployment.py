@@ -388,7 +388,7 @@ class HomeDeploymentTests(unittest.TestCase):
             SMOKE.verify_projection(snapshot, 0)
 
     def test_ai_gate_uses_real_welcome_not_healthy_forge(self):
-        welcome = {"v": "hexproof.v2", "serverVersion": "2.0.6", "forgeRulesAvailable": True}
+        welcome = {"v": "hexproof.v3", "serverVersion": "2.0.6", "forgeRulesAvailable": True}
         with patch.object(SMOKE, "HTTP") as http, patch.object(SMOKE, "WebSocket") as websocket:
             http.open.return_value.__enter__.return_value.status = 200
             http.open.return_value.__enter__.return_value.read.return_value = b"ok\n"

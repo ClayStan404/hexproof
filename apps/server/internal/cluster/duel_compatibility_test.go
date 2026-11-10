@@ -83,51 +83,37 @@ func TestFrozenClusterPeerSources(t *testing.T) {
 	}
 }
 
-func TestNewAgentPreservesOrdinaryAllocationWithFrozenCoordinator(t *testing.T) {
-	for _, capability := range []string{"forge", "player", "both"} {
-		t.Run(capability, func(t *testing.T) {
-			cfg := testConfig()
-			oldCfg := legacyConfig(cfg)
-			coordinator, err := legacy.New(oldCfg)
-			if err != nil {
-				t.Fatal(err)
-			}
-			remote := newRemotePeer(t, cfg, legacy.HTTPHandler(coordinator, oldCfg))
-			snapshot := report()
-			snapshot.ForgeAI, snapshot.PlayerHosting = true, true
-			snapshot.ForgeDuelAI = capability != "player"
-			snapshot.PlayerHostedDuelAI = capability != "forge"
-			agent := Start(remote, "N1", func() Report { return snapshot })
-			defer agent.Close()
-			if !agent.Status().Ready || agent.Capabilities().DuelAIPlacement {
-				t.Fatal("legacy coordinator broke readiness or advertised Duel AI")
-			}
-			for _, demand := range []Demand{{ForgeDuelAI: true, ForgeAI: true, Forge: 1, Rooms: 1}, {PlayerHostedDuelAI: true, PlayerHosting: true, Rooms: 1}} {
-				if _, err = agent.Do(t.Context(), allocation("", "", demand)); err != ErrUnsupported {
-					t.Fatal("unsupported Duel demand was not rejected locally", err)
-				}
-			}
-			out, err := agent.Do(t.Context(), allocation("", "", Demand{Rooms: 1}))
-			if err != nil || out.Ticket == nil || out.Ticket.NodeID != "N1" {
-				t.Fatalf("ordinary allocation failed: %+v %v", out, err)
-			}
-			agent.mu.Lock()
-			generation := agent.generation
-			agent.mu.Unlock()
-			// Raw unnegotiated extension fields remain forbidden by the real old decoder.
-			for _, extended := range []Report{
-				{ForgeDuelAI: true}, {PlayerHostedDuelAI: true},
-			} {
-				_, err = remote.Do(t.Context(), Request{RPCVersion: RPCVersion, Operation: "report", NodeID: "N1", Generation: generation, ReportSequence: 99, Report: &extended})
-				if err != ErrInvalid {
-					t.Fatal("frozen strict decoder unexpectedly accepted extended report", err)
-				}
-			}
-		})
+func TestNewAgentRejectsFrozenCoordinatorRPCBaseline(t *testing.T) {
+	cfg := testConfig()
+	oldCfg := legacyConfig(cfg)
+	coordinator, err := legacy.New(oldCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote := newRemotePeer(t, cfg, legacy.HTTPHandler(coordinator, oldCfg))
+	agent := Start(remote, "N1", func() Report { return report() })
+	defer agent.Close()
+	if agent.Status().Ready || agent.Capabilities().DuelAIPlacement {
+		t.Fatal("v2 agent admitted by frozen v1 coordinator")
+	}
+	if err = agent.Publish(t.Context(), ""); err != ErrInvalid {
+		t.Fatal("cross-RPC registration was not rejected", err)
+	}
+	if _, err = agent.Do(t.Context(), allocation("", "", Demand{Rooms: 1})); err != ErrUnavailable {
+		t.Fatal("unregistered agent allocated a ticket", err)
+	}
+	// An unmodified frozen v1 HTTP client observes no registration side effect.
+	oldCfg.Coordinator = remote.endpoint
+	oldRemote, err := legacy.NewRemote(oldCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = oldRemote.Do(t.Context(), legacy.Request{RPCVersion: legacy.RPCVersion, Operation: "view", NodeID: "N1"}); err != legacy.ErrRegistration {
+		t.Fatal("rejected registration changed frozen coordinator state", err)
 	}
 }
 
-func TestFrozenAgentUsesNewCoordinatorWithoutAdvertisingDuelAI(t *testing.T) {
+func TestFrozenAgentRejectsNewCoordinatorRPCBaseline(t *testing.T) {
 	cfg := testConfig()
 	coordinator, err := New(cfg)
 	if err != nil {
@@ -141,25 +127,16 @@ func TestFrozenAgentUsesNewCoordinatorWithoutAdvertisingDuelAI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshot := legacyReport(t)
-	agent := legacy.Start(remote, "N1", func() legacy.Report { return snapshot })
+	agent := legacy.Start(remote, "N1", func() legacy.Report { return legacyReport(t) })
 	defer agent.Close()
-	if !agent.Status().Ready {
-		t.Fatal("frozen agent could not register/report through new HTTP")
+	if agent.Status().Ready {
+		t.Fatal("frozen v1 agent admitted by v2 coordinator")
 	}
-	q := allocation("", "", Demand{Rooms: 1})
-	out, err := agent.Do(t.Context(), legacy.Request{Operation: q.Operation, CommandType: q.CommandType, Digest: q.Digest, AccountID: q.AccountID, Demand: legacy.Demand{Rooms: 1}})
-	if err != nil || out.Ticket == nil || out.Ticket.NodeID != "N1" {
-		t.Fatalf("old agent ordinary allocation: %+v %v", out, err)
+	if err = agent.Publish(t.Context(), ""); err != legacy.ErrInvalid {
+		t.Fatal("cross-RPC registration was not rejected", err)
 	}
-	// A new caller cannot treat the old hub's ordinary AI/hosting as Duel AI support.
-	coordinator.mu.Lock()
-	generation := coordinator.states["N1"].generation
-	coordinator.mu.Unlock()
-	for _, demand := range []Demand{{Rooms: 1, Forge: 1, ForgeAI: true, ForgeDuelAI: true}, {Rooms: 1, PlayerHosting: true, PlayerHostedDuelAI: true}} {
-		if _, err = coordinator.Do(t.Context(), allocation("N1", generation, demand)); err != ErrFull {
-			t.Fatal("legacy node was selected for unsupported Duel AI", err)
-		}
+	if len(coordinator.states) != 0 || len(coordinator.tickets) != 0 || len(coordinator.createOperations) != 0 {
+		t.Fatal("cross-RPC request mutated coordinator state")
 	}
 }
 
@@ -186,7 +163,7 @@ func TestNewAgentNegotiatesDuelPlacementThroughHTTP(t *testing.T) {
 	}
 }
 
-func TestDuelNegotiationFollowsCoordinatorRegistrationGeneration(t *testing.T) {
+func TestCoordinatorRPCDowngradeDoesNotTriggerFallbackRegistration(t *testing.T) {
 	cfg := testConfig()
 	current, err := New(cfg)
 	if err != nil {
@@ -210,31 +187,25 @@ func TestDuelNegotiationFollowsCoordinatorRegistrationGeneration(t *testing.T) {
 	snapshot.ForgeDuelAI, snapshot.PlayerHostedDuelAI = true, true
 	agent := Start(remote, "N1", func() Report { return snapshot })
 	defer agent.Close()
-	if !agent.Capabilities().DuelAIPlacement {
-		t.Fatal("new coordinator did not negotiate support")
-	}
+	agent.mu.Lock()
+	generation := agent.generation
+	agent.mu.Unlock()
 	useLegacy.Store(true)
-	if err = agent.Publish(context.Background(), ""); err != ErrRegistration {
-		t.Fatal("replacement coordinator did not revoke old registration", err)
+	if err = agent.Publish(context.Background(), ""); err != ErrInvalid {
+		t.Fatal("RPC downgrade was not rejected", err)
 	}
-	if agent.Capabilities().DuelAIPlacement {
-		t.Fatal("revoked generation retained Duel AI negotiation")
+	if _, err = agent.Do(t.Context(), allocation("", "", Demand{Rooms: 1})); err != ErrInvalid {
+		t.Fatal("ordinary allocation silently fell back to old RPC", err)
 	}
-	if err = agent.Publish(t.Context(), ""); err != nil || !agent.Status().Ready || agent.Capabilities().DuelAIPlacement {
-		t.Fatal("legacy replacement did not recover ordinary reporting", err)
-	}
-	if _, err = agent.Do(t.Context(), allocation("", "", Demand{Rooms: 1})); err != nil {
-		t.Fatal("ordinary placement failed after downgrade", err)
+	agent.mu.Lock()
+	unchanged := agent.generation == generation
+	agent.mu.Unlock()
+	if !unchanged {
+		t.Fatal("protocol error triggered replacement registration")
 	}
 	useLegacy.Store(false)
-	current.mu.Lock()
-	current.states = map[string]nodeState{}
-	current.mu.Unlock()
-	if err = agent.Publish(t.Context(), ""); err != ErrRegistration {
-		t.Fatal("upgraded coordinator did not require new registration", err)
-	}
 	if err = agent.Publish(t.Context(), ""); err != nil || !agent.Capabilities().DuelAIPlacement {
-		t.Fatal("fresh generation did not enable negotiated support", err)
+		t.Fatal("matching RPC did not recover", err)
 	}
 }
 
@@ -276,7 +247,7 @@ func TestDuelNegotiationPreservesStrictRequestValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"rpcVersion":"hexproof.cluster.v1","operation":"register","nodeId":"N1","unexpected":true}`))
+	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"rpcVersion":"hexproof.cluster.v2","operation":"register","nodeId":"N1","unexpected":true}`))
 	request.Header.Set("Authorization", "Bearer "+cfg.Key)
 	request.Header.Set("X-Hexproof-Cluster-Realm", cfg.Realm)
 	response := httptest.NewRecorder()

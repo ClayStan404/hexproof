@@ -157,7 +157,7 @@ sys.exit(int(os.environ["STATUS_TEST_EXIT"]))
         tools = self.root / "tools"
         tools.mkdir()
         shutil.copyfile(ROOT / "tools/write-release-compatibility.py", tools / "write-release-compatibility.py")
-        schema = self.root / "protocol/v2/wire-schema.json"
+        schema = self.root / "protocol/v3/wire-schema.json"
         schema.parent.mkdir(parents=True)
         schema.write_text('{"protocol": "hexproof.v2"}\n')
         for directory, filename, payload in (("client", "client package.tar.gz", b"client fixture"),

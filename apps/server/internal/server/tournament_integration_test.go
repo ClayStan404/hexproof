@@ -98,7 +98,7 @@ func TestTournamentRegistrationPairingResultsAndPrivateMatchRoom(t *testing.T) {
 	}
 
 	sendTournamentCommand(t, organizer, protocol.TypeTournamentStart, "start-tournament",
-		protocol.EmptyPayload{})
+		testTournamentStart(protocol.LimitedStageRegistration))
 	organizer.recvType(protocol.TypeTournamentStarted)
 	snapshots := drainTournamentSnapshots(t, boundClients...)
 	organizerSnapshot := snapshots[0]
@@ -308,7 +308,7 @@ func TestTournamentStartErrorCarriesStructuredMinimumPlayers(t *testing.T) {
 	}
 
 	sendTournamentCommand(t, organizer, protocol.TypeTournamentStart, "start-tournament",
-		protocol.EmptyPayload{})
+		testTournamentStart(protocol.LimitedStageRegistration))
 	errorEnvelope := organizer.recvType(protocol.TypeError)
 	var errorPayload protocol.ErrorPayload
 	if err := errorEnvelope.DecodePayload(&errorPayload); err != nil {

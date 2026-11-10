@@ -326,8 +326,8 @@ notarized releases do not require this bypass.
 |------|---------|
 | `apps/client-qt/` | Qt 6/QML/C++20 desktop client |
 | `apps/server/` | Go WebSocket room and tournament hub |
-| `protocol/v2/` | Canonical `hexproof.v2` wire schema |
-| `testdata/protocol/v2/` | Shared client/server protocol fixtures |
+| `protocol/v3/` | Canonical `hexproof.v3` wire schema |
+| `testdata/protocol/v3/` | Shared client/server protocol fixtures |
 | `CHANGELOG.md` | Application release notes; unpublished work under Unreleased |
 | `packaging/` | Client, server, and card-database release tooling |
 | `third_party/forge-runtime/` | Pinned official Forge source, native host and optional runtime/source packaging |
@@ -354,7 +354,7 @@ Rules-engine work must also follow [`docs/rules-engine.md`](../rules-engine.md).
 Format Go with `gofmt`; follow the existing Qt style; retain SPDX headers; and
 add owner/opponent/spectator tests for hidden-information changes.
 
-For wire changes, update the relevant `protocol/v2/` constant/payload schemas,
+For wire changes, update the relevant `protocol/v3/` constant/payload schemas,
 shared fixtures, and handwritten payload mappings together, then run:
 
 ```sh
@@ -362,7 +362,7 @@ python3 tools/protocol_codegen.py
 python3 tools/check-protocol-parity.py
 ```
 
-Update shared fixtures under `testdata/protocol/v2/` when the wire contract
+Update shared fixtures under `testdata/protocol/v3/` when the wire contract
 changes. Run relevant tests before submitting a change, and the complete
 `./tools/verify.sh` suite for cross-boundary milestones or releases. Documentation
 and small focused repairs do not require unrelated full rebuilds.
