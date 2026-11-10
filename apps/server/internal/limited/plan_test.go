@@ -282,45 +282,64 @@ func TestLegacyGenerationSequenceAndDeterminism(t *testing.T) {
 }
 
 func TestMaximumSealedProjectionBudget(t *testing.T) {
-	p := planProduct("MAX", 30)
-	// Exercise the maximum allowed wire text as well as the physical count.
-	for i := range p.Sheets[0].Cards {
-		c := &p.Sheets[0].Cards[i]
-		c.Name = strings.Repeat("界", protocol.MaxCardNameRunes)
-		c.TypeLine = strings.Repeat("类", protocol.MaxTypeLineRunes)
-		c.CollectorNumber = strings.Repeat("号", 30) + fmt.Sprintf("%02d", i)
-		c.SetCode = strings.Repeat("集", protocol.MaxSetCodeRunes)
-		c.Rarity = strings.Repeat("稀", 32)
-		c.Finish = strings.Repeat("面", 32)
+	for _, symbol := range []string{"🃏", "<"} {
+		t.Run(symbol, func(t *testing.T) {
+			// All 12 products can fit the plan budget while every emitted card
+			// uses maximum text. HTML characters expand to 6 bytes in Go JSON.
+			d := &protocol.LimitedPackPlanDefinition{}
+			for index := 0; index < 12; index++ {
+				p := planProduct("MAX", 30)
+				p.ID, p.Name = strings.Repeat(symbol, 126)+fmt.Sprintf("%02d", index), strings.Repeat(symbol, 128)
+				p.SetCode = strings.Repeat(symbol, 14) + fmt.Sprintf("%02d", index)
+				p.Sheets[0].WithReplacement = true
+				p.Sheets[0].Cards = p.Sheets[0].Cards[:1]
+				c := &p.Sheets[0].Cards[0]
+				c.Name = strings.Repeat(symbol, protocol.MaxCardNameRunes)
+				c.TypeLine = strings.Repeat(symbol, protocol.MaxTypeLineRunes)
+				c.CollectorNumber = strings.Repeat(symbol, protocol.MaxCollectorNumberRunes)
+				c.SetCode = strings.Repeat(symbol, protocol.MaxSetCodeRunes)
+				c.Rarity, c.Finish = strings.Repeat(symbol, 32), strings.Repeat(symbol, 32)
+				d.Products = append(d.Products, p)
+				d.Entries = append(d.Entries, protocol.LimitedPackPlanEntry{ProductID: p.ID, Count: 1})
+			}
+			plan, err := NewPackPlan(protocol.LimitedEventSetSealed, nil, d)
+			if err != nil {
+				t.Fatal(err)
+			}
+			participants := testParticipants(64)
+			for i := range participants {
+				participants[i].DisplayName = strings.Repeat(symbol, protocol.MaxDisplayNameRunes)
+			}
+			start := time.Now()
+			e, err := New(Config{TournamentID: "budget", EventType: protocol.LimitedEventSetSealed, Plan: plan, Participants: participants}, 91)
+			if err != nil {
+				t.Fatal(err)
+			}
+			generation := time.Since(start)
+			start = time.Now()
+			maximum, fanout := 0, 0
+			for _, player := range e.Players {
+				env, _ := protocol.NewEnvelope(protocol.TypeLimitedSnapshot, e.Snapshot(player.ID))
+				b, _ := env.Marshal()
+				maximum = max(maximum, len(b))
+				fanout += len(b)
+			}
+			publicEnvelope, _ := protocol.NewEnvelope(protocol.TypeLimitedSnapshot, e.Snapshot(""))
+			public, _ := publicEnvelope.Marshal()
+			fanout += 9 * len(public)
+			// This is the existing Qt inbound 8 MiB bound, separate from the
+			// server's unchanged 1 MiB request/800 KiB custom-plan bounds.
+			if maximum > 8*1024*1024 {
+				t.Fatalf("owner message %d exceeds Qt inbound 8 MiB limit", maximum)
+			}
+			request, _ := protocol.NewEnvelope(protocol.TypeTournamentCreate, protocol.TournamentCreate{OperationID: "budget", Name: "Budget", Format: "Limited", EventType: protocol.LimitedEventSetSealed, MatchMode: protocol.MatchBO1, MaxPlayers: 64, Plan: d})
+			encoded, _ := request.Marshal()
+			if len(encoded) > 1024*1024 {
+				t.Fatal("maximum projection fixture exceeds server request limit")
+			}
+			t.Logf("768packs/23040instances: request=%dB generation=%s; max owner=%dB public=%dB 64owners+organizer/8viewers fanout=%dB projection encode=%s", len(encoded), generation, maximum, len(public), fanout, time.Since(start))
+		})
 	}
-	plan, err := NewPackPlan(protocol.LimitedEventSetSealed, nil, &protocol.LimitedPackPlanDefinition{Products: []protocol.LimitedProductDefinition{p}, Entries: []protocol.LimitedPackPlanEntry{{ProductID: p.ID, Count: 12}}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	participants := testParticipants(64)
-	for i := range participants {
-		participants[i].DisplayName = strings.Repeat("名", protocol.MaxDisplayNameRunes)
-	}
-	start := time.Now()
-	e, err := New(Config{TournamentID: "budget", EventType: protocol.LimitedEventSetSealed, Plan: plan, Participants: participants}, 91)
-	if err != nil {
-		t.Fatal(err)
-	}
-	generation := time.Since(start)
-	start = time.Now()
-	maximum, fanout := 0, 0
-	for _, player := range e.Players {
-		env, _ := protocol.NewEnvelope(protocol.TypeLimitedSnapshot, e.Snapshot(player.ID))
-		b, _ := json.Marshal(env)
-		maximum = max(maximum, len(b))
-		fanout += len(b)
-	}
-	public, _ := json.Marshal(e.Snapshot(""))
-	fanout += 9 * len(public)
-	if maximum > 1024*1024 {
-		t.Fatalf("owner message %d exceeds default inbound client's matching limit", maximum)
-	}
-	t.Logf("768 packs / 23040 instances; generation=%s; max owner envelope=%d bytes; public=%d bytes; 64 owners + organizer/8 viewers fanout=%d bytes; projection encode=%s", generation, maximum, len(public), fanout, time.Since(start))
 }
 
 func TestCombinedProductBudgetsBeforeExpansion(t *testing.T) {
