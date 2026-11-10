@@ -25,6 +25,7 @@ func (e *Event) Snapshot(participantID string) protocol.LimitedSnapshot {
 	snapshot := protocol.LimitedSnapshot{
 		TournamentID: e.TournamentID, EventType: e.EventType, Stage: e.Stage,
 		Product: e.Product.View(), PackRound: e.packRound, Direction: e.Direction(),
+		Plan:        e.plan.View(),
 		CurrentPack: []protocol.LimitedCardView{}, Pool: []protocol.LimitedCardView{},
 		MainboardInstanceIDs: []string{}, BasicLands: []protocol.LimitedBasicLand{},
 		CommanderInstanceIDs: []string{}, PicksRequired: e.PicksPerSelection(),
@@ -49,6 +50,13 @@ func (e *Event) Snapshot(participantID string) protocol.LimitedSnapshot {
 			AutoDraft: player.AutoDraft, Withdrawn: player.Withdrawn,
 		})
 		if player.ID == participantID {
+			for _, pack := range player.ReceivedPacks {
+				group := protocol.LimitedReceivedPackView{PackID: pack.ID, ProductID: pack.ProductID}
+				for _, card := range pack.Cards {
+					group.InstanceIDs = append(group.InstanceIDs, card.ID)
+				}
+				snapshot.ReceivedPacks = append(snapshot.ReceivedPacks, group)
+			}
 			snapshot.Pool = cardViews(player.Pool)
 			snapshot.FallbackCommanders = cardViews(e.fallbackCommanders(player.ID))
 			snapshot.OptionalCards = cardViews(e.optionalCards(player.ID))
@@ -66,7 +74,7 @@ func (e *Event) Snapshot(participantID string) protocol.LimitedSnapshot {
 					cards := cardViews(part.Cards)
 					snapshot.CurrentPack = append(snapshot.CurrentPack, cards...)
 					snapshot.CurrentPacks = append(snapshot.CurrentPacks, protocol.LimitedDraftPackView{
-						PackID: part.ID, Cards: cards, PicksRequired: min(e.PicksPerSelection(), len(part.Cards)),
+						PackID: part.ID, ProductID: part.ProductID, Cards: cards, PicksRequired: min(e.PicksPerSelection(), len(part.Cards)),
 					})
 				}
 			}

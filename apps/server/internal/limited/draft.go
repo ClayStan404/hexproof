@@ -19,6 +19,16 @@ func (e *Event) startDraftRound() error {
 		return nil
 	}
 	e.packsThisBatch = min(max(1, e.packsPerBatch), e.packCount-e.packRound)
+	if e.plan != nil {
+		round := e.packRound
+		e.packRound++
+		e.Product = e.plan.packs[round]
+		for seat, player := range e.Players {
+			player.Inbox = append(player.Inbox, e.futurePacks[round][seat])
+		}
+		e.futurePacks[round] = nil
+		return e.advanceDraft()
+	}
 	e.packRound += e.packsThisBatch
 	for _, player := range e.Players {
 		var batch *Pack

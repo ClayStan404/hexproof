@@ -29,6 +29,7 @@ type TournamentListed struct {
 }
 
 type TournamentCreate struct {
+	OperationID string `json:"operationId,omitempty"`
 	Name        string `json:"name"`
 	Format      string `json:"format"`
 	EventType   string `json:"eventType,omitempty"`
@@ -36,12 +37,18 @@ type TournamentCreate struct {
 	MatchMode   string `json:"matchMode"`
 	RulesMode   string `json:"rulesMode,omitempty"`
 	// An omitted setting preserves the legacy Forge constructed-event default.
-	ActionClockEnabled *bool                     `json:"actionClockEnabled,omitempty"`
-	RoundMinutes       int                       `json:"roundMinutes"`
-	MaxPlayers         int                       `json:"maxPlayers"`
-	PlannedRounds      int                       `json:"plannedRounds,omitempty"`
-	Product            *LimitedProductDefinition `json:"product,omitempty"`
-	DraftSettings      *LimitedDraftSettings     `json:"draftSettings,omitempty"`
+	ActionClockEnabled *bool                      `json:"actionClockEnabled,omitempty"`
+	RoundMinutes       int                        `json:"roundMinutes"`
+	MaxPlayers         int                        `json:"maxPlayers"`
+	PlannedRounds      int                        `json:"plannedRounds,omitempty"`
+	Product            *LimitedProductDefinition  `json:"product,omitempty"`
+	Plan               *LimitedPackPlanDefinition `json:"plan,omitempty"`
+	DraftSettings      *LimitedDraftSettings      `json:"draftSettings,omitempty"`
+}
+
+type TournamentStart struct {
+	OperationID   string `json:"operationId"`
+	ExpectedStage string `json:"expectedStage"`
 }
 
 type TournamentCreated struct {
@@ -187,6 +194,7 @@ type TournamentSnapshot struct {
 	ParticipantID      string                      `json:"participantId,omitempty"`
 	CanRegister        bool                        `json:"canRegister"`
 	Product            *LimitedProductView         `json:"product,omitempty"`
+	Plan               *LimitedPackPlanView        `json:"plan,omitempty"`
 	DraftSettings      *LimitedDraftSettings       `json:"draftSettings,omitempty"`
 	Participants       []TournamentParticipantView `json:"participants"`
 	Pairings           []TournamentPairingView     `json:"pairings"`

@@ -110,12 +110,26 @@ Page {
             }
         }
 
-        AppButton {
-            objectName: "limitedEventDeskButton"
-            visible: root.showEventDrawer
-            compact: true
-            text: qsTr("Event desk") + " / " + qsTr("Chat")
-            onClicked: eventPopup.open()
+        RowLayout {
+            Layout.fillWidth: true
+            visible: root.showEventDrawer || !!(root.tournamentModel.plan || {}).planHash
+            AppButton {
+                objectName: "limitedEventDeskButton"
+                visible: root.showEventDrawer
+                compact: true
+                text: qsTr("Event desk") + " / " + qsTr("Chat")
+                onClicked: eventPopup.open()
+            }
+            AppButton {
+                objectName: "limitedPackRecipeButton"
+                visible: !!(root.tournamentModel.plan || {}).planHash
+                compact: true
+                text: root.tournamentModel.eventType === "set_draft" ? qsTr("Three-round pack order")
+                      : (root.tournamentModel.plan || {}).packsPerPlayer === 6 ? qsTr("Pack recipe · 6 per player")
+                      : qsTr("Custom pack recipe · %1 per player").arg((root.tournamentModel.plan || {}).packsPerPlayer || 0)
+                onClicked: packRecipePopup.open()
+            }
+            Item { Layout.fillWidth: true }
         }
 
         LimitedProductArtPanel {
@@ -554,6 +568,89 @@ Page {
                 limitedModel: root.limitedModel
                 wsModel: root.wsModel
                 cancelDialogTarget: cancelDialog
+            }
+        }
+    }
+
+    Popup {
+        id: packRecipePopup
+        objectName: "limitedPackRecipePopup"
+        parent: Overlay.overlay
+        width: Math.min(Theme.size(680), parent ? parent.width - Theme.size(32) : 680)
+        height: Math.min(Theme.size(680), parent ? parent.height - Theme.size(48) : 680)
+        x: parent ? Math.round((parent.width - width) / 2) : 0
+        y: parent ? Math.round((parent.height - height) / 2) : 0
+        padding: Theme.size(20)
+        modal: true
+        focus: true
+        background: Surface { elevated: true }
+        contentItem: ColumnLayout {
+            spacing: Theme.size(12)
+            Text {
+                textFormat: Text.PlainText
+                text: qsTr("Locked pack recipe")
+                color: Theme.text
+                font.pixelSize: Theme.fontSize(20)
+                font.weight: Font.DemiBold
+            }
+            ScrollView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                contentWidth: availableWidth
+                ColumnLayout {
+                    width: parent.width
+                    spacing: Theme.size(14)
+                    Repeater {
+                        model: (root.tournamentModel.plan || {}).entries || []
+                        delegate: ColumnLayout {
+                            id: recipeEntry
+                            required property var modelData
+                            required property int index
+                            readonly property var product: (((root.tournamentModel.plan || {}).products || [])
+                                .find(value => value.id === modelData.productId)) || ({})
+                            Layout.fillWidth: true
+                            Text {
+                                objectName: "limitedPackRecipeEntry-" + recipeEntry.index
+                                textFormat: Text.PlainText
+                                Layout.fillWidth: true
+                                text: (root.tournamentModel.eventType === "set_draft"
+                                       ? qsTr("Round %1 · %2 · pass %3").arg(recipeEntry.index + 1)
+                                           .arg(recipeEntry.product.name || recipeEntry.modelData.productId)
+                                           .arg(recipeEntry.index === 1 ? qsTr("right") : qsTr("left"))
+                                       : qsTr("%1 × %2").arg(recipeEntry.modelData.count)
+                                           .arg(recipeEntry.product.name || recipeEntry.modelData.productId))
+                                      + qsTr(" · %1 cards per pack").arg(recipeEntry.product.cardsPerPack || 0)
+                                      + (recipeEntry.product.authentic === true ? "" : qsTr(" · approximate"))
+                                color: recipeEntry.product.authentic === true ? Theme.text : Theme.warning
+                                font.pixelSize: Theme.fontSize(13)
+                                wrapMode: Text.WordWrap
+                            }
+                            LimitedProductArtPanel {
+                                Layout.fillWidth: true
+                                visible: root.tournamentModel.stage === "registration"
+                                product: recipeEntry.product
+                                cardCatalogModel: root.cardCatalogModel
+                                preferencesModel: root.preferencesModel
+                            }
+                        }
+                    }
+                    Text {
+                        textFormat: Text.PlainText
+                        Layout.fillWidth: true
+                        text: qsTr("%1 packs · %2 cards per player. Packs are independently sampled; the recipe stays locked after creation.")
+                            .arg((root.tournamentModel.plan || {}).packsPerPlayer || 0)
+                            .arg((root.tournamentModel.plan || {}).cardsPerPlayer || 0)
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontSize(12)
+                        wrapMode: Text.WordWrap
+                    }
+                }
+            }
+            AppButton {
+                Layout.alignment: Qt.AlignRight
+                text: qsTr("Close")
+                onClicked: packRecipePopup.close()
             }
         }
     }

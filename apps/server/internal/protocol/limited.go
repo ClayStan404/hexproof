@@ -79,6 +79,36 @@ type LimitedProductView struct {
 	ProductHash  string `json:"productHash"`
 }
 
+// LimitedPackPlanDefinition deduplicates recipes while preserving pack order.
+// Entries are rounds for Draft and quantities in reveal order for Sealed.
+type LimitedPackPlanDefinition struct {
+	Products []LimitedProductDefinition `json:"products"`
+	Entries  []LimitedPackPlanEntry     `json:"entries"`
+}
+
+type LimitedPackPlanEntry struct {
+	ProductID string `json:"productId"`
+	Count     int    `json:"count"`
+}
+
+// LimitedPackPlanView contains content identities and composition, never sheets
+// or generated cards. Hashes identify content, not official recipe authenticity.
+type LimitedPackPlanView struct {
+	Products       []LimitedProductView   `json:"products"`
+	Entries        []LimitedPackPlanEntry `json:"entries"`
+	PlanHash       string                 `json:"planHash"`
+	PacksPerPlayer int                    `json:"packsPerPlayer"`
+	CardsPerPlayer int                    `json:"cardsPerPlayer"`
+	Custom         bool                   `json:"custom"`
+}
+
+// LimitedReceivedPackView refers only to instances in the recipient's pool.
+type LimitedReceivedPackView struct {
+	PackID      string   `json:"packId"`
+	ProductID   string   `json:"productId"`
+	InstanceIDs []string `json:"instanceIds"`
+}
+
 type LimitedParticipantView struct {
 	ParticipantID string `json:"participantId"`
 	DisplayName   string `json:"displayName"`
@@ -100,6 +130,7 @@ type LimitedDraftSettings struct {
 
 type LimitedDraftPackView struct {
 	PackID        string            `json:"packId"`
+	ProductID     string            `json:"productId,omitempty"`
 	Cards         []LimitedCardView `json:"cards"`
 	PicksRequired int               `json:"picksRequired"`
 }
@@ -162,28 +193,30 @@ type LimitedDeckSubmitted struct {
 // LimitedSnapshot is role-specific. CurrentPack and Pool are empty unless the
 // recipient owns the participant projection.
 type LimitedSnapshot struct {
-	TournamentID         string                   `json:"tournamentId"`
-	EventType            string                   `json:"eventType"`
-	Stage                string                   `json:"stage"`
-	Product              LimitedProductView       `json:"product"`
-	PackRound            int                      `json:"packRound"`
-	Direction            int                      `json:"direction"`
-	CurrentPack          []LimitedCardView        `json:"currentPack"`
-	CurrentPacks         []LimitedDraftPackView   `json:"currentPacks,omitempty"`
-	PacksThisBatch       int                      `json:"packsThisBatch,omitempty"`
-	Pool                 []LimitedCardView        `json:"pool"`
-	FallbackCommanders   []LimitedCardView        `json:"fallbackCommanders,omitempty"`
-	OptionalCards        []LimitedCardView        `json:"optionalCards,omitempty"`
-	MainboardInstanceIDs []string                 `json:"mainboardInstanceIds"`
-	CommanderInstanceIDs []string                 `json:"commanderInstanceIds,omitempty"`
-	CommanderColors      []LimitedCommanderColor  `json:"commanderColors,omitempty"`
-	PicksRequired        int                      `json:"picksRequired,omitempty"`
-	PacksPerPlayer       int                      `json:"packsPerPlayer,omitempty"`
-	MinimumDeckCards     int                      `json:"minimumDeckCards,omitempty"`
-	BasicLands           []LimitedBasicLand       `json:"basicLands"`
-	Participants         []LimitedParticipantView `json:"participants"`
-	DeckSubmitted        bool                     `json:"deckSubmitted"`
-	AllDecksSubmitted    bool                     `json:"allDecksSubmitted"`
+	TournamentID         string                    `json:"tournamentId"`
+	EventType            string                    `json:"eventType"`
+	Stage                string                    `json:"stage"`
+	Product              LimitedProductView        `json:"product"`
+	Plan                 *LimitedPackPlanView      `json:"plan,omitempty"`
+	ReceivedPacks        []LimitedReceivedPackView `json:"receivedPacks,omitempty"`
+	PackRound            int                       `json:"packRound"`
+	Direction            int                       `json:"direction"`
+	CurrentPack          []LimitedCardView         `json:"currentPack"`
+	CurrentPacks         []LimitedDraftPackView    `json:"currentPacks,omitempty"`
+	PacksThisBatch       int                       `json:"packsThisBatch,omitempty"`
+	Pool                 []LimitedCardView         `json:"pool"`
+	FallbackCommanders   []LimitedCardView         `json:"fallbackCommanders,omitempty"`
+	OptionalCards        []LimitedCardView         `json:"optionalCards,omitempty"`
+	MainboardInstanceIDs []string                  `json:"mainboardInstanceIds"`
+	CommanderInstanceIDs []string                  `json:"commanderInstanceIds,omitempty"`
+	CommanderColors      []LimitedCommanderColor   `json:"commanderColors,omitempty"`
+	PicksRequired        int                       `json:"picksRequired,omitempty"`
+	PacksPerPlayer       int                       `json:"packsPerPlayer,omitempty"`
+	MinimumDeckCards     int                       `json:"minimumDeckCards,omitempty"`
+	BasicLands           []LimitedBasicLand        `json:"basicLands"`
+	Participants         []LimitedParticipantView  `json:"participants"`
+	DeckSubmitted        bool                      `json:"deckSubmitted"`
+	AllDecksSubmitted    bool                      `json:"allDecksSubmitted"`
 }
 
 // LimitedProgress replaces only public seat progress, never private cards.

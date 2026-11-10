@@ -42,6 +42,7 @@ type printingIdentity struct {
 }
 
 func NewProduct(definition protocol.LimitedProductDefinition) (*Product, error) {
+	definition = cloneProduct(definition)
 	definition.ID = strings.TrimSpace(definition.ID)
 	definition.Name = strings.TrimSpace(definition.Name)
 	definition.SetCode = strings.ToUpper(strings.TrimSpace(definition.SetCode))

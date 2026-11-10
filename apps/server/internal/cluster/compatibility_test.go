@@ -14,7 +14,7 @@ import (
 
 func TestRPCVersionRequiredBeforeRegistration(t *testing.T) {
 	c, _ := New(testConfig())
-	for _, version := range []string{"", "hexproof.cluster.v2"} {
+	for _, version := range []string{"", "hexproof.cluster.v1", "hexproof.cluster.v3"} {
 		out, err := c.Do(context.Background(), Request{RPCVersion: version, Operation: "register", NodeID: "N1"})
 		if err != ErrInvalid || out.RPCVersion != RPCVersion || len(c.states) != 0 {
 			t.Fatalf("invalid RPC changed state: %+v %v", out, err)
@@ -41,7 +41,7 @@ func TestApplicationVersionsShareProtocolAndTickets(t *testing.T) {
 		t.Fatalf("allocation: %+v %v", allocated, err)
 	}
 	changed := two
-	changed.Protocol = "hexproof.v3"
+	changed.Protocol = "hexproof.v2"
 	_, err = c.Do(context.Background(), Request{RPCVersion: RPCVersion, Operation: "report", NodeID: "N2", Generation: g2, ReportSequence: 2, Report: &changed})
 	if err != ErrInvalid {
 		t.Fatal("protocol changed inside registration", err)

@@ -31,8 +31,8 @@ class PromotionTests(unittest.TestCase):
         self.now = int(time.time())
         self.source = {'sourceCommit': 'a' * 40, 'sourceTree': 'b' * 40, 'sourceVersion': '4.5.6',
                        'sourceRepository': promotion.REPOSITORY}
-        (self.root / 'protocol/v2').mkdir(parents=True)
-        (self.root / 'protocol/v2/wire-schema.json').write_text(json.dumps({'protocol': 'hexproof.v2'}))
+        (self.root / 'protocol/v3').mkdir(parents=True)
+        (self.root / 'protocol/v3/wire-schema.json').write_text(json.dumps({'protocol': 'hexproof.v2'}))
         self.assets = self.root / 'assets'
         self.assets.mkdir()
         (self.assets / 'package.tar.gz').write_bytes(b'Fixture binary package')

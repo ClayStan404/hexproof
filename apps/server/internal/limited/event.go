@@ -19,6 +19,7 @@ type Config struct {
 	TournamentID  string
 	EventType     string
 	Product       protocol.LimitedProductDefinition
+	Plan          *PackPlan
 	Participants  []Participant
 	DraftSettings *protocol.LimitedDraftSettings
 }
@@ -35,6 +36,7 @@ type CardInstance struct {
 
 type Pack struct {
 	ID        string
+	ProductID string
 	Cards     []*CardInstance
 	Companion *Pack
 }
@@ -58,6 +60,7 @@ type PlayerState struct {
 	ID                   string
 	DisplayName          string
 	Pool                 []*CardInstance
+	ReceivedPacks        []*Pack
 	Inbox                []*Pack
 	Deck                 *protocol.DeckSelect
 	MainboardInstanceIDs []string
@@ -73,6 +76,8 @@ type Event struct {
 	EventType      string
 	Stage          string
 	Product        *Product
+	plan           *PackPlan
+	futurePacks    [][]*Pack
 	Players        []*PlayerState
 	playerByID     map[string]*PlayerState
 	random         *rand.Rand
@@ -136,11 +141,27 @@ func New(config Config, seed int64) (*Event, error) {
 		len(config.Participants) > MaxCommanderCubePlayers {
 		return nil, fail(ErrInvalid, "Commander Cube requires two to eight draft players")
 	}
-	product, err := NewProduct(config.Product)
-	if err != nil {
-		return nil, err
-	}
 	isCube := isCubeEvent(config.EventType)
+	var product *Product
+	var err error
+	plan := config.Plan
+	if !isCube {
+		if plan == nil {
+			plan, err = NewPackPlan(config.EventType, &config.Product, nil)
+			if err != nil {
+				return nil, err
+			}
+		}
+		product = plan.packs[0]
+	} else {
+		if plan != nil {
+			return nil, fail(ErrInvalid, "Cube cannot use a Set pack plan")
+		}
+		product, err = NewProduct(config.Product)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if isCube != (product.Definition.ProductType == ProductTypeCube) {
 		return nil, fail(ErrInvalid, "limited event and product type do not match")
 	}
@@ -150,14 +171,14 @@ func New(config Config, seed int64) (*Event, error) {
 		return nil, err
 	}
 	if config.EventType == protocol.LimitedEventSetSealed {
-		packCount = setSealedPacksPerPlayer
+		packCount = len(plan.packs)
 	} else if config.EventType == protocol.LimitedEventSetDraft || isCube {
 		packCount = settings.PacksPerPlayer
 	}
 
 	event := &Event{
 		TournamentID: config.TournamentID, EventType: config.EventType,
-		Product: product, packCount: packCount,
+		Product: product, plan: plan, packCount: packCount,
 		cardsPerPack:  settings.CardsPerPack,
 		packsPerBatch: settings.PacksPerBatch,
 		playerByID:    make(map[string]*PlayerState, len(config.Participants)),
@@ -190,6 +211,21 @@ func New(config Config, seed int64) (*Event, error) {
 		}
 		event.Stage = protocol.LimitedStageDeckBuilding
 	} else if config.EventType == protocol.LimitedEventSetDraft || isCube {
+		if !isCube {
+			// Generate all rounds privately. A later recipe failure cannot leave
+			// a partially started event or reveal earlier successful packs.
+			for _, product := range plan.packs {
+				packs := make([]*Pack, 0, len(event.Players))
+				for range event.Players {
+					pack, err := event.generateSetPack(product)
+					if err != nil {
+						return nil, err
+					}
+					packs = append(packs, pack)
+				}
+				event.futurePacks = append(event.futurePacks, packs)
+			}
+		}
 		event.Stage = protocol.LimitedStageDraft
 		if err := event.startDraftRound(); err != nil {
 			return nil, err
@@ -221,15 +257,25 @@ func (e *Event) nextPack() ([]*CardInstance, error) {
 
 func (e *Event) dealSetSealed() error {
 	for _, player := range e.Players {
-		for packIndex := 0; packIndex < e.packCount; packIndex++ {
-			cards, err := e.nextPack()
+		for _, product := range e.plan.packs {
+			pack, err := e.generateSetPack(product)
 			if err != nil {
 				return err
 			}
-			player.Pool = append(player.Pool, cards...)
+			player.Pool = append(player.Pool, pack.Cards...)
+			player.ReceivedPacks = append(player.ReceivedPacks, pack)
 		}
 	}
 	return nil
+}
+
+func (e *Event) generateSetPack(product *Product) (*Pack, error) {
+	cards, err := product.generatePack(e.random, e.nextInstanceID)
+	if err != nil {
+		return nil, err
+	}
+	e.packSeq++
+	return &Pack{ID: "pack-" + itoa(e.packSeq), ProductID: product.Definition.ID, Cards: cards}, nil
 }
 
 func (e *Event) Player(participantID string) *PlayerState {

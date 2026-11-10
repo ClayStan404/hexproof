@@ -14045,6 +14045,54 @@ Le immagini scaricate e personalizzate verranno copiate e verificate prima che l
     </context>
     <context>
         <name>TournamentLobby</name>
+    <message>
+        <source> · %1 cards per pack</source>
+        <translation> · %1 carte per busta</translation>
+    </message>
+    <message>
+        <source> · approximate</source>
+        <translation> · composizione approssimata</translation>
+    </message>
+    <message>
+        <source>%1 packs · %2 cards per player. Packs are independently sampled; the recipe stays locked after creation.</source>
+        <translation>%1 buste · %2 carte per giocatore. Le buste sono generate in modo indipendente; la composizione resta bloccata dopo la creazione.</translation>
+    </message>
+    <message>
+        <source>%1 × %2</source>
+        <translation>%1 × %2</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Chiudi</translation>
+    </message>
+    <message>
+        <source>Custom pack recipe · %1 per player</source>
+        <translation>Composizione personalizzata · %1 per giocatore</translation>
+    </message>
+    <message>
+        <source>Locked pack recipe</source>
+        <translation>Composizione delle buste bloccata</translation>
+    </message>
+    <message>
+        <source>Pack recipe · 6 per player</source>
+        <translation>Composizione delle buste · 6 per giocatore</translation>
+    </message>
+    <message>
+        <source>Round %1 · %2 · pass %3</source>
+        <translation>Turno %1 · %2 · passa a %3</translation>
+    </message>
+    <message>
+        <source>Three-round pack order</source>
+        <translation>Ordine delle buste nei tre turni</translation>
+    </message>
+    <message>
+        <source>left</source>
+        <translation>sinistra</translation>
+    </message>
+    <message>
+        <source>right</source>
+        <translation>destra</translation>
+    </message>
         <message>
             <location filename="../qml/components/LimitedCardGrouping.qml" line="+92" />
             <source>Mana value 0</source>
@@ -17534,6 +17582,97 @@ Le immagini scaricate e personalizzate verranno copiate e verificate prima che l
     <message>
         <source>Official rules source</source>
         <translation>Fonte delle regole ufficiali</translation>
+    </message>
+</context>
+<context>
+    <name>SetPackPlanEditor</name>
+    <message>
+        <source> · %1 cards per pack</source>
+        <translation> · %1 carte per busta</translation>
+    </message>
+    <message>
+        <source> · approximate</source>
+        <translation> · composizione approssimata</translation>
+    </message>
+    <message>
+        <source>%1 × %2</source>
+        <translation>%1 × %2</translation>
+    </message>
+    <message>
+        <source>Add another set</source>
+        <translation>Aggiungi un’altra espansione</translation>
+    </message>
+    <message>
+        <source>Choose each of the three rounds</source>
+        <translation>Scegli ciascuno dei tre turni</translation>
+    </message>
+    <message>
+        <source>Choose one product for each of the three rounds.</source>
+        <translation>Scegli un prodotto per ciascuno dei tre turni.</translation>
+    </message>
+    <message>
+        <source>Custom recipe · %1 packs per player</source>
+        <translation>Composizione personalizzata · %1 buste per giocatore</translation>
+    </message>
+    <message>
+        <source>Customize sets and pack counts</source>
+        <translation>Personalizza espansioni e numero di buste</translation>
+    </message>
+    <message>
+        <source>Every player uses this recipe with independently sampled packs. Build at least 40 cards; custom pack counts are not an official format.</source>
+        <translation>Tutti usano questa composizione con buste generate in modo indipendente. Costruisci almeno 40 carte; le quantità personalizzate non sono un formato ufficiale.</translation>
+    </message>
+    <message>
+        <source>Every seat uses this round order. Each player receives independently sampled packs.</source>
+        <translation>Tutti i posti seguono questo ordine. Ogni giocatore riceve buste generate in modo indipendente.</translation>
+    </message>
+    <message>
+        <source>Final recipe · 6 packs per player</source>
+        <translation>Composizione finale · 6 buste per giocatore</translation>
+    </message>
+    <message>
+        <source>Final round order</source>
+        <translation>Ordine finale dei turni</translation>
+    </message>
+    <message>
+        <source>Packs per player</source>
+        <translation>Buste per giocatore</translation>
+    </message>
+    <message>
+        <source>Product %1</source>
+        <translation>Prodotto %1</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Rimuovi</translation>
+    </message>
+    <message>
+        <source>Round %1 · %2</source>
+        <translation>Turno %1 · %2</translation>
+    </message>
+    <message>
+        <source>Round %1 · pass %2</source>
+        <translation>Turno %1 · passa a %2</translation>
+    </message>
+    <message>
+        <source>Six boosters of the selected set per player</source>
+        <translation>Sei buste dell’espansione scelta per giocatore</translation>
+    </message>
+    <message>
+        <source>Three boosters of the selected set · left / right / left</source>
+        <translation>Tre buste dell’espansione scelta · sinistra / destra / sinistra</translation>
+    </message>
+    <message>
+        <source>Use positive whole pack counts, totaling 1–12 packs per player.</source>
+        <translation>Usa numeri interi positivi, per un totale di 1–12 buste per giocatore.</translation>
+    </message>
+    <message>
+        <source>left</source>
+        <translation>sinistra</translation>
+    </message>
+    <message>
+        <source>right</source>
+        <translation>destra</translation>
     </message>
 </context>
 </TS>

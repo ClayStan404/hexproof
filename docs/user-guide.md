@@ -1113,16 +1113,29 @@ For Limited play:
 - Set products installed in catalog schema 10 use exact MTGJSON collation when
   available. An older or incomplete catalog offers a clearly marked rarity-
   based approximation instead.
-- **Set Sealed** always opens exactly six boosters for every checked-in player
-  and can start with two checked-in players.
+- **Set Sealed** defaults to six boosters of one set and can start with two
+  checked-in players (up to 64). **Customize sets and pack counts** chooses a
+  shared recipe of 1–12 packs per player. Repeated products merge in first
+  appearance order; inspect the final composition, per-pack sizes and approximate
+  labels before creating. A non-six-pack recipe is custom rather than an
+  official event preset. Each player gets independent samples of that recipe.
 - **Set Draft** starts with at least two checked-in human players and a
   two-to-eight-player cap. Each player drafts three boosters, passing left,
-  right, then left. Picks may wait in a private queue, and reconnecting
+  right, then left. The default uses one set; **Choose each of the three rounds**
+  selects an ordered product for each round for the whole table. A/B/A stays
+  in that order, and different rounds can have different pack sizes. Picks may
+  wait in a private queue, and reconnecting
   restores the current pack and prior picks. The Draft screen keeps all of
   your prior picks visible and shows the physical seats with you at the
   bottom, including who receives this pack and who passes the next one to you.
   On narrow windows, the seats and prior picks move below the current pack so
   both regions remain accessible.
+- **View pack recipe** in the lobby shows the locked composition. Sealed
+  opening/replay uses each server-generated pack's real boundaries and product
+  label; skipping or reopening it never draws cards again. Every Set deck still
+  needs at least 40 cards and uses the existing ordinary basic-land rules.
+  If combined products exceed the supported budget, select fewer or smaller
+  products. Offline practice continues to use one set or a regular Cube.
 - Import or edit a Cube in the ordinary **Deck library** by choosing the
   **Cube** format. Its count/name/set/collector entries form one pool; there is
   no separate Cube import screen or sideboard. Select **Cube** alongside Modern

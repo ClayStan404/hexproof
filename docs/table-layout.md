@@ -284,7 +284,7 @@ Untap → Upkeep → Draw → Main 1 → Begin Combat → Attackers → Blockers
   Attackers after declarations exist. No helper runs when the phase changes,
   and each intentionally leaves replacement effects and special card rules to
   the players.
-- Phase identifiers are the stable values defined by `hexproof.v2`; localized
+- Phase identifiers are the stable values defined by `hexproof.v3`; localized
   labels may evolve without changing those wire values. Changing the display
   language keeps the phase selector on the authoritative phase and never
   submits a phase action. Resizing the window or changing the interface scale,

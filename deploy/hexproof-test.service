@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Hexproof contributors
 
 [Unit]
-Description=Hexproof private test server (WebSocket room hub, protocol hexproof.v2)
+Description=Hexproof private test server (WebSocket room hub, protocol hexproof.v3)
 After=network-online.target
 Wants=network-online.target
 

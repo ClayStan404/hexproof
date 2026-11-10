@@ -23,6 +23,8 @@ class LimitedSessionState : public QObject
     Q_PROPERTY(int picksRequired READ picksRequired NOTIFY packChanged)
     Q_PROPERTY(QString stage READ stage NOTIFY headerChanged)
     Q_PROPERTY(QVariantMap product READ product NOTIFY headerChanged)
+    Q_PROPERTY(QVariantMap plan READ plan NOTIFY headerChanged)
+    Q_PROPERTY(QVariantList receivedPacks READ receivedPacks NOTIFY poolChanged)
     Q_PROPERTY(int packRound READ packRound NOTIFY headerChanged)
     Q_PROPERTY(int direction READ direction NOTIFY headerChanged)
     Q_PROPERTY(QVariantList currentPack READ currentPack NOTIFY packChanged)
@@ -90,6 +92,14 @@ class LimitedSessionState : public QObject
     {
         return m_product;
     }
+    QVariantMap plan() const
+    {
+        return m_plan;
+    }
+    QVariantList receivedPacks() const
+    {
+        return m_receivedPacks;
+    }
     int packRound() const
     {
         return m_packRound;
@@ -156,6 +166,8 @@ class LimitedSessionState : public QObject
     QString m_eventType;
     QString m_stage;
     QVariantMap m_product;
+    QVariantMap m_plan;
+    QVariantList m_receivedPacks;
     int m_packRound = 0;
     int m_direction = 1;
     QVariantList m_currentPack;

@@ -1,0 +1,88 @@
+{
+  "type": "limited.snapshot",
+  "payload": {
+    "tournamentId": "MIX123",
+    "eventType": "set_sealed",
+    "stage": "deck_building",
+    "product": {
+      "id": "aaa-approximate",
+      "name": "Example AAA booster",
+      "setCode": "AAA",
+      "productType": "approximate",
+      "authentic": false,
+      "cardsPerPack": 1,
+      "cardCount": 1,
+      "productHash": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "plan": {
+      "products": [
+        {
+          "id": "aaa-approximate",
+          "name": "Example AAA booster",
+          "setCode": "AAA",
+          "productType": "approximate",
+          "authentic": false,
+          "cardsPerPack": 1,
+          "cardCount": 1,
+          "productHash": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "id": "bbb-approximate",
+          "name": "Example BBB booster",
+          "setCode": "BBB",
+          "productType": "approximate",
+          "authentic": false,
+          "cardsPerPack": 2,
+          "cardCount": 1,
+          "productHash": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        {
+          "id": "ccc-approximate",
+          "name": "Example CCC booster",
+          "setCode": "CCC",
+          "productType": "approximate",
+          "authentic": false,
+          "cardsPerPack": 1,
+          "cardCount": 1,
+          "productHash": "3333333333333333333333333333333333333333333333333333333333333333"
+        }
+      ],
+      "entries": [
+        {
+          "productId": "aaa-approximate",
+          "count": 2
+        },
+        {
+          "productId": "bbb-approximate",
+          "count": 2
+        },
+        {
+          "productId": "ccc-approximate",
+          "count": 2
+        }
+      ],
+      "planHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "packsPerPlayer": 6,
+      "cardsPerPlayer": 8,
+      "custom": true
+    },
+    "packRound": 0,
+    "direction": 0,
+    "currentPack": [],
+    "pool": [],
+    "mainboardInstanceIds": [],
+    "basicLands": [],
+    "participants": [
+      {
+        "participantId": "p-1",
+        "displayName": "Alice",
+        "picked": 8,
+        "packCards": 0,
+        "queuedPacks": 0,
+        "deckSubmitted": false
+      }
+    ],
+    "deckSubmitted": false,
+    "allDecksSubmitted": false
+  }
+}

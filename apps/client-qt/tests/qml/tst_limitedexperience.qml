@@ -26,6 +26,8 @@ TestCase {
         property var participants: []
         property var pool: []
         property var product: ({setCode: "TST", name: "Test booster", cardsPerPack: 15})
+        property var plan: ({})
+        property var receivedPacks: []
     }
     QtObject {
         id: connection
@@ -75,6 +77,12 @@ TestCase {
         limitedState.pool = Array.from({length: 90}, (_, index) => ({
             instanceId: "card-" + index, name: "Card " + String(index).padStart(3, "0"),
             setCode: "TST", collectorNumber: String(index), typeLine: "Creature", manaCost: "{U}", manaValue: 1
+        }))
+        limitedState.plan = {products: [{id: "test", name: "Test booster", cardsPerPack: 15, authentic: true}],
+            entries: [{productId: "test", count: 6}], packsPerPlayer: 6, cardsPerPlayer: 90}
+        limitedState.receivedPacks = Array.from({length: 6}, (_, index) => ({
+            packId: "pack-" + index, productId: "test",
+            instanceIds: limitedState.pool.slice(index * 15, (index + 1) * 15).map(card => card.instanceId)
         }))
     }
     function test_poolAndMainDeckKeepTheirScrollAfterCardMoves() {
@@ -269,6 +277,40 @@ TestCase {
         builder.visible = false
         tryVerify(() => !opening.opened, 5000, "Leaving the builder closes its animation")
     }
+    function test_mixedSealedReplaysExplicitBoundariesDespitePoolOrder() {
+        const source = limitedState.pool.slice(0, 43)
+        limitedState.pool = source.slice().reverse()
+        limitedState.plan = {products: [{id: "a", name: "A booster", cardsPerPack: 14, authentic: true},
+                                       {id: "b", name: "B booster", cardsPerPack: 15, authentic: false}]}
+        limitedState.receivedPacks = [
+            {packId: "a-1", productId: "a", instanceIds: source.slice(0, 14).map(card => card.instanceId)},
+            {packId: "b-1", productId: "b", instanceIds: source.slice(14, 29).map(card => card.instanceId)},
+            {packId: "a-2", productId: "a", instanceIds: source.slice(29).map(card => card.instanceId)}]
+        const before = JSON.stringify(limitedState.pool)
+        const builder = createTemporaryObject(builderComponent, window.contentItem)
+        const packs = builder.sealedPacks()
+        compare(packs.map(pack => pack.cards.length), [14, 15, 14])
+        compare(packs.map(pack => pack.packId), ["a-1", "b-1", "a-2"])
+        compare(packs[0].cards.map(card => card.instanceId), limitedState.receivedPacks[0].instanceIds)
+        const opening = findChild(builder, "limitedSealedPackOpening")
+        opening.cardBackSource = ""
+        opening.reducedMotion = true
+        builder.showSealedPacks()
+        tryVerify(() => opening.opened)
+        compare(opening.currentProductName, "A booster")
+        opening.revealAll()
+        opening.advanceOrFinish()
+        compare(opening.currentCards.length, 15)
+        compare(opening.currentProductName, "B booster · approximate")
+        opening.close()
+        builder.showSealedPacks()
+        compare(opening.currentPackIndex, 0)
+        compare(JSON.stringify(limitedState.pool), before)
+        opening.close()
+        limitedState.receivedPacks = []
+        compare(builder.sealedPacks(), [], "Missing private boundaries must not be reconstructed")
+    }
+
     function test_disabledAnimationStillAllowsExplicitReplay() {
         const builder = createTemporaryObject(builderComponent, window.contentItem)
         const opening = findChild(builder, "limitedSealedPackOpening")

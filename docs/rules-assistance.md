@@ -71,7 +71,7 @@ Rules assistance follows the normal table dependency direction:
 feature view or popup
   -> narrow QML coordinator
       -> WsClient typed command facade
-          -> hexproof.v2 payload
+          -> hexproof.v3 payload
               -> server command handler
                   -> room reducer
                       -> privacy-aware projection

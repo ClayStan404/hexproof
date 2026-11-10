@@ -1,0 +1,130 @@
+{
+  "type": "tournament.create",
+  "id": "mixed-sealed-create",
+  "payload": {
+    "operationId": "create-mixed-sealed-1",
+    "name": "Mixed sealed",
+    "format": "Limited",
+    "eventType": "set_sealed",
+    "matchMode": "bo3",
+    "roundMinutes": 50,
+    "maxPlayers": 64,
+    "plan": {
+      "products": [
+        {
+          "id": "aaa-approximate",
+          "name": "Example AAA booster",
+          "setCode": "AAA",
+          "productType": "approximate",
+          "authentic": false,
+          "cardsPerPack": 1,
+          "sheets": [
+            {
+              "name": "cards",
+              "withReplacement": true,
+              "cards": [
+                {
+                  "name": "AAA card",
+                  "setCode": "AAA",
+                  "collectorNumber": "1",
+                  "weight": 1
+                }
+              ]
+            }
+          ],
+          "variants": [
+            {
+              "weight": 1,
+              "slots": [
+                {
+                  "sheet": "cards",
+                  "count": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "bbb-approximate",
+          "name": "Example BBB booster",
+          "setCode": "BBB",
+          "productType": "approximate",
+          "authentic": false,
+          "cardsPerPack": 2,
+          "sheets": [
+            {
+              "name": "cards",
+              "withReplacement": true,
+              "cards": [
+                {
+                  "name": "BBB card",
+                  "setCode": "BBB",
+                  "collectorNumber": "1",
+                  "weight": 1
+                }
+              ]
+            }
+          ],
+          "variants": [
+            {
+              "weight": 1,
+              "slots": [
+                {
+                  "sheet": "cards",
+                  "count": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ccc-approximate",
+          "name": "Example CCC booster",
+          "setCode": "CCC",
+          "productType": "approximate",
+          "authentic": false,
+          "cardsPerPack": 1,
+          "sheets": [
+            {
+              "name": "cards",
+              "withReplacement": true,
+              "cards": [
+                {
+                  "name": "CCC card",
+                  "setCode": "CCC",
+                  "collectorNumber": "1",
+                  "weight": 1
+                }
+              ]
+            }
+          ],
+          "variants": [
+            {
+              "weight": 1,
+              "slots": [
+                {
+                  "sheet": "cards",
+                  "count": 1
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "entries": [
+        {
+          "productId": "aaa-approximate",
+          "count": 2
+        },
+        {
+          "productId": "bbb-approximate",
+          "count": 2
+        },
+        {
+          "productId": "ccc-approximate",
+          "count": 2
+        }
+      ]
+    }
+  }
+}

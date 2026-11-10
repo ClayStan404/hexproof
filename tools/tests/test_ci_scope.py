@@ -99,7 +99,7 @@ class CiScopeTests(unittest.TestCase):
         self.assertEqual(result.stdout, "client=true\nserver=true\nforge=true\nfull=true\nforge_host_service=true\n")
 
     def test_shared_or_unknown_changes_fail_toward_more_checks(self):
-        for path in ("protocol/v2/wire-schema.json", "tools/verify.sh", "packaging/linux/build-tarball.sh",
+        for path in ("protocol/v3/wire-schema.json", "tools/verify.sh", "packaging/linux/build-tarball.sh",
                      ".github/workflows/ci.yml", "future-build-system.conf"):
             with self.subTest(path=path):
                 self.assertEqual(scope.build_scope([path]), (True, True, True))

@@ -37,6 +37,7 @@ class ProtocolSession : public QObject
 
     bool resolveSuccess(const QString &requestId);
     bool resolveFailure(const QString &requestId, const QString &error);
+    QJsonObject pendingPayload(const QString &requestId, const QString &commandType) const;
     void failAll(const QString &error);
     void failAllExcept(const QString &requestId, const QString &error);
     // End room-scoped ownership and notify observers so optimistic state rolls back.

@@ -169,6 +169,8 @@ class TestWsClient : public QObject
     void rulesBoardTargetsRejectInvalidSeatHints() const;
     void rulesCombatHonorsNativeMultipleBlockCapacity() const;
     void limitedSessionRestoresPrivateDeckSelection() const;
+    void limitedPlansAndStartRetriesKeepOperationIdentity() const;
+    void startRetryRecoveryNeedsConfirmedReadinessChange() const;
     void dispatchesSharedSessionRoomAndGameFixtures() const;
     void exposesRoomGameAndRulesSessionsToQml() const;
     void hidesMirroredSessionPropertiesFromQml() const;
@@ -178,6 +180,8 @@ class TestWsClient : public QObject
     void rejectsOversizeIncomingMessages() const;
     void welcomeProtocolMismatchDisconnects_data() const;
     void welcomeProtocolMismatchDisconnects() const;
+    void frozenV2WelcomeRejectsBeforeCredentialsAndMembership_data() const;
+    void frozenV2WelcomeRejectsBeforeCredentialsAndMembership() const;
     void differentApplicationVersionConnects() const;
     void protocolMismatchPreservesResumeCredentialAndStopsRetry() const;
     void handlesP7DiscoveryAndTableCommands() const;

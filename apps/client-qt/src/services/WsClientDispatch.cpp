@@ -642,6 +642,12 @@ void WsClient::handleError(const Envelope &env)
         m_intentionalDisconnect = true;
         m_reconnectController->stopRetry();
     }
+    if (code == kErrTournamentNotReady) {
+        const auto pending = m_protocolSession->pendingPayload(env.id, kTypeTournamentStart);
+        if (!m_tournamentStartOperation.isEmpty() &&
+            pending.value(u"operationId"_s).toString() == m_tournamentStartOperation)
+            m_tournamentStartNotReady = true;
+    }
     setLastError(code, msg);
     m_protocolSession->resolveFailure(env.id, m_lastError);
     if (m_state == Connecting || m_state == Reconnecting || m_protocolMismatch ||

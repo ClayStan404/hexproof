@@ -20,6 +20,8 @@ Popup {
     property url cardBackSource: "qrc:/qml/assets/card-back.jpg"
 
     readonly property var currentCards: sortedCardsForPack(currentPackIndex)
+    readonly property string currentProductName: packs && packs[currentPackIndex]
+        && packs[currentPackIndex].productName ? String(packs[currentPackIndex].productName) : productName
     readonly property int revealedCount: revealedCardIndices.length
     readonly property bool currentPackRevealed: currentCards.length > 0
                                                 && revealedCount >= currentCards.length
@@ -209,8 +211,8 @@ Popup {
                 Text {
                     textFormat: Text.PlainText
                     Layout.fillWidth: true
-                    text: root.productName.length > 0
-                          ? root.productName : qsTr("Booster pack")
+                    text: root.currentProductName.length > 0
+                          ? root.currentProductName : qsTr("Booster pack")
                     color: Theme.text
                     font.pixelSize: Theme.fontSize(22)
                     font.weight: Font.DemiBold
@@ -355,7 +357,7 @@ Popup {
                     Text {
                         textFormat: Text.PlainText
                         width: parent.width
-                        text: root.productName
+                        text: root.currentProductName
                         color: Theme.textSecondary
                         font.pixelSize: Theme.fontSize(11)
                         horizontalAlignment: Text.AlignHCenter

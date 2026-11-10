@@ -45,8 +45,8 @@ TestCase {
         property bool protocolMismatch: true
         property string customServerUrl: "ws://127.0.0.1:57320/ws"
         property string displayName: "Tester"
-        property string serverProtocol: "hexproof.v3"
-        property string clientProtocol: "hexproof.v2"
+        property string serverProtocol: "hexproof.v4"
+        property string clientProtocol: "hexproof.v3"
         property string clientVersion: "1.0.6"
         property string releaseDownloadUrl: "https://example.com/releases"
         property string lastError: ""
@@ -113,7 +113,7 @@ TestCase {
         mockUpdater.protocolLookups = []
         mockUpdater.checking = false
         mockWs.protocolMismatch = true
-        mockWs.serverProtocol = "hexproof.v3"
+        mockWs.serverProtocol = "hexproof.v4"
         testWindow.popCount = 0
         mockWs.connecting = false
         mockWs.serverTransportState = ""
@@ -141,12 +141,12 @@ TestCase {
 
     function test_protocolMismatchFindsCompatibleClientOnce() {
         compare(mockUpdater.protocolLookups.length, 1)
-        compare(mockUpdater.protocolLookups[0], "hexproof.v3")
+        compare(mockUpdater.protocolLookups[0], "hexproof.v4")
         mockUpdater.stateChanged()
         compare(mockUpdater.protocolLookups.length, 1)
         const banner = findChild(page, "connectionErrorBanner")
-        verify(banner.message.includes("hexproof.v2"))
         verify(banner.message.includes("hexproof.v3"))
+        verify(banner.message.includes("hexproof.v4"))
     }
 
     function test_olderServerDoesNotRequestClientDowngrade() {

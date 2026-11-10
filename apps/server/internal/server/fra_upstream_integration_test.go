@@ -82,7 +82,7 @@ func TestFRAUpstreamSealedAndDraftOverWebSocket(t *testing.T) {
 					command(peer, protocol.TypeTournamentRegister, protocol.TournamentRegister{TournamentID: created.TournamentID}, protocol.TypeTournamentRegistered)
 					command(peer, protocol.TypeTournamentCheckIn, protocol.TournamentCheckIn{CheckedIn: true}, protocol.TypeTournamentCheckInSet)
 				}
-				command(peers[0], protocol.TypeTournamentStart, protocol.EmptyPayload{}, protocol.TypeTournamentStarted)
+				command(peers[0], protocol.TypeTournamentStart, testTournamentStart(protocol.LimitedStageRegistration), protocol.TypeTournamentStarted)
 				for _, peer := range peers[1:] {
 					if kind == protocol.LimitedEventSetSealed && len(peer.pool.Pool) != 84 {
 						t.Fatal("wrong sealed pool size")

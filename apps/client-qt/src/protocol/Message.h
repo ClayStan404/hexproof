@@ -35,7 +35,7 @@ inline int protocolGeneration(const QString &value)
 // lives only in the session.welcome payload (no top-level `v` on other
 // messages).
 
-// Stable wire names are generated from protocol/v2/wire-schema.json. Add or
+// Stable wire names are generated from protocol/v3/wire-schema.json. Add or
 // rename them in that schema, then run tools/protocol_codegen.py; do not add
 // duplicate literals here.
 

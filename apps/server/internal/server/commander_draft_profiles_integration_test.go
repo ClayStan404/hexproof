@@ -64,7 +64,7 @@ func TestCommanderDraftProfilesAndOptionalCardsOverWebSocket(t *testing.T) {
 			for _, player := range players {
 				command(player, protocol.TypeTournamentCheckIn, protocol.TournamentCheckIn{CheckedIn: true}, protocol.TypeTournamentCheckInSet)
 			}
-			command(host, protocol.TypeTournamentStart, protocol.EmptyPayload{}, protocol.TypeTournamentStarted)
+			command(host, protocol.TypeTournamentStart, testTournamentStart(protocol.LimitedStageRegistration), protocol.TypeTournamentStarted)
 			if len(host.pool.CurrentPacks) != profile.batch || host.pool.PicksRequired != 2*profile.batch {
 				t.Fatal("wrong opening batch")
 			}

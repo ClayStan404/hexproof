@@ -73,6 +73,14 @@ bool ProtocolSession::resolveFailure(const QString &requestId, const QString &er
     return true;
 }
 
+QJsonObject ProtocolSession::pendingPayload(const QString &requestId,
+                                            const QString &commandType) const
+{
+    const auto pending = m_pendingCommands.constFind(requestId);
+    return pending != m_pendingCommands.cend() && pending->type == commandType ? pending->payload
+                                                                               : QJsonObject{};
+}
+
 void ProtocolSession::failAll(const QString &error)
 {
     const auto pending = m_pendingCommands;

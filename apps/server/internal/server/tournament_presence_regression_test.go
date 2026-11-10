@@ -43,7 +43,8 @@ func TestDraftDepartureBroadcastsPresence(t *testing.T) {
 				}
 			case "create":
 				create, _ := protocol.NewEnvelope(protocol.TypeTournamentCreate, protocol.TournamentCreate{
-					Name: "New event", Format: "Modern", MatchMode: "bo3", RoundMinutes: 50, MaxPlayers: 8,
+					OperationID: testTournamentOperationID(),
+					Name:        "New event", Format: "Modern", MatchMode: "bo3", RoundMinutes: 50, MaxPlayers: 8,
 				})
 				if err := h.handleTournamentCreate(departing, create); err != nil {
 					t.Fatal(err)

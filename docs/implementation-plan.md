@@ -33,8 +33,8 @@ Do not read the owner-only `产品说明.md` when implementing.
   tabletop does not implement card legality or automatic priority. Optional
   Forge rooms use a supervised external rules engine through the typed boundary.
 - Canonical message names and payloads live in
-  [wire-schema.json](../protocol/v2/wire-schema.json), its referenced schemas and
-  [shared fixtures](../testdata/protocol/v2/). Change those and generated
+  [wire-schema.json](../protocol/v3/wire-schema.json), its referenced schemas and
+  [shared fixtures](../testdata/protocol/v3/). Change those and generated
   constants together when wire behavior changes.
 - The handshake negotiates exact game-protocol equality once. Application
   versions are diagnostic metadata, not an admission gate. The client checks

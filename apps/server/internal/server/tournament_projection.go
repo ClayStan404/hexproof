@@ -341,6 +341,7 @@ func tournamentSnapshot(event *tournament.Tournament,
 		CanRegister: !event.IsCubeRoom() && event.Status == tournament.StatusRegistration &&
 			binding.ParticipantID == "" && len(event.Participants) < event.MaxPlayers,
 		Product:       event.LimitedProductView(),
+		Plan:          event.LimitedPlanView(),
 		DraftSettings: event.DraftSettings(),
 		Participants:  participants, Pairings: pairings, Standings: standingViews,
 	}

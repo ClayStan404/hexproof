@@ -81,9 +81,9 @@ func TestCommanderCubeFourPlayerLifecycleOverWebSocket(t *testing.T) {
 	for _, player := range players[:3] {
 		command(player, protocol.TypeTournamentCheckIn, protocol.TournamentCheckIn{CheckedIn: true}, protocol.TypeTournamentCheckInSet)
 	}
-	command(host, protocol.TypeTournamentStart, protocol.EmptyPayload{}, protocol.TypeError)
+	command(host, protocol.TypeTournamentStart, testTournamentStart(protocol.LimitedStageRegistration), protocol.TypeError)
 	command(players[3], protocol.TypeTournamentCheckIn, protocol.TournamentCheckIn{CheckedIn: true}, protocol.TypeTournamentCheckInSet)
-	command(host, protocol.TypeTournamentStart, protocol.EmptyPayload{}, protocol.TypeTournamentStarted)
+	command(host, protocol.TypeTournamentStart, testTournamentStart(protocol.LimitedStageRegistration), protocol.TypeTournamentStarted)
 	if len(host.pool.CurrentPack) != 20 || host.pool.PicksRequired != 2 || host.pool.MinimumDeckCards != 60 {
 		t.Fatalf("incorrect Commander draft profile: %+v", host.pool)
 	}

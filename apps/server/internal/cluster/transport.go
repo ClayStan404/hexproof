@@ -56,6 +56,10 @@ func (r *Remote) Do(ctx context.Context, q Request) (Result, error) {
 		return Result{}, ErrFenced
 	case 410:
 		return Result{}, ErrRegistration
+	case 422:
+		return Result{}, ErrOperationReplay
+	case 507:
+		return Result{}, ErrOperationHistoryFull
 	case 429:
 		return Result{}, ErrFull
 	case 400:
@@ -87,7 +91,7 @@ func HTTPHandler(s Service, c Config) http.Handler {
 		var q Request
 		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxMessageBytes))
 		dec.DisallowUnknownFields()
-		if dec.Decode(&q) != nil || dec.Decode(new(any)) != io.EOF {
+		if dec.Decode(&q) != nil || dec.Decode(new(any)) != io.EOF || q.RPCVersion != RPCVersion {
 			http.Error(w, "invalid request", 400)
 			return
 		}
@@ -99,12 +103,20 @@ func HTTPHandler(s Service, c Config) http.Handler {
 				code = 409
 			case ErrRegistration:
 				code = 410
+			case ErrOperationReplay:
+				code = 422
+			case ErrOperationHistoryFull:
+				code = 507
 			case ErrFull:
 				code = 429
 			case ErrInvalid:
 				code = 400
 			}
 			http.Error(w, "cluster request failed", code)
+			return
+		}
+		if out.RPCVersion != RPCVersion {
+			http.Error(w, "cluster response version mismatch", 503)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

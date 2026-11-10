@@ -28,6 +28,10 @@ func cubeRoomRequest(seats int) protocol.TournamentCreate {
 
 func cubeCommandEnvelope(t *testing.T, kind string, payload any) protocol.Envelope {
 	t.Helper()
+	if request, ok := payload.(protocol.TournamentCreate); kind == protocol.TypeTournamentCreate && ok && request.OperationID == "" {
+		request.OperationID = testTournamentOperationID()
+		payload = request
+	}
 	env, err := protocol.NewEnvelope(kind, payload)
 	if err != nil {
 		t.Fatal(err)
@@ -124,7 +128,7 @@ func TestCubeRoomsDiscoverJoinReadyAndReenter(t *testing.T) {
 	}
 	_ = h.handleTournamentCheckIn(host, cubeCommandEnvelope(t, protocol.TypeTournamentCheckIn, protocol.TournamentCheckIn{CheckedIn: true}))
 	_ = cubeReply(t, host)
-	_ = h.handleTournamentStart(host, cubeCommandEnvelope(t, protocol.TypeTournamentStart, protocol.EmptyPayload{}))
+	_ = h.handleTournamentStart(host, cubeCommandEnvelope(t, protocol.TypeTournamentStart, testTournamentStart(protocol.LimitedStageRegistration)))
 	if reply := cubeReply(t, host); reply.Type != protocol.TypeError || entry.event.Limited != nil {
 		t.Fatal("host started with an unready occupied seat")
 	}
@@ -136,7 +140,7 @@ func TestCubeRoomsDiscoverJoinReadyAndReenter(t *testing.T) {
 	_ = h.handleTournamentCheckIn(guest, cubeCommandEnvelope(t, protocol.TypeTournamentCheckIn, protocol.TournamentCheckIn{CheckedIn: true}))
 	_ = cubeReply(t, guest)
 	entry.event.Disconnect(guest.ConnectionID, time.Now())
-	_ = h.handleTournamentStart(host, cubeCommandEnvelope(t, protocol.TypeTournamentStart, protocol.EmptyPayload{}))
+	_ = h.handleTournamentStart(host, cubeCommandEnvelope(t, protocol.TypeTournamentStart, testTournamentStart(protocol.LimitedStageRegistration)))
 	if reply := cubeReply(t, host); reply.Type != protocol.TypeError {
 		t.Fatal("host omitted disconnected seat from the draft")
 	}
@@ -151,7 +155,7 @@ func TestCubeRoomsDiscoverJoinReadyAndReenter(t *testing.T) {
 	}
 	_ = h.handleTournamentCheckIn(outsider, cubeCommandEnvelope(t, protocol.TypeTournamentCheckIn, protocol.TournamentCheckIn{CheckedIn: true}))
 	_ = cubeReply(t, outsider)
-	_ = h.handleTournamentStart(host, cubeCommandEnvelope(t, protocol.TypeTournamentStart, protocol.EmptyPayload{}))
+	_ = h.handleTournamentStart(host, cubeCommandEnvelope(t, protocol.TypeTournamentStart, testTournamentStart(protocol.LimitedStageRegistration)))
 	if reply := cubeReply(t, host); reply.Type != protocol.TypeTournamentStarted || entry.event.Stage != protocol.LimitedStageDraft {
 		t.Fatalf("all-ready room failed to start: %s", reply.Payload)
 	}
@@ -365,7 +369,7 @@ func TestCubeMembershipRequiresExplicitLeaveBeforeCrossRoomNavigation(t *testing
 			}
 		}
 		if stage == "registration" {
-			_ = h.handleTournamentStart(host, cubeCommandEnvelope(t, protocol.TypeTournamentStart, protocol.EmptyPayload{}))
+			_ = h.handleTournamentStart(host, cubeCommandEnvelope(t, protocol.TypeTournamentStart, testTournamentStart(protocol.LimitedStageRegistration)))
 			if cubeReply(t, host).Type != protocol.TypeTournamentStarted {
 				t.Fatal("ready pod could not start after rejected cross-room navigation")
 			}

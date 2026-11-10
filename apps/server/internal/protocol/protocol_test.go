@@ -13,11 +13,11 @@ import (
 	"testing"
 )
 
-// fixturePath resolves a path under testdata/protocol/v2 relative to this
+// fixturePath resolves a path under testdata/protocol/v3 relative to this
 // package's source directory (apps/server/internal/protocol). The four-level
 // ascent reaches the repo root. This makes the golden fixtures a shared truth
 // source exercised by both client and server tests.
-const fixtureDir = "../../../../testdata/protocol/v2"
+const fixtureDir = "../../../../testdata/protocol/v3"
 
 func loadFixture(t *testing.T, name string) []byte {
 	t.Helper()
@@ -194,9 +194,11 @@ func fixturePayloadForType(messageType string) any {
 		return &RoomSnapshot{}
 	case TypeRoomListed:
 		return &RoomListed{}
-	case TypeTournamentList, TypeTournamentLeave, TypeTournamentStart,
+	case TypeTournamentList, TypeTournamentLeave,
 		TypeTournamentNextRound, TypeTournamentCancel:
 		return &EmptyPayload{}
+	case TypeTournamentStart:
+		return &TournamentStart{}
 	case TypeTournamentListed:
 		return &TournamentListed{}
 	case TypeTournamentCreate:
@@ -1000,7 +1002,7 @@ func TestP7GoldenFixturesPinDiscoveryUndoRelationsAndReplayPrivacy(t *testing.T)
 	}
 }
 
-// TestGoldenFixtures pins the JSON files under testdata/protocol/v2 to the
+// TestGoldenFixtures pins the JSON files under testdata/protocol/v3 to the
 // shapes this package produces/consumes. If a fixture drifts from the wire
 // rules (top-level `v` where forbidden, missing `v` in welcome payload, etc.)
 // or from the Envelope round-trip, this test fails - so the fixtures are a

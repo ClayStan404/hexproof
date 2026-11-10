@@ -6,7 +6,7 @@
 # Mirrors the unit deployed at /etc/systemd/system/hexproof.service.
 
 [Unit]
-Description=Hexproof game server (WebSocket room hub, protocol hexproof.v2)
+Description=Hexproof game server (WebSocket room hub, protocol hexproof.v3)
 After=network-online.target
 Wants=network-online.target
 

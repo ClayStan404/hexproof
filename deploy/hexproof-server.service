@@ -5,7 +5,7 @@
 # for the target host before installation; real installed units are operator-owned.
 
 [Unit]
-Description=Hexproof multi-room hub (hexproof.v2) - local server
+Description=Hexproof multi-room hub (hexproof.v3) - local server
 After=network-online.target
 Wants=network-online.target
 

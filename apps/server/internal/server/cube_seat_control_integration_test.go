@@ -50,7 +50,7 @@ func TestCubeExplicitSeatControlAndWithdrawalOverWebSocket(t *testing.T) {
 			for _, peer := range peers[:3] {
 				command(peer, protocol.TypeTournamentCheckIn, protocol.TournamentCheckIn{CheckedIn: true}, protocol.TypeTournamentCheckInSet)
 			}
-			command(host, protocol.TypeTournamentStart, protocol.EmptyPayload{}, protocol.TypeTournamentStarted)
+			command(host, protocol.TypeTournamentStart, testTournamentStart(protocol.LimitedStageRegistration), protocol.TypeTournamentStarted)
 			command(host, protocol.TypeLimitedSetDraftControl, protocol.LimitedSetDraftControl{ParticipantID: guest.event.ParticipantID, Automatic: true}, protocol.TypeError)
 			command(viewer, protocol.TypeLimitedSetDraftControl, protocol.LimitedSetDraftControl{ParticipantID: guest.event.ParticipantID, Automatic: true}, protocol.TypeError)
 			command(guest, protocol.TypeLimitedSetDraftControl, map[string]any{}, protocol.TypeError)

@@ -51,7 +51,7 @@ func TestCommanderPiperFallbackOverWebSocket(t *testing.T) {
 	for _, player := range peers[:2] {
 		command(player, protocol.TypeTournamentCheckIn, protocol.TournamentCheckIn{CheckedIn: true}, protocol.TypeTournamentCheckInSet)
 	}
-	command(host, protocol.TypeTournamentStart, protocol.EmptyPayload{}, protocol.TypeTournamentStarted)
+	command(host, protocol.TypeTournamentStart, testTournamentStart(protocol.LimitedStageRegistration), protocol.TypeTournamentStarted)
 	if len(host.pool.FallbackCommanders) != 0 || len(guest.pool.FallbackCommanders) != 0 {
 		t.Fatal("fallbacks appeared before the draft finished")
 	}

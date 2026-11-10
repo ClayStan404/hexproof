@@ -146,7 +146,7 @@ def verify_readiness(receipt, frozen, source, operations, github, asset_director
     if actual != expected:
         raise PromotionError("incomplete_checksums")
     compatibility = read_json(asset_directory / "compatibility.json")
-    canonical = read_json(Path(source["repo"]) / "protocol/v2/wire-schema.json")
+    canonical = read_json(Path(source["repo"]) / "protocol/v3/wire-schema.json")
     if (compatibility.get("schemaVersion") != 1
             or compatibility.get("applicationVersion") != source["sourceVersion"]
             or compatibility.get("gameProtocol") != canonical["protocol"]):

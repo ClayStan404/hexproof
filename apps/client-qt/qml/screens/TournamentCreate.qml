@@ -63,7 +63,11 @@ Page {
     readonly property bool rulesAvailable: rulesMode !== "forge" || root.hub.forgeRulesAvailable === true
 
     background: AppBackground { }
-    Component.onCompleted: limitedSets = root.catalog.limitedSets()
+    Component.onCompleted: {
+        limitedSets = root.catalog.limitedSets()
+        if (typeof root.hub.resetTournamentCreation === "function")
+            root.hub.resetTournamentCreation()
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -227,6 +231,7 @@ Page {
 
                         Text {
                             textFormat: Text.PlainText
+                            visible: !planEditor.custom
                             text: qsTr("LIMITED SET")
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontSize(11)
@@ -236,13 +241,14 @@ Page {
                         LimitedSetPicker {
                             id: setPicker
                             Layout.fillWidth: true
+                            visible: !planEditor.custom
                             sets: root.limitedSets
                         }
 
                         Text {
                             textFormat: Text.PlainText
                             Layout.fillWidth: true
-                            visible: setPicker.hasSelection
+                            visible: !planEditor.custom && setPicker.hasSelection
                             text: !setPicker.hasSelection ? ""
                                   : setPicker.selectedSet.authentic
                                     ? qsTr("%1 boosters · exact generated collation")
@@ -254,6 +260,16 @@ Page {
                                    ? Theme.success : Theme.warning
                             font.pixelSize: Theme.fontSize(11)
                             wrapMode: Text.WordWrap
+                        }
+
+                        SetPackPlanEditor {
+                            id: planEditor
+                            objectName: "tournamentSetPackPlan"
+                            Layout.fillWidth: true
+                            sets: root.limitedSets
+                            cardCatalogModel: root.catalog
+                            eventType: eventSelector.currentValue || "set_sealed"
+                            defaultSetId: setPicker.selectedId
                         }
                     }
 
@@ -441,7 +457,8 @@ Page {
                                      && minutesField.acceptableInput
                                      && capField.acceptableInput
                                      && (root.isCube ? root.cubeReady
-                                         : (!root.isLimited || setPicker.hasSelection))
+                                         : (!root.isLimited || (planEditor.custom
+                                             ? planEditor.valid : setPicker.hasSelection)))
                             onClicked: {
                                 if (!root.isLimited) {
                                     root.hub.createTournament(nameField.text.trim(),
@@ -450,6 +467,17 @@ Page {
                                                                minutesField.numberValue(),
                                                                capField.numberValue(), root.rulesMode,
                                                                root.rulesMode === "forge" && root.actionClockEnabled)
+                                    return
+                                }
+                                if (!root.isCube && planEditor.custom) {
+                                    root.hub.createLimitedPlanTournament(
+                                                nameField.text.trim(),
+                                                eventSelector.currentValue,
+                                                root.matchMode,
+                                                minutesField.numberValue(),
+                                                capField.numberValue(),
+                                                planEditor.makePlan(), root.rulesMode,
+                                                root.rulesMode === "forge" && root.actionClockEnabled)
                                     return
                                 }
                                 const product = root.isCube

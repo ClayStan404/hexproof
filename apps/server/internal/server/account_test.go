@@ -273,7 +273,7 @@ func TestAccountCubeDraftRecoveryPreservesPrivateSeat(t *testing.T) {
 			t.Fatal(string(reply.Payload))
 		}
 	}
-	host.send(cubeCommandEnvelope(t, protocol.TypeTournamentStart, struct{}{}))
+	host.send(cubeCommandEnvelope(t, protocol.TypeTournamentStart, testTournamentStart(protocol.LimitedStageRegistration)))
 	if reply := host.recvType(protocol.TypeTournamentStarted, protocol.TypeError); reply.Type == protocol.TypeError {
 		t.Fatal(string(reply.Payload))
 	}

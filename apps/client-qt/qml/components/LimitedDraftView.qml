@@ -56,6 +56,11 @@ Item {
         return parts
     }
     readonly property bool pairedPacks: packGroups.length === 2
+    readonly property var currentProduct: {
+        const productId = packGroups.length ? packGroups[0].productId : ""
+        return (((limitedModel.plan || {}).products || []).find(product => product.id === productId))
+            || limitedModel.product || ({})
+    }
     readonly property string packLabel: Number(limitedModel.packsThisBatch) > 1
         ? qsTranslate("TournamentLobby", "Draft packs %1–%2 of %3")
             .arg(limitedModel.packRound - limitedModel.packsThisBatch + 1).arg(limitedModel.packRound).arg(limitedModel.packsPerPlayer)
@@ -106,6 +111,20 @@ Item {
                     ColumnLayout {
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
+                        Text {
+                            objectName: "limitedDraftProductLabel"
+                            textFormat: Text.PlainText
+                            Layout.fillWidth: true
+                            visible: !!root.currentProduct.name
+                            text: (root.currentProduct.name || "")
+                                + (root.currentProduct.authentic === false
+                                   ? qsTranslate("TournamentLobby", " · approximate") : "")
+                                + (root.currentProduct.cardsPerPack
+                                   ? qsTranslate("TournamentLobby", " · %1 cards per pack").arg(root.currentProduct.cardsPerPack) : "")
+                            color: root.currentProduct.authentic === false ? Theme.warning : Theme.textMuted
+                            font.pixelSize: Theme.fontSize(11)
+                            elide: Text.ElideRight
+                        }
                         Text {
                             textFormat: Text.PlainText
                             objectName: "limitedDraftPackHeader"

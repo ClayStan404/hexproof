@@ -815,15 +815,29 @@ Item {
 
     function sealedPacks() {
         if (limitedModel.eventType !== "set_sealed" || !participantId) return []
-        const count = Number((limitedModel.product || {}).cardsPerPack || 0)
         const cards = limitedModel.pool || []
-        // The server preserves generation order and validates equal pack sizes.
-        // Group the existing private instances; never generate or reroll cards.
-        if (count < 1 || cards.length !== count * 6) return []
+        const groups = limitedModel.receivedPacks || []
+        const products = (limitedModel.plan || {}).products || []
+        if (!groups.length || groups.length > 12) return []
+        const byId = ({})
+        for (const card of cards)
+            byId[card.instanceId] = card
+        const seen = ({})
         const packs = []
-        for (let index = 0; index < 6; ++index)
-            packs.push({cards: cards.slice(index * count, (index + 1) * count)})
-        return packs
+        // Replay the server's physical boundaries. No catalog lookup, slicing,
+        // random generation or assumptions about equal pack lengths are used.
+        for (const group of groups) {
+            const product = products.find(value => value.id === group.productId)
+            const ids = group.instanceIds || []
+            if (!group.packId || !product || ids.length !== Number(product.cardsPerPack)
+                    || ids.some(id => !byId[id] || seen[id])) return []
+            for (const id of ids) seen[id] = true
+            packs.push({packId: group.packId, productId: group.productId,
+                        productName: product.name + (product.authentic === true ? ""
+                            : qsTranslate("TournamentLobby", " · approximate")),
+                        cards: ids.map(id => byId[id])})
+        }
+        return Object.keys(seen).length === cards.length ? packs : []
     }
 
     function showSealedPacks() {

@@ -164,6 +164,7 @@ void TournamentSessionState::applySnapshot(const QJsonObject &payload)
     m_roundComplete = payload.value(u"roundComplete"_s).toBool();
     m_canRegister = payload.value(u"canRegister"_s).toBool();
     m_product = payload.value(u"product"_s).toObject().toVariantMap();
+    m_plan = payload.value(u"plan"_s).toObject().toVariantMap();
     m_draftSettings = payload.value(u"draftSettings"_s).toObject().toVariantMap();
     m_participants = arrayToVariantList(payload.value(u"participants"_s));
     m_pairings = arrayToVariantList(payload.value(u"pairings"_s));
@@ -208,6 +209,7 @@ void TournamentSessionState::clear()
     m_roundComplete = false;
     m_canRegister = false;
     m_product.clear();
+    m_plan.clear();
     m_draftSettings.clear();
     m_participants.clear();
     m_pairings.clear();

@@ -14045,6 +14045,54 @@ Heruntergeladene und eigene Bilder werden kopiert und geprüft, bevor die Einste
     </context>
     <context>
         <name>TournamentLobby</name>
+    <message>
+        <source> · %1 cards per pack</source>
+        <translation> · %1 Karten pro Booster</translation>
+    </message>
+    <message>
+        <source> · approximate</source>
+        <translation> · angenäherte Zusammenstellung</translation>
+    </message>
+    <message>
+        <source>%1 packs · %2 cards per player. Packs are independently sampled; the recipe stays locked after creation.</source>
+        <translation>%1 Booster · %2 Karten pro Spieler. Booster werden unabhängig erzeugt; die Zusammenstellung bleibt nach der Erstellung gesperrt.</translation>
+    </message>
+    <message>
+        <source>%1 × %2</source>
+        <translation>%1 × %2</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Schließen</translation>
+    </message>
+    <message>
+        <source>Custom pack recipe · %1 per player</source>
+        <translation>Eigene Zusammenstellung · %1 pro Spieler</translation>
+    </message>
+    <message>
+        <source>Locked pack recipe</source>
+        <translation>Gesperrte Boosterzusammenstellung</translation>
+    </message>
+    <message>
+        <source>Pack recipe · 6 per player</source>
+        <translation>Boosterzusammenstellung · 6 pro Spieler</translation>
+    </message>
+    <message>
+        <source>Round %1 · %2 · pass %3</source>
+        <translation>Runde %1 · %2 · nach %3 weitergeben</translation>
+    </message>
+    <message>
+        <source>Three-round pack order</source>
+        <translation>Boosterfolge für drei Runden</translation>
+    </message>
+    <message>
+        <source>left</source>
+        <translation>links</translation>
+    </message>
+    <message>
+        <source>right</source>
+        <translation>rechts</translation>
+    </message>
         <message>
             <location filename="../qml/components/LimitedCardGrouping.qml" line="+92" />
             <source>Mana value 0</source>
@@ -17534,6 +17582,97 @@ Heruntergeladene und eigene Bilder werden kopiert und geprüft, bevor die Einste
     <message>
         <source>Official rules source</source>
         <translation>Offizielle Regelquelle</translation>
+    </message>
+</context>
+<context>
+    <name>SetPackPlanEditor</name>
+    <message>
+        <source> · %1 cards per pack</source>
+        <translation> · %1 Karten pro Booster</translation>
+    </message>
+    <message>
+        <source> · approximate</source>
+        <translation> · angenäherte Zusammenstellung</translation>
+    </message>
+    <message>
+        <source>%1 × %2</source>
+        <translation>%1 × %2</translation>
+    </message>
+    <message>
+        <source>Add another set</source>
+        <translation>Weiteres Set hinzufügen</translation>
+    </message>
+    <message>
+        <source>Choose each of the three rounds</source>
+        <translation>Alle drei Draft-Runden einzeln wählen</translation>
+    </message>
+    <message>
+        <source>Choose one product for each of the three rounds.</source>
+        <translation>Wähle für jede der drei Runden ein Produkt.</translation>
+    </message>
+    <message>
+        <source>Custom recipe · %1 packs per player</source>
+        <translation>Eigene Zusammenstellung · %1 Booster pro Spieler</translation>
+    </message>
+    <message>
+        <source>Customize sets and pack counts</source>
+        <translation>Sets und Boosteranzahl anpassen</translation>
+    </message>
+    <message>
+        <source>Every player uses this recipe with independently sampled packs. Build at least 40 cards; custom pack counts are not an official format.</source>
+        <translation>Alle Spieler verwenden diese Zusammenstellung mit unabhängig erzeugten Boostern. Baue mindestens 40 Karten; eigene Boosteranzahlen sind kein offizielles Format.</translation>
+    </message>
+    <message>
+        <source>Every seat uses this round order. Each player receives independently sampled packs.</source>
+        <translation>Alle Plätze verwenden diese Rundenfolge. Jeder Spieler erhält unabhängig erzeugte Booster.</translation>
+    </message>
+    <message>
+        <source>Final recipe · 6 packs per player</source>
+        <translation>Endgültige Zusammenstellung · 6 Booster pro Spieler</translation>
+    </message>
+    <message>
+        <source>Final round order</source>
+        <translation>Endgültige Rundenfolge</translation>
+    </message>
+    <message>
+        <source>Packs per player</source>
+        <translation>Booster pro Spieler</translation>
+    </message>
+    <message>
+        <source>Product %1</source>
+        <translation>Produkt %1</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Entfernen</translation>
+    </message>
+    <message>
+        <source>Round %1 · %2</source>
+        <translation>Runde %1 · %2</translation>
+    </message>
+    <message>
+        <source>Round %1 · pass %2</source>
+        <translation>Runde %1 · nach %2 weitergeben</translation>
+    </message>
+    <message>
+        <source>Six boosters of the selected set per player</source>
+        <translation>Sechs Booster des gewählten Sets pro Spieler</translation>
+    </message>
+    <message>
+        <source>Three boosters of the selected set · left / right / left</source>
+        <translation>Drei Booster des gewählten Sets · links / rechts / links</translation>
+    </message>
+    <message>
+        <source>Use positive whole pack counts, totaling 1–12 packs per player.</source>
+        <translation>Verwende positive ganze Zahlen mit insgesamt 1–12 Boostern pro Spieler.</translation>
+    </message>
+    <message>
+        <source>left</source>
+        <translation>links</translation>
+    </message>
+    <message>
+        <source>right</source>
+        <translation>rechts</translation>
     </message>
 </context>
 </TS>
