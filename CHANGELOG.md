@@ -9,6 +9,77 @@ application changes that use new catalog metadata are included here.
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-11-13
+
+### Added
+
+- Online Set Sealed recipes totaling 1–12 boosters per player, including mixed
+  sets such as 2+2+2. The default remains six boosters of one set; non-six-pack
+  recipes are explicitly custom. Every player independently samples the same
+  locked recipe, shown during creation and registration. Private pack groups
+  retain actual product boundaries through reveal, reconnect, construction and
+  the Swiss handoff.
+- Online Set Draft with one selected Limited product for each of three ordered
+  rounds, including A/B/A and different pack sizes such as 14/15/14. All seats
+  use the same product within a round; passing remains left/right/left and the
+  final card still requires selection and confirmation after reconnect. Offline
+  practice and Cube profiles are unchanged; no offline mixed mode or saved
+  recipe presets are added.
+- An updated card database can provide the maintained `hexproof-trk-play`
+  14-card Star Trek Play estimate for manual Sealed and Draft using English
+  TRK/SDS printings. Collation and probability assumptions are explicitly
+  approximate, not factory-sheet accuracy or Arena equivalence. Collector-only,
+  promo, Commander and Klingon-script printings and specialty products are
+  outside this recipe. A usable upstream Limited product supersedes the
+  estimate. Card data is updated separately; availability does not establish
+  Forge execution support, and existing events retain their locked product.
+
+### Fixed
+
+- Native Forge cross-target rule refusals remain nonfatal during target
+  selection, allowing the prompt to refresh and legal selection to continue.
+  The Agadeem's Awakening real-engine regression covers a same-mana-value
+  refusal followed by legal selection and resolution. Genuine engine exceptions
+  and other input-family refusals retain their existing failure behavior. This
+  does not establish resolution of the broader crash report in issue #38.
+- Manual-table snapshots reconcile once after typed and scalar state updates;
+  reentrant snapshot, clear and sideboard operations preserve update order
+  instead of letting older state overwrite newer state.
+- Stable Limited creation/start operations and expected-stage checks reject
+  duplicate creation, rerolls and unintended stage advancement. All Set packs
+  generate successfully before registration state changes or pools are exposed.
+
+### Changed
+
+- Consolidate Forge runtime lifecycle ownership while preserving gameplay rules.
+- Release promotion retains the merged fresh-TLS evidence gate. Source notes do
+  not attest that this candidate has passed it.
+
+### Compatibility
+
+- Advance the game baseline to `hexproof.v3` and internal RPC to
+  `hexproof.cluster.v2`. Released 3.3.0 uses `hexproof.v2`/`hexproof.cluster.v1`
+  and cannot interoperate with these peers. Application versions remain
+  independent of protocol admission, with exact game-protocol equality and no
+  negotiation or fallback.
+- Clients and their hubs require coordinated v3 upgrades. Official cluster
+  routing also requires cluster.v2 coordinators, hubs and paired home connectors.
+  Pack-plan validation, private generation and replay protection need the new
+  hub. A client-only or server-only upgrade does not bridge this transition;
+  source integration does not migrate the live fleet. Finish occupied rooms
+  before separately authorized service changes; live migration is not provided.
+- Helper protocol remains 1 and Forge adapter revision remains 34, but the full
+  runtime content identity changes from 3.3.0 for the target-rule fix. Execution,
+  hosting and handover retain exact runtime/helper checks; ordinary players and
+  spectators need no local Forge installation. Optional services are not enabled
+  by this preparation.
+- Supported platform targets remain unchanged. Final frozen-source verification,
+  first-v3 artifact/legacy rejection checks, package qualification and fleet/update
+  readiness remain separate release steps. Existing Linux native scenarios do
+  not establish Windows/macOS, Qt 6.5, complete Swiss-event or report-wide Forge
+  coverage; issue #38 awaits the original card/ability and click sequence. See
+  [the bilingual notes](packaging/release-notes/3.4.0.md) for details.
+
 ## [3.3.0] - 2026-11-01
 
 ### Added
@@ -1231,7 +1302,8 @@ Follow-up fixes are combined; reverted theme experiments are not included.
   becomes selectable at 90 physical cards, the two-player pack requirement.
 - Draft columns stay usable on shorter windows.
 
-[Unreleased]: https://github.com/ClayStan404/hexproof/compare/v3.3.0...HEAD
+[Unreleased]: https://github.com/ClayStan404/hexproof/compare/v3.4.0...HEAD
+[3.4.0]: https://github.com/ClayStan404/hexproof/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/ClayStan404/hexproof/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/ClayStan404/hexproof/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/ClayStan404/hexproof/compare/v3.0.0...v3.1.0
