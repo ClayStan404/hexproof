@@ -46,6 +46,7 @@ TestCase {
     }
 
     function cleanup() {
+        deckLibrary.lastError = ""
         findChild(editor, "deckEditorCacheProgress").catalogModel = Qt.binding(() => cardCatalog)
         progressCatalog.busy = false
         progressCatalog.cacheProgressActive = false
@@ -56,6 +57,16 @@ TestCase {
         deckLibrary.currentDeckTableMode = "modern"
         findChild(editor, "exportCurrentDeckDialog").close()
         findChild(editor, "currentDeckArtExportDialog").close()
+    }
+
+    function test_lateSaveErrorRemainsVisibleInEditor() {
+        const error = findChild(editor, "deckEditorSaveError")
+        verify(!error.visible)
+        deckLibrary.lastError = "The local deck library cannot be updated safely."
+        tryVerify(() => error.visible)
+        verify(error.message.length > 0)
+        const rect = editorRect(error)
+        verify(rect.y >= 0 && rect.y + rect.height <= editor.height)
     }
 
     function findInTree(item, predicate) {

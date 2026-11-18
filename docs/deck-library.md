@@ -1,12 +1,12 @@
 # Deck library & editor
 
 - Status: **Active**
-- Last updated: 2026-09-27
+- Last updated: 2026-11-18
 - Parent: `product-brief.md`
 
 ## List screen
 
-- Lists **imported decks**.  
+- Lists **locally created and imported decks**.
 - **Format filter** (All / Custom / Standard / Pioneer / Modern / Legacy /
   Vintage / Pauper / Duel Commander / Commander / Cube).
 - **Double-click** deck → editor.  
@@ -39,6 +39,20 @@
   never block selection; Duel Commander retains card-pool enforcement. A
   missing/outdated database is shown as unverified and does not falsely mark
   the deck illegal. See `deck-formats.md` for the exact boundary.
+
+## Create a deck
+
+- **New deck** is available in the library actions and the empty-library view, even offline.
+- Enter a nonblank name and choose any supported format; Modern is the default.
+  **Create deck** saves an empty deck and opens the existing editor. Cancelling
+  the form saves nothing. Validation and storage errors remain visible.
+- Search and add cards using the installed local catalog. Creation requires no
+  catalog, pasted list, file, placeholder card, or server connection.
+- Empty and unfinished decks persist and remain editable after restarting. They
+  use the same background save/retry and exit-flush policy as imported decks.
+  Save errors are visible in both the library and editor. Existing format,
+  printing, legality, art and match-readiness rules still apply; creation never
+  makes an empty deck selectable for play.
 
 ## Import
 

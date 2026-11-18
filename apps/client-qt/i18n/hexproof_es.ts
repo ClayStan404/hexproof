@@ -3858,6 +3858,14 @@
             <source>Deck list saved</source>
             <translation>Lista de mazo guardada</translation>
         </message>
+        <message>
+            <source>New deck</source>
+            <translation>Nuevo mazo</translation>
+        </message>
+        <message>
+            <source>Create a deck from scratch or import an existing list.</source>
+            <translation>Crea un mazo desde cero o importa una lista existente.</translation>
+        </message>
     </context>
     <context>
         <name>DeckMainCollection</name>
@@ -17675,4 +17683,27 @@ Las imágenes descargadas y personalizadas se copiarán y verificarán antes de 
         <translation>derecha</translation>
     </message>
 </context>
+    <context>
+        <name>CreateDeckDialog</name>
+        <message>
+            <source>New deck</source>
+            <translation>Nuevo mazo</translation>
+        </message>
+        <message>
+            <source>Create deck</source>
+            <translation>Crear mazo</translation>
+        </message>
+        <message>
+            <source>Deck name</source>
+            <translation>Nombre del mazo</translation>
+        </message>
+        <message>
+            <source>Format</source>
+            <translation>Formato</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>Cancelar</translation>
+        </message>
+    </context>
 </TS>

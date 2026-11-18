@@ -22,7 +22,7 @@ must update before joining a v2 hub.
 2. In **Language & cards** and **Appearance**, choose the interface language,
    card language/art preference, and interface scale.
 3. In **Card database**, install or import a searchable card database.
-4. Open **Deck library** and import at least one deck.
+4. Open **Deck library** to create a deck or import an existing list.
 5. Connect to a hub before creating, joining, browsing, or starting
    a Playtest.
 
@@ -294,6 +294,16 @@ Commander color identity is advisory: the status groups mismatches into one
 warning and its tooltip lists the affected cards. Duel Commander retains the
 ordinary size and card-pool gates. Missing or outdated catalog data displays an
 unverified warning rather than a false violation.
+
+### Create a deck
+
+Choose **New deck**, enter a name, select a format, and choose **Create deck**.
+This works offline and starts with an empty list; cancelling creates nothing.
+Use **Search cards** in the editor to add cards from the installed database in
+English or Chinese. Edits save automatically, including unfinished lists, and
+remain available after returning to the library or restarting. Save errors appear
+in the editor and library. Empty or incomplete decks must meet the existing
+format, printing, commander and art requirements before play.
 
 ### Import a deck
 

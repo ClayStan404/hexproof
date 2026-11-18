@@ -105,6 +105,14 @@ Page {
                     }
 
                     AppButton {
+                        objectName: "deckLibraryCreateButton"
+                        variant: "primary"
+                        text: qsTr("New deck")
+                        leadingText: "+"
+                        onClicked: createDialog.open()
+                    }
+
+                    AppButton {
                         objectName: "deckLibraryImportButton"
                         variant: "primary"
                         text: qsTr("Import deck")
@@ -396,12 +404,20 @@ Page {
                         Text {
                             textFormat: Text.PlainText
                             Layout.alignment: Qt.AlignHCenter
-                            text: qsTr("Paste a list from Moxfield or any common plain-text export.")
+                            text: qsTr("Create a deck from scratch or import an existing list.")
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.WordWrap
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontSize(12)
+                        }
+                        AppButton {
+                            objectName: "createFirstDeckButton"
+                            Layout.alignment: Qt.AlignHCenter
+                            variant: "primary"
+                            text: qsTr("New deck")
+                            leadingText: "+"
+                            onClicked: createDialog.open()
                         }
                         AppButton {
                             Layout.alignment: Qt.AlignHCenter
@@ -432,6 +448,13 @@ Page {
         confirmText: qsTr("Delete deck")
         dangerous: true
         onConfirmed: deckLibrary.deleteDeck(root.pendingDeckId)
+    }
+
+    CreateDeckDialog {
+        id: createDialog
+        objectName: "createDeckDialog"
+        library: deckLibrary
+        onCreated: root.appWindow.pushScreen("screens/DeckEditor.qml")
     }
 
     ExportDeckDialog {

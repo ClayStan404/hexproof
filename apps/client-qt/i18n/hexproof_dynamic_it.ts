@@ -3618,5 +3618,9 @@ a modo tuo.</translation>
             <source>Leave the current room or event before recovering an account</source>
             <translation>Lascia la stanza o l'evento corrente prima di recuperare un account</translation>
         </message>
+        <message>
+            <source>Give the deck a name before creating.</source>
+            <translation>Assegna un nome al mazzo prima di crearlo.</translation>
+        </message>
     </context>
 </TS>

@@ -468,6 +468,7 @@ set(HEXPROOF_APPLICATION_QML_FILES
         qml/components/CombatDeclarationPopup.qml
         qml/components/CommanderDamagePopup.qml
         qml/components/ConfirmDialog.qml
+        qml/components/CreateDeckDialog.qml
         qml/components/ForgeHostingDialog.qml
         qml/components/ForgeCrashReportPanel.qml
         qml/components/ForgeCrashReportNotice.qml

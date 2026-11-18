@@ -10,6 +10,11 @@ class TestDeckLibrary : public QObject
     Q_OBJECT
 
   private slots:
+    void createsEmptyDecks_data() const;
+    void createsEmptyDecks() const;
+    void rejectsInvalidDeckCreation() const;
+    void restoresCreatedDeckEditsAfterExit() const;
+    void retriesCreatedDeckSaveWithoutDuplicatingIt() const;
     void parsesMoxfieldAndPlainSections() const;
     void benchmarkCommanderDeckParsing() const;
     void benchmarkLargeCubeParsing() const;
