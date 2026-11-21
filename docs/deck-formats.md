@@ -29,7 +29,7 @@ decks migrate to `duel` and `commander` respectively.
 
 Client deck-format selectors present the common formats first: Modern,
 Commander, Duel Commander, Legacy, Standard, Pioneer, Pauper, Vintage, Cube,
-then Custom 1v1. Room creation and deck import default to Modern. Custom 1v1
+then Custom 1v1. Room creation, new decks, and deck import default to Modern. Custom 1v1
 remains the final explicit escape hatch, while an `All formats` filter stays
 ahead of this sequence where applicable. Playtest omits Cube without changing
 the relative order of the remaining formats.

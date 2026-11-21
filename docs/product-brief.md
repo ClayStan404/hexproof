@@ -95,10 +95,14 @@ Available from main menu **without** a server connection.
 
 ### List
 
-- Show **imported decks** (name, format, main/SB counts, ready status as needed).  
+- Show **locally created and imported decks** (name, format, main/SB counts, ready status as needed).
 - **Filter by deck format** (All plus every supported format in `deck-formats.md`).
 - **Double-click** a deck → **deck editor**.  
-- Support delete, import, and export entry points.
+- Support new-deck, delete, import, and export entry points.
+- **New deck** asks for a name and supported format (Modern by default), then
+  opens an empty deck in the editor. Cancellation creates nothing. Empty and
+  unfinished decks remain saved and editable, subject to existing play-readiness
+  rules. Both library and editor display background save errors.
 
 ### Import
 

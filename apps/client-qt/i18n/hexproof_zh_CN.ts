@@ -3853,6 +3853,14 @@
         <source>Cache library art</source>
         <translation>缓存所有套牌卡图</translation>
     </message>
+    <message>
+        <source>New deck</source>
+        <translation>新建套牌</translation>
+    </message>
+    <message>
+        <source>Create a deck from scratch or import an existing list.</source>
+        <translation>从空白创建套牌，或导入已有牌表。</translation>
+    </message>
 </context>
 <context>
     <name>DeckMainCollection</name>
@@ -17656,4 +17664,27 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>右</translation>
     </message>
 </context>
+    <context>
+        <name>CreateDeckDialog</name>
+        <message>
+            <source>New deck</source>
+            <translation>新建套牌</translation>
+        </message>
+        <message>
+            <source>Create deck</source>
+            <translation>创建套牌</translation>
+        </message>
+        <message>
+            <source>Deck name</source>
+            <translation>套牌名称</translation>
+        </message>
+        <message>
+            <source>Format</source>
+            <translation>赛制</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>取消</translation>
+        </message>
+    </context>
 </TS>

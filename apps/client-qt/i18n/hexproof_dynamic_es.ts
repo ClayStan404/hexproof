@@ -3618,5 +3618,9 @@ a tu manera.</translation>
             <source>Leave the current room or event before recovering an account</source>
             <translation>Sal de la sala o del evento actual antes de recuperar una cuenta</translation>
         </message>
+        <message>
+            <source>Give the deck a name before creating.</source>
+            <translation>Dale un nombre al mazo antes de crearlo.</translation>
+        </message>
     </context>
 </TS>

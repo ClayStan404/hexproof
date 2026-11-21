@@ -3858,6 +3858,14 @@
             <source>Deck list saved</source>
             <translation>Lista do deck salva</translation>
         </message>
+        <message>
+            <source>New deck</source>
+            <translation>Novo deck</translation>
+        </message>
+        <message>
+            <source>Create a deck from scratch or import an existing list.</source>
+            <translation>Crie um deck do zero ou importe uma lista existente.</translation>
+        </message>
     </context>
     <context>
         <name>DeckMainCollection</name>
@@ -17675,4 +17683,27 @@ Imagens baixadas e personalizadas serão copiadas e verificadas antes de a confi
         <translation>direita</translation>
     </message>
 </context>
+    <context>
+        <name>CreateDeckDialog</name>
+        <message>
+            <source>New deck</source>
+            <translation>Novo deck</translation>
+        </message>
+        <message>
+            <source>Create deck</source>
+            <translation>Criar deck</translation>
+        </message>
+        <message>
+            <source>Deck name</source>
+            <translation>Nome do deck</translation>
+        </message>
+        <message>
+            <source>Format</source>
+            <translation>Formato</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>Cancelar</translation>
+        </message>
+    </context>
 </TS>

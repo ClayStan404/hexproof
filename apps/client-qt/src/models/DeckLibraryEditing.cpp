@@ -7,9 +7,47 @@
 #include "deck/DeckFormat.h"
 #include "models/DeckLibraryQueries.h"
 
+#include <QDateTime>
+#include <QUuid>
+
 #include <algorithm>
 
 namespace hexproof::client {
+
+bool DeckLibraryModel::createDeck(const QString &name, const QString &format)
+{
+    clearLastError();
+    const QString deckName = name.simplified();
+    const QString deckFormat = normalizedDeckFormat(format);
+    if (deckName.isEmpty()) {
+        setLastError(QStringLiteral("Give the deck a name before creating."));
+        return false;
+    }
+    if (!supportedDeckFormat(deckFormat)) {
+        setLastError(QStringLiteral("Choose a supported deck format."));
+        return false;
+    }
+
+    Deck deck;
+    deck.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    deck.name = deckName;
+    deck.deckFormat = deckFormat;
+    deck.format = tableModeForDeckFormat(deckFormat);
+    deck.createdAt = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    deck.updatedAt = deck.createdAt;
+    m_decks.prepend(deck);
+    if (!save()) {
+        m_decks.removeFirst();
+        return false;
+    }
+    beginResetModel();
+    rebuildVisibleRows();
+    rebuildCardDeckIndex();
+    endResetModel();
+    scheduleDeckValidation(deck.id);
+    emit countChanged();
+    return openDeck(deck.id);
+}
 
 bool DeckLibraryModel::deleteDeck(const QString &id)
 {

@@ -3618,5 +3618,9 @@ your way.</source>
             <source>Leave the current room or event before recovering an account</source>
             <translation>恢復帳號前請先離開當前房間或賽事</translation>
         </message>
+        <message>
+            <source>Give the deck a name before creating.</source>
+            <translation>建立前請為套牌命名。</translation>
+        </message>
     </context>
 </TS>

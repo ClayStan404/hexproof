@@ -4,6 +4,7 @@
 #include "deck_test.h"
 
 #include "deck/Deck.h"
+#include "deck/DeckFormat.h"
 #include "deck/DeckParser.h"
 #include "models/ClientPreferencesModel.h"
 #include "models/DeckLibraryModel.h"
@@ -56,6 +57,151 @@ QVariantMap customPrintingBinding(const QString &name, const QString &set, const
 }
 
 } // namespace
+
+void TestDeckLibrary::createsEmptyDecks_data() const
+{
+    QTest::addColumn<QString>("format");
+    for (const QString &format : hexproof::client::supportedDeckFormats())
+        QTest::newRow(qPrintable(format)) << format;
+}
+
+void TestDeckLibrary::createsEmptyDecks() const
+{
+    QFETCH(QString, format);
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QString id;
+    {
+        DeckLibraryModel model(storage.path());
+        model.setFormatFilter(u"vintage"_s);
+        QSignalSpy caching(&model, &DeckLibraryModel::cardsNeedCaching);
+        QVERIFY(model.createDeck(u"  新建   Deck  "_s, format));
+        id = model.currentDeckId();
+        QVERIFY(!id.isEmpty());
+        QCOMPARE(model.currentDeckName(), u"新建 Deck"_s);
+        QCOMPARE(model.currentDeckFormat(), format);
+        QCOMPARE(model.currentDeckTableMode(), hexproof::client::tableModeForDeckFormat(format));
+        QVERIFY(model.mainCards().isEmpty());
+        QVERIFY(model.sideboardCards().isEmpty());
+        QVERIFY(model.considerCards().isEmpty());
+        QVERIFY(model.currentTokens().isEmpty());
+        QVERIFY(model.currentCommander().isEmpty());
+        QCOMPARE(model.currentStatus(), u"Empty deck"_s);
+        QVERIFY(!model.currentReady());
+        const QVariantList matches = model.matchDecks(format, true);
+        QCOMPARE(matches.size(), 1);
+        QVERIFY(!matches.first().toMap().value(u"ready"_s).toBool());
+        QVERIFY(model.deckForMatch(id, true).isEmpty());
+        QVERIFY(model.cubeProduct(id).isEmpty());
+        QCOMPARE(caching.count(), 0);
+        model.setFormatFilter(u"all"_s);
+        QCOMPARE(model.rowCount(), 1);
+        QCOMPARE(model.data(model.index(0), DeckLibraryModel::IdRole).toString(), id);
+        QVERIFY(!model.data(model.index(0), DeckLibraryModel::ReadyRole).toBool());
+    }
+    DeckLibraryModel restored(storage.path());
+    QCOMPARE(restored.rowCount(), 1);
+    QVERIFY(restored.openDeck(id));
+    QCOMPARE(restored.currentDeckName(), u"新建 Deck"_s);
+    QCOMPARE(restored.currentDeckFormat(), format);
+    QCOMPARE(restored.currentMainCount(), 0);
+    QVERIFY(!restored.currentReady());
+    QVERIFY(restored.deckForMatch(id, true).isEmpty());
+}
+
+void TestDeckLibrary::rejectsInvalidDeckCreation() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    DeckLibraryModel model(storage.path());
+    QVERIFY(model.createDeck(u"Existing"_s, u"custom"_s));
+    const QString id = model.currentDeckId();
+    const quint64 generation = model.persistenceGenerationForTest();
+    QVERIFY(!model.createDeck(u" \t\n "_s, u"modern"_s));
+    QVERIFY(!model.lastError().isEmpty());
+    QVERIFY(!model.createDeck(u"Invalid"_s, u"unknown"_s));
+    QCOMPARE(model.lastError(), u"Choose a supported deck format."_s);
+    QCOMPARE(model.currentDeckId(), id);
+    QCOMPARE(model.rowCount(), 1);
+    QCOMPARE(model.persistenceGenerationForTest(), generation);
+    QVERIFY(!model.importDeck(u"Blank import"_s, u"modern"_s, {}));
+    QCOMPARE(model.rowCount(), 1);
+
+    QTemporaryDir lockedStorage;
+    QVERIFY(lockedStorage.isValid());
+    QVERIFY(QDir().mkpath(lockedStorage.filePath(u"decks.json"_s)));
+    DeckLibraryModel locked(lockedStorage.path());
+    QVERIFY(!locked.createDeck(u"Unavailable"_s, u"modern"_s));
+    QVERIFY(!locked.lastError().isEmpty());
+    QCOMPARE(locked.rowCount(), 0);
+    QVERIFY(locked.currentDeckId().isEmpty());
+}
+
+void TestDeckLibrary::restoresCreatedDeckEditsAfterExit() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    QString id;
+    {
+        DeckLibraryModel model(storage.path());
+        QVERIFY(model.createDeck(u"Draft"_s, u"custom"_s));
+        id = model.currentDeckId();
+        QVERIFY(model.addCard(u"Forest"_s, u"树林"_s, u"Basic Land"_s, u"M21"_s, u"272"_s, false));
+        QVERIFY(model.changeCardCount(u"Forest"_s, u"M21"_s, u"272"_s, false, 2));
+        QVERIFY(model.addCard(u"Island"_s, {}, u"Basic Land"_s, u"M21"_s, u"265"_s, true));
+        QVERIFY(model.addConsiderCard(u"Plains"_s, {}, u"Basic Land"_s, u"M21"_s, u"262"_s));
+        QVERIFY(model.changeCurrentDeckFormat(u"commander"_s));
+        QVERIFY(model.setCommander(u"Forest"_s));
+        QVERIFY(model.renameCurrentDeck(u"Saved draft"_s));
+        model.closeDeck();
+        QVERIFY(model.openDeck(id));
+        QCOMPARE(model.currentMainCount(), 4);
+        QVERIFY(!model.currentReady());
+    }
+    DeckLibraryModel restored(storage.path());
+    QVERIFY(restored.openDeck(id));
+    QCOMPARE(restored.currentDeckName(), u"Saved draft"_s);
+    QCOMPARE(restored.currentDeckFormat(), u"commander"_s);
+    QCOMPARE(restored.currentDeckTableMode(), u"edh"_s);
+    QCOMPARE(restored.currentMainCount(), 4);
+    QCOMPARE(restored.currentSideboardCount(), 0);
+    QCOMPARE(restored.currentConsiderCount(), 1);
+    QCOMPARE(restored.currentCommander(), u"Forest"_s);
+    const QVariantMap forest = restored.mainCards().first().toMap();
+    QCOMPARE(forest.value(u"name"_s).toString(), u"Forest"_s);
+    QCOMPARE(forest.value(u"count"_s).toInt(), 3);
+    QCOMPARE(forest.value(u"setCode"_s).toString(), u"M21"_s);
+    QCOMPARE(forest.value(u"collectorNumber"_s).toString(), u"272"_s);
+    QVERIFY(!restored.currentReady());
+    QVERIFY(restored.deckForMatch(id, true).isEmpty());
+}
+
+void TestDeckLibrary::retriesCreatedDeckSaveWithoutDuplicatingIt() const
+{
+    QTemporaryDir storage;
+    QVERIFY(storage.isValid());
+    const DeckLibraryStorage backingStorage(storage.path());
+    std::atomic_int attempts = 0;
+    DeckLibraryModel model(
+        storage.path(), [&](const QVector<hexproof::client::Deck> &decks, quint64, QString *error) {
+            if (++attempts == 1) {
+                *error = u"Temporary save failure"_s;
+                return false;
+            }
+            return backingStorage.saveDecks(decks, error);
+        });
+    QSignalSpy errors(&model, &DeckLibraryModel::lastErrorChanged);
+    QVERIFY(model.createDeck(u"Retry draft"_s, u"modern"_s));
+    const QString id = model.currentDeckId();
+    QTRY_VERIFY(!errors.isEmpty());
+    QVERIFY(model.lastError().contains(u"Temporary save failure"_s));
+    QCOMPARE(model.rowCount(), 1);
+    QCOMPARE(model.currentDeckId(), id);
+    QTRY_COMPARE(model.persistedGenerationForTest(), model.persistenceGenerationForTest());
+    DeckLibraryModel restored(storage.path());
+    QCOMPARE(restored.rowCount(), 1);
+    QVERIFY(restored.openDeck(id));
+}
 
 void TestDeckLibrary::sharesCardProjectionsAndInvalidatesEditedInputs() const
 {

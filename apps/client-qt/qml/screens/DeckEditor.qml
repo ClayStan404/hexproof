@@ -101,6 +101,12 @@ Page {
             }
         }
 
+        InfoBanner {
+            objectName: "deckEditorSaveError"
+            Layout.fillWidth: true
+            message: I18n.status(deckLibrary.lastError)
+        }
+
         Flow {
             id: deckActions
             objectName: "deckEditorActions"

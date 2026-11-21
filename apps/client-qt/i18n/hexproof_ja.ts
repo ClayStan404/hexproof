@@ -3852,6 +3852,14 @@
             <source>Deck list saved</source>
             <translation>デッキリストを保存しました</translation>
         </message>
+        <message>
+            <source>New deck</source>
+            <translation>新しいデッキ</translation>
+        </message>
+        <message>
+            <source>Create a deck from scratch or import an existing list.</source>
+            <translation>デッキを一から作成するか、既存のリストをインポートします。</translation>
+        </message>
     </context>
     <context>
         <name>DeckMainCollection</name>
@@ -17655,4 +17663,27 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>右</translation>
     </message>
 </context>
+    <context>
+        <name>CreateDeckDialog</name>
+        <message>
+            <source>New deck</source>
+            <translation>新しいデッキ</translation>
+        </message>
+        <message>
+            <source>Create deck</source>
+            <translation>デッキを作成</translation>
+        </message>
+        <message>
+            <source>Deck name</source>
+            <translation>デッキ名</translation>
+        </message>
+        <message>
+            <source>Format</source>
+            <translation>フォーマット</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>キャンセル</translation>
+        </message>
+    </context>
 </TS>

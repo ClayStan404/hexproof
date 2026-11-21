@@ -3852,6 +3852,14 @@
             <source>Deck list saved</source>
             <translation>套牌表已儲存</translation>
         </message>
+        <message>
+            <source>New deck</source>
+            <translation>新建套牌</translation>
+        </message>
+        <message>
+            <source>Create a deck from scratch or import an existing list.</source>
+            <translation>從空白建立套牌，或匯入現有牌表。</translation>
+        </message>
     </context>
     <context>
         <name>DeckMainCollection</name>
@@ -17655,4 +17663,27 @@ Downloaded and custom images will be copied and verified before the setting chan
         <translation>右</translation>
     </message>
 </context>
+    <context>
+        <name>CreateDeckDialog</name>
+        <message>
+            <source>New deck</source>
+            <translation>新建套牌</translation>
+        </message>
+        <message>
+            <source>Create deck</source>
+            <translation>建立套牌</translation>
+        </message>
+        <message>
+            <source>Deck name</source>
+            <translation>套牌名稱</translation>
+        </message>
+        <message>
+            <source>Format</source>
+            <translation>賽制</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>取消</translation>
+        </message>
+    </context>
 </TS>

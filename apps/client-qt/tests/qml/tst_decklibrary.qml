@@ -27,6 +27,20 @@ TestCase {
         property bool hasMissingArt: false
         property string openedDeck: ""
         property string exportedDeck: ""
+        property string currentDeckFormat: ""
+        property string createdName: ""
+        property string createdFormat: ""
+        property bool rejectCreation: false
+        function createDeck(name, format) {
+            if (rejectCreation) {
+                lastError = "The local deck library cannot be updated safely."
+                return false
+            }
+            createdName = name
+            createdFormat = format
+            currentDeckFormat = format
+            return true
+        }
         function clearLastError() { lastError = "" }
         function openDeck(id) { openedDeck = id; return true }
         function refreshMissingArt() { }
@@ -62,11 +76,17 @@ TestCase {
                         legalityIssues:[], legalityWarnings:[]})
         library.openedDeck = ""
         library.exportedDeck = ""
+        library.createdName = ""
+        library.createdFormat = ""
+        library.rejectCreation = false
+        library.lastError = ""
+        library.formatFilter = "all"
         window.openedScreen = ""
     }
     function cleanup() {
         Theme.uiScale = 1
         Theme.uiTheme = "classic"
+        testTranslations.setLanguage("en")
     }
 
     function test_cacheLibraryArtMatchesImportButtonStyle() {
@@ -123,7 +143,7 @@ TestCase {
         verify(page !== null)
         waitForRendering(page)
         for (const name of ["deckLibraryFormatFilter", "deckLibrarySettingsButton",
-                            "deckLibraryImportButton", "editLibraryDeckButton",
+                            "deckLibraryCreateButton", "deckLibraryImportButton", "editLibraryDeckButton",
                             "exportDeckButton", "deleteLibraryDeckButton"]) {
             const item = findChild(page, name)
             verify(item !== null, name)
@@ -143,5 +163,92 @@ TestCase {
         mouseClick(edit)
         compare(library.openedDeck, "audit")
         compare(window.openedScreen, "screens/DeckEditor.qml")
+    }
+
+    function test_createCancelAndConfirmFromEmptyLibrary() {
+        library.clear()
+        const page = createTemporaryObject(pageComponent, window.contentItem,
+                                          {width:window.width, height:window.height})
+        verify(page !== null)
+        waitForRendering(page)
+        const dialog = findChild(page, "createDeckDialog")
+        mouseClick(findChild(page, "deckLibraryCreateButton"))
+        tryVerify(() => dialog.opened)
+        const name = findChild(dialog, "createDeckNameField")
+        name.text = "Cancelled draft"
+        mouseClick(findChild(dialog, "cancelCreateDeckButton"))
+        tryVerify(() => !dialog.opened)
+        compare(library.createdName, "")
+        compare(library.count, 0)
+        compare(window.openedScreen, "")
+
+        const body = findChild(page, "deckLibraryBody")
+        body.contentY = Math.max(0, body.contentHeight - body.height)
+        waitForPolish(window)
+        mouseClick(findChild(page, "createFirstDeckButton"))
+        tryVerify(() => dialog.opened)
+        compare(name.text, "")
+        const format = findChild(dialog, "createDeckFormatField")
+        compare(format.currentValue, "modern")
+        name.text = "My Commander draft"
+        format.currentIndex = 1
+        library.formatFilter = "vintage"
+        mouseClick(findChild(dialog, "confirmCreateDeckButton"))
+        tryVerify(() => !dialog.opened)
+        compare(library.createdName, "My Commander draft")
+        compare(library.createdFormat, "commander")
+        compare(library.formatFilter, "all")
+        compare(window.openedScreen, "screens/DeckEditor.qml")
+    }
+
+    function test_failedCreationKeepsFormAndShowsError() {
+        const page = createTemporaryObject(pageComponent, window.contentItem,
+                                          {width:window.width, height:window.height})
+        verify(page !== null)
+        const dialog = findChild(page, "createDeckDialog")
+        dialog.open()
+        tryVerify(() => dialog.opened)
+        const name = findChild(dialog, "createDeckNameField")
+        name.text = "Retained name"
+        library.rejectCreation = true
+        mouseClick(findChild(dialog, "confirmCreateDeckButton"))
+        verify(dialog.opened)
+        compare(name.text, "Retained name")
+        verify(findChild(dialog, "createDeckError").visible)
+        compare(window.openedScreen, "")
+        dialog.close()
+    }
+
+    function test_createActionsReachableAtLargeScale_data() {
+        return [{tag:"normal", scale:1}, {tag:"large", scale:1.5},
+                {tag:"maximum", scale:1.8}]
+    }
+    function test_createActionsReachableAtLargeScale(data) {
+        Theme.uiScale = data.scale
+        testTranslations.setLanguage("zh")
+        library.clear()
+        const page = createTemporaryObject(pageComponent, window.contentItem,
+                                          {width:window.width, height:window.height})
+        verify(page !== null)
+        const dialog = findChild(page, "createDeckDialog")
+        const body = findChild(page, "deckLibraryBody")
+        waitForPolish(window)
+        const entry = findChild(page, "deckLibraryCreateButton")
+        const point = entry.mapToItem(body, 0, 0)
+        body.contentY = Math.max(0, Math.min(body.contentHeight - body.height, point.y))
+        waitForPolish(window)
+        mouseClick(entry)
+        tryVerify(() => dialog.opened)
+        waitForPolish(window)
+        for (const itemName of ["cancelCreateDeckButton", "confirmCreateDeckButton"]) {
+            const button = findChild(dialog, itemName)
+            const rect = button.mapToItem(window.contentItem, 0, 0, button.width, button.height)
+            verify(rect.x >= 0 && rect.x + rect.width <= window.width, itemName)
+            verify(rect.y >= 0 && rect.y + rect.height <= window.height, itemName)
+        }
+        compare(findChild(dialog, "confirmCreateDeckButton").text, "创建套牌")
+        mouseClick(findChild(dialog, "cancelCreateDeckButton"))
+        tryVerify(() => !dialog.opened)
+        compare(library.createdName, "")
     }
 }

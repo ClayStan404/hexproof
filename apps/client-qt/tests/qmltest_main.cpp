@@ -132,7 +132,7 @@ class DeckEditorModelStub : public QObject
     Q_PROPERTY(QStringList currentValidationWarnings READ currentValidationWarnings CONSTANT)
     Q_PROPERTY(QStringList currentValidationIssues READ currentValidationIssues CONSTANT)
     Q_PROPERTY(QString currentStatus READ currentStatus CONSTANT)
-    Q_PROPERTY(QString lastError READ lastError CONSTANT)
+    Q_PROPERTY(QString lastError READ lastError WRITE setLastError NOTIFY lastErrorChanged)
     Q_PROPERTY(QVariantList lastMove READ lastMove NOTIFY capturedCallsChanged)
     Q_PROPERTY(QVariantList lastCountChange READ lastCountChange NOTIFY capturedCallsChanged)
     Q_PROPERTY(QVariantList lastPrintingChange READ lastPrintingChange NOTIFY capturedCallsChanged)
@@ -252,7 +252,12 @@ class DeckEditorModelStub : public QObject
     }
     QString lastError() const
     {
-        return {};
+        return m_lastError;
+    }
+    void setLastError(const QString &error)
+    {
+        m_lastError = error;
+        emit lastErrorChanged();
     }
     QVariantList lastMove() const
     {
@@ -324,6 +329,7 @@ class DeckEditorModelStub : public QObject
     void currentDeckCardsChanged();
     void currentDeckChanged();
     void capturedCallsChanged();
+    void lastErrorChanged();
 
   private:
     QVariantList m_mainCards;
@@ -332,6 +338,7 @@ class DeckEditorModelStub : public QObject
     QVariantList m_lastCountChange;
     QVariantList m_lastPrintingChange;
     QString m_lastRename;
+    QString m_lastError;
     QString m_tableMode = QStringLiteral("modern");
 };
 

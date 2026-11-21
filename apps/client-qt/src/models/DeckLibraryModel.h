@@ -136,6 +136,7 @@ class DeckLibraryModel : public QAbstractListModel
         return m_importStage;
     }
 
+    Q_INVOKABLE bool createDeck(const QString &name, const QString &format);
     bool importDeck(const QString &name, const QString &format, const QString &text);
     Q_INVOKABLE bool importDeckAsync(const QString &name, const QString &format,
                                      const QString &text);
